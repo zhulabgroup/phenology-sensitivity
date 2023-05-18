@@ -1,0 +1,21 @@
+---
+title: "leafing_flowering_lag"
+output: html_document
+date: "2023-05-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### correlation between flowering and leafing w/wt nature's notebook for alnus
+
+
+
+
+
+### lag
+
+
+
+### lag with climate

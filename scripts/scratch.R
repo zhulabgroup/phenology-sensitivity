@@ -47,13 +47,14 @@ leafing <- down_clean_npn(list_all_focal_taxa, c(as.character(2000:2022)), c(1, 
 
 joined_data <- inner_join(leafing, flowering, by = c("id", "year")) 
 
+write_csv(joined_data,"~/yia_R/leaf_flower_oak.csv")
 
 ggplot(joined_data, aes(x = doy.x, y = doy.y)) +
   geom_point() +
   xlab("Leafing Day") +
   ylab("Flowering Day") +
   ggtitle("Leafing vs. Flowering") +
-  facet_wrap(~ id)
+  facet_wrap(~ year)
 
 wide_table <- flowering %>%
   pivot_wider(names_from = pheno, values_from = doy)

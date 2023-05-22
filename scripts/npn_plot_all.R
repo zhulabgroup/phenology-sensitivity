@@ -1,3 +1,6 @@
+library(tidyverse)
+library(MASS)
+library(fs)
 # Folder path
 folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/" 
 
@@ -16,7 +19,7 @@ for (i in seq_along(rds_files) ) {
     slice(1)%>%
     mutate(numdays_since_prior_no = na_if(numdays_since_prior_no, "-9999")) %>% # set the -9999 values to NA
     filter(numdays_since_prior_no < 20) %>% # Filtering Data by Prior No
-    select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id)
+    dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id)
   
   joined_data <- data_qc %>%
     filter(pheno_class_id == 1) %>%
@@ -26,14 +29,13 @@ for (i in seq_along(rds_files) ) {
   
   site_gg[[i]] <- ggplot(joined_data) +
     geom_point(aes(x = first_yes_doy.x, y = first_yes_doy.y, color = as.factor(species_id) ), alpha = 0.2) +
-    geom_smooth(method = "lm", aes(x = first_yes_doy.x, y = first_yes_doy.y, color = as.factor(species_id)), se = FALSE) +
+    geom_smooth(method = "rlm", aes(x = first_yes_doy.x, y = first_yes_doy.y, color = as.factor(species_id)), se = FALSE) +
     xlab("Leafing Day") +
     ylab("Flowering Day") +
-    ggtitle(as.character(data$genus[1]) ) +
+    ggtitle(basename(rds_files[i])) +
     geom_abline(intercept = 0, slope = 1)
-
 }
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/taxa.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/taxa_rlm.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()

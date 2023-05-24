@@ -50,10 +50,12 @@ ggplot() +
 
 plot(x,y)
 plot(x,fitted_circular_y)
-# method 2: cut off
+
+
+# method 2: cut off----
 # Generate a data set of dependent circular variables.
-df<-data.frame(x = c(1, 20, 50, 60, 300,345, 350, 365),
-               y = c(5, 30, 50, 56, 320,350, 1,10 ))
+df<-data.frame(x = c(1, 20,20, 50, 60, 300,345, 350, 365),
+               y = c(5, 30,31, 50, 56, 320,350, 1,10 ))
 
 x_den<-density(df$x, from = 1, to = 365)
 x_thres <- data.frame(x = x_den$x, y = x_den$y) %>%

@@ -34,7 +34,7 @@ for (i in seq_along(rds_files) ) {
     ungroup() 
 
   
-  if (nrow(selected_species) == 0) {
+  if (nrow(selected_data) == 0) {
     break
   }
 

@@ -7,9 +7,8 @@ folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/"
 rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)
 
 # Loop through each RDS file
-fit_model <- vector(mode = "list")
-
 site_gg <- vector(mode = "list")
+mycount <- 0
 for (i in seq_along(rds_files) ) {
   # Read the RDS file
   data <- read_rds(rds_files[i])
@@ -38,22 +37,23 @@ for (i in seq_along(rds_files) ) {
     break
   }
 
-  
-  fit_data <- selected_data %>% 
-    split(.$species_id) %>%
-    map_df(~mycircular(.$first_yes_doy.x, .$first_yes_doy.y), .id = 'species_id')
-  
-  fit_model[[i]] <- fit_data
-  
-  site_gg[[i]] <- ggplot(fit_data) +
-    geom_point(aes(x = x, y = y, color = "blue")) +
-    geom_point(aes(x = x, y = y_fit, color = "red")) +
-    xlab("Leafing Day") +
-    ylab("Flowering Day") +
-    facet_wrap(~species_id, ncol = 3)
+  species_list <- unique(selected_data$species_id)
+  for (j in seq_along(species_list)) {
+    mycount <- mycount+1
+    temp <- selected_data[selected_data$species_id==species_list[j],]
+    x <- temp$first_yes_doy.x
+    y <- temp$first_yes_doy.y
+    plotdata <- mycircular(x,y)
+    site_gg[[mycount]] <- ggplot() +
+      geom_point(aes(x = plotdata$x, y = plotdata$y), col = "blue", pch = 16) +
+      geom_point(aes(x = plotdata$x, y = plotdata$y_fit), col = "red", pch = 16) +
+      ggtitle(basename(rds_files[i])) 
+    
+  }
+
 
 }
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/taxa_rlm.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/taxa_cc_acer.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()

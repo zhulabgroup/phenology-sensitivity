@@ -41,7 +41,7 @@ mycircular <- function(x,y){
     y_thres = y_thres,
     x = df_circ_fit$x_off,
     y = df_circ_fit$y_off,
-    y_fit = df_circ_fit$y_fit_off,
+    y_fit = as.numeric(df_circ_fit$y_fit_off),
     coefficient = coefficient
   )
   

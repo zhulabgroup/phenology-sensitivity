@@ -7,9 +7,10 @@ folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/"
 rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)
 
 # Loop through each RDS file
-read_and_process_data <- function(file) {
 
-  data <- read_rds(file)
+for (i in seq_along(rds_files) ) {
+  # Read the RDS file
+data <- read_rds(rds_files[i])
   
   data_qc <- data %>%   filter(observed_status_conflict_flag == "-9999") %>% # Removing Status Conflicts
     group_by(individual_id, first_yes_year, pheno_class_id) %>%
@@ -32,57 +33,35 @@ read_and_process_data <- function(file) {
 
   
   if (nrow(selected_data) == 0) {
-    return(NULL)
+    next
   }
-  selected_data
+  
+  models <- selected_data %>% group_by(species_id) %>%
+    summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y))) %>% 
+    unnest_wider(model) %>% 
+    unnest_longer(c("x", "y", "y_fit"))
+  
+  site_gg <- vector(mode = "list")
+  site_gg <- models %>% 
+    group_by(species_id)%>% 
+    group_split() %>%
+    map(~create_plot(.))
+
+
+  
+  pdf(str_c(rds_files[i], ".pdf"), width = 8, height = 8 * .618)
+  print(site_gg)
+  dev.off()
+  
 }
 
-plot_species <- function(data) {
-  file <- names(data)
-  species_list <- undata$species_id
-  temp <- data[data$species_id==species_id,]
-  plotdata <- mycircular(temp$first_yes_doy.x, temp$first_yes_doy.y)
-  
-  ggplot() +
-    geom_point(aes(x = plotdata$x, y = plotdata$y), col = "blue", pch = 16) +
-    geom_point(aes(x = plotdata$x, y = plotdata$y_fit), col = "red", pch = 16) +
-    ggtitle(tools::file_path_sans_ext(basename(file))) 
+
+create_plot <- function(data) {
+  ggplot(data) +
+  geom_point(aes(x = x, y = y), col = "blue", pch = 16) +
+  geom_point(aes(x = x, y = y_fit), col = "red", pch = 16) +
+    ggtitle(as.character(unique(data$coefficient)))
 }
 
 
-processed_data <- rds_files %>% 
-  map(read_and_process_data) %>%
-  set_names(rds_files) %>%
-  discard(is.null) 
 
-test <- function(data){print(names(data))}
-
-plot_data <- processed_data %>% 
-  map(~ test) %>%
-  unlist(recursive = FALSE)
-  
-  
-
-model <- data %>%
-  group_by(species_id) %>%
-  summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y))) 
-
-model_un <- model %>% unnest_wider(model) %>% unnest_longer(c("x", "y", "y_fit"))
-
-model_un %>% group_by(species_id) %>% map(~plot_circular)
-
-plot.circular <- function(data){
-  ccfigure <- %>% ggplot() +
-    geom_point(aes(x, y), col = "blue", pch = 16) +
-    geom_point(aes(x, y_fit), col = "red", pch = 16)
-  ccfigure
-}
-model_un  +
-  facet_wrap(~species_id) +
-  ggtitle(tools::file_path_sans_ext(basename(file))) 
-
-
-
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/taxa_cc_acer.pdf", width = 8, height = 8 * .618)
-print(site_gg)
-dev.off()

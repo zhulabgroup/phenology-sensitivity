@@ -1,4 +1,5 @@
 library(tidyverse)
+library(patchwork)
 library(rnpn)
 source("scripts/function_circular_regression.R")
 
@@ -10,6 +11,7 @@ folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/"
 rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)
 
 # Loop through each RDS file
+site_gg <- vector(mode = "list")
 
 for (i in seq_along(rds_files) ) {
   # Read the RDS file
@@ -28,12 +30,13 @@ data <- read_rds(rds_files[i])
     inner_join(data_qc %>%
                  filter(pheno_class_id == 7),
                by = c("individual_id", "first_yes_year", "species_id", "dataset_id"))
-  
+
   selected_data <- joined_data %>%
     group_by(species_id) %>%
-    filter(n() > 30) %>% 
-    ungroup() 
-
+    mutate(group_count = n()) %>%
+    filter(group_count > 30) %>% 
+    ungroup() %>%
+    top_n(1, group_count)
   
   if (nrow(selected_data) == 0) {
     next
@@ -42,28 +45,22 @@ data <- read_rds(rds_files[i])
   models <- selected_data %>% group_by(species_id) %>%
     summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y))) %>% 
     unnest_wider(model) %>% 
-    unnest_longer(c("x", "y", "y_fit"))
+    unnest_longer(c("x", "y", "y_fit")) %>% 
+    create_plot(.,gsub("\\.rds$", "", basename(rds_files[i])))
   
-  site_gg <- vector(mode = "list")
-  site_gg <- models %>% 
-    group_by(species_id)%>% 
-    group_split() %>%
-    map(~create_plot(.))
-
-
-  
-  pdf(str_c(rds_files[i], ".pdf"), width = 8, height = 8 * .618)
-  print(site_gg)
-  dev.off()
+ 
+  site_gg <- c(site_gg, list(models))
   
 }
 
+combined_plot <- wrap_plots(site_gg, nrow = 4, ncol = 2)
 
-create_plot <- function(data) {
+
+create_plot <- function(data,name) {
   ggplot(data) +
   geom_point(aes(x = x, y = y), col = "blue", pch = 16) +
   geom_point(aes(x = x, y = y_fit), col = "red", pch = 16) +
-    ggtitle(paste(
+    ggtitle(paste(name,
       species_code[species_code$species_id == data$species_id[1], "common_name"],
       "Coefficient:",
       sprintf("%.3f", data$coefficient[[1]]$cor),

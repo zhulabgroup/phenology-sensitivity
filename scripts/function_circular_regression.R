@@ -29,7 +29,7 @@ mycircular <- function(x,y){
   # Fit a circular-circular regression model.
   circ.lm <- lm.circular(df_circ$y_circ, df_circ$x_circ, order=1)
   
-  coefficient <- cor.circular(df_circ$y_circ, df_circ$x_circ)
+  coefficient <- cor.circular(df_circ$y_circ, df_circ$x_circ, test = TRUE)
   
   df_circ_fit<-df_circ %>%
     mutate(y_fit_circ = circ.lm$fitted) %>%

@@ -1,5 +1,8 @@
 library(tidyverse)
+library(rnpn)
 source("scripts/function_circular_regression.R")
+
+species_code <- rnpn::npn_species()
 # Folder path
 folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/" 
 
@@ -60,9 +63,19 @@ create_plot <- function(data) {
   ggplot(data) +
   geom_point(aes(x = x, y = y), col = "blue", pch = 16) +
   geom_point(aes(x = x, y = y_fit), col = "red", pch = 16) +
-    ggtitle(as.character(sprintf("%.3f",unique(data$coefficient)))) +
+    ggtitle(paste(
+      species_code[species_code$species_id == data$species_id[1], "common_name"],
+      "Coefficient:",
+      sprintf("%.3f", data$coefficient[[1]]$cor),
+      "P_value:",
+      sprintf("%.3f", data$coefficient[[1]]$p.value),
+      sep = " "
+    )
+      ) +
     scale_y_continuous(labels = function(y) format(as.Date("2000-01-01") + y - 1, "%b %d"))+
-    scale_x_continuous(labels = function(y) format(as.Date("2000-01-01") + y - 1, "%b %d"))
+    scale_x_continuous(labels = function(y) format(as.Date("2000-01-01") + y - 1, "%b %d")) +
+    xlab("Leafing Day") +
+    ylab("Flowering Day")
 
 }
 

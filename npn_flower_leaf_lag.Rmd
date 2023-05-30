@@ -19,3 +19,40 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ### lag with climate
+
+
+
+## explore cirular-circular statistics
+
+```{r}
+library(circular)
+x <- circular(runif(50, 0, 2*pi))
+y <- atan2(cos(x) + sin(x), sin(x)) 
+# + 
+#   rvonmises(n=50, mu=circular(0), kappa=5)
+
+# Fit a circular-circular regression model.
+circ.lm <- lm.circular(y, x, order=1)
+circ.lm$coefficients
+
+```
+```{r}
+x <- circular(runif(50, 0, 2*pi))
+y <- atan2(cos(x) + sin(x), sin(x)) 
+
+ys <- lm(sin(y) ~ sin(x)+cos(x))
+yc <- lm(cos(y) ~ sin(x)+cos(x))
+ys
+yc
+
+```
+
+
+```{r}
+yp <- y+circ.lm$residuals
+ssy <- sum((y-mean(y))^2)
+sse <- sum(circ.lm$residuals^2)
+ssyp <- sum((yp-mean(y))^2)
+ssyp/ssy
+```
+

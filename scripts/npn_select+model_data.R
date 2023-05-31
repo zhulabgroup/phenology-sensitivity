@@ -1,3 +1,5 @@
+get_modelled_data <- function(){
+
 library(tidyverse)
 library(circular)
 source("scripts/function_circular_regression.R")
@@ -53,4 +55,7 @@ for (i in seq_along(rds_files) ) {
 }
 
 site_gg <- setNames(site_gg, myname)
+return(site_gg)
 
+
+}

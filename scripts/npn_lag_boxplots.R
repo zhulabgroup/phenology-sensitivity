@@ -1,6 +1,7 @@
 source("scripts/npn_select+model_data.R")
 
 data <- get_modelled_data()
+
 combined_table_lag <- NULL
 combined_table_laggdd <- NULL
 
@@ -17,7 +18,8 @@ for (i in seq_along(data) ) {
      group_by(species_id) %>%
      summarise(
        average = mean(lagadd),
-       std_dev = sd(lagadd)
+       std_dev = sd(lagadd),
+       std_dev_flower = sd(gdd_y)
      )
 
    combined_table_lag <- bind_rows(combined_table_lag, lag_table)

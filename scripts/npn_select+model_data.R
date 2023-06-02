@@ -24,7 +24,7 @@ for (i in seq_along(rds_files) ) {
     slice(1)%>%
     mutate(numdays_since_prior_no = na_if(numdays_since_prior_no, "-9999")) %>% # set the -9999 values to NA
     filter(numdays_since_prior_no < 20) %>% # Filtering Data by Prior No
-    dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id, gdd)
+    dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id, gdd, longitude, latitude)
   
   joined_data <- data_qc %>%
     filter(pheno_class_id == 1) %>%
@@ -41,15 +41,16 @@ for (i in seq_along(rds_files) ) {
     next
   }
   models <- selected_data %>% group_by(species_id) %>%
-    summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y)), gdd_x = list(gdd.x), gdd_y = list(gdd.y) )%>%
+    summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y)), gdd_x = list(gdd.x), gdd_y = list(gdd.y), lon = list(longitude.x), lat = list(latitude.x))%>%
     filter(map_lgl(model, ~ .x$coefficient$p.value < 0.05)) %>%
     unnest_wider(model) %>% 
-    unnest_longer(c("x", "y", "y_fit","gdd_x","gdd_y")) %>% 
+    unnest_longer(c("x", "y", "y_fit","gdd_x","gdd_y", "lon", "lat")) %>% 
     filter(gdd_x>0) %>% 
     filter(gdd_y>0) %>% 
     mutate(lag = y - x,
            lag = ifelse(lag < -182, lag + 365, ifelse(lag > 182, lag - 365, lag))) %>%
     mutate(lagadd = gdd_y - gdd_x) 
+  
   myname <- c(myname, list(gsub("\\.rds$", "", basename(rds_files[i]))))
   site_gg <- c(site_gg, list(models))
 }

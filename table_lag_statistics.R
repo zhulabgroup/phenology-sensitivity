@@ -1,4 +1,4 @@
-source("scripts/npn_select+model_data.R")
+pnsource("scripts/function_npn_select_model_data.R")
 
 data <- get_modelled_data()
 

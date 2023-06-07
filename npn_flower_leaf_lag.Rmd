@@ -7,52 +7,37 @@ date: "2023-05-18"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# select data
+## datasource: Nature's notebook similar to neon (powerpoint)
+## phenophase: 2 & 7 has the most observations (taxa). However 1 & 7 has grass (taxa_1). Both use linear regression
 
-### correlation between flowering and leafing w/wt nature's notebook for alnus
+# check distribution of data
 
+# correlation beween flowering and leafing
+## linear regression
+## robust linear regression
+taxa_rlm
+## circular-circular statistics
+Visual for cc_statistics
+1.each genus a pdf
+2.combined figure for one species in each genus
+```{r}
+source("scripts/plot_cc_stat_1speciespergenus.R")
+combined_plot
+rm(list = ls())
+```
 
-
-
-
-### lag
+# lag and gddlag between flower and leaf
+boxplot
+statistics tibble
+```{r}
+source("scripts/table_lag_statistics.R")
+rm(list = ls())
+```
 
 
 
 ### lag with climate
 
 
-
-## explore cirular-circular statistics
-
-```{r}
-library(circular)
-x <- circular(runif(50, 0, 2*pi))
-y <- atan2(cos(x) + sin(x), sin(x)) 
-# + 
-#   rvonmises(n=50, mu=circular(0), kappa=5)
-
-# Fit a circular-circular regression model.
-circ.lm <- lm.circular(y, x, order=1)
-circ.lm$coefficients
-
-```
-```{r}
-x <- circular(runif(50, 0, 2*pi))
-y <- atan2(cos(x) + sin(x), sin(x)) 
-
-ys <- lm(sin(y) ~ sin(x)+cos(x))
-yc <- lm(cos(y) ~ sin(x)+cos(x))
-ys
-yc
-
-```
-
-
-```{r}
-yp <- y+circ.lm$residuals
-ssy <- sum((y-mean(y))^2)
-sse <- sum(circ.lm$residuals^2)
-ssyp <- sum((yp-mean(y))^2)
-ssyp/ssy
-```
 

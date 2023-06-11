@@ -6,7 +6,7 @@ source("scripts/function_circular_regression.R")
 
 # Folder path
 folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/climate/" 
-folder_path <- "E:/phenology/NPN/leaf_flower/climate/" 
+#folder_path <- "E:/phenology/NPN/leaf_flower/climate/" 
 
 # Get list of RDS files in the folder
 rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)

@@ -5,7 +5,7 @@ raster_data <- terra::rast("/nfs/turbo/seas-zhukai/climate/CHELSA/climatology/bi
 
 # plot(raster_data)
 
-source("scripts/npn_select+model_data.R")
+source("scripts/function_npn_select_model_data.R")
 
 species_data <- get_modelled_data()
 

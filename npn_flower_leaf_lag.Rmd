@@ -47,6 +47,10 @@ source("scripts/table_lag_statistics.R")
 rm(list = ls())
 ```
 
+```{r}
+source("scripts/plot_avail_individual_yr.R")
+
+```
 
 
 

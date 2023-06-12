@@ -41,16 +41,25 @@ for (i in seq_along(rds_files) ) {
   if (nrow(selected_data) == 0) {
     next
   }
-  models <- selected_data %>% group_by(species_id) %>%
+  models <- selected_data %>% 
+    group_by(species_id) %>%
     summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y)), gdd_x = list(gdd.x), gdd_y = list(gdd.y), lon = list(longitude.x), lat = list(latitude.x))%>%
     filter(map_lgl(model, ~ .x$coefficient$p.value < 0.05)) %>%
     unnest_wider(model) %>% 
     unnest_longer(c("x", "y", "y_fit","gdd_x","gdd_y", "lon", "lat")) %>% 
     filter(gdd_x>0) %>% 
-    filter(gdd_y>0) %>% 
+    filter(gdd_y>0) %>%
+    group_by(species_id) %>%
+    filter(n() > 30) %>% 
+    ungroup() %>% 
     mutate(lag = y - x,
            lag = ifelse(lag < -182, lag + 365, ifelse(lag > 182, lag - 365, lag))) %>%
-    mutate(lagadd = gdd_y - gdd_x) 
+    mutate(lagadd = gdd_y - gdd_x) %>% 
+  ungroup()
+  
+  if (nrow(models) == 0) {
+    next
+  }
   
   myname <- c(myname, list(gsub("\\.rds$", "", basename(rds_files[i]))))
   site_gg <- c(site_gg, list(models))

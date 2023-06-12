@@ -34,11 +34,19 @@ rm(list = ls())
 
 # lag and gddlag between flower and leaf
 boxplot
+histogram
+```{r}
+source("scripts/plot_histogram_of_lag.R")
+```
+
 statistics tibble
+delete outliers
+what statistics should we use to report the lag (average+std), is the outstanding zero value be a problem?
 ```{r}
 source("scripts/table_lag_statistics.R")
 rm(list = ls())
 ```
+
 
 
 

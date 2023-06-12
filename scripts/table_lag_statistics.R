@@ -1,4 +1,4 @@
-pnsource("scripts/function_npn_select_model_data.R")
+source("scripts/function_npn_select_model_data.R")
 
 data <- get_modelled_data()
 
@@ -10,8 +10,8 @@ for (i in seq_along(data) ) {
    lag_table <- data[[i]] %>%
      group_by(species_id) %>%
      summarise(
-       average = mean(remove_outliers(lag,c(.1, .9))),
-       std_dev = sd(remove_outliers(lag,c(.1, .9)))
+       average = mean(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
+       std_dev = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)
      )
      
    
@@ -24,7 +24,7 @@ for (i in seq_along(data) ) {
   
 
    combined_table_lag <- bind_rows(combined_table_lag, lag_table)
-   combined_table_laggdd <- bind_rows(combined_table_laggdd, laggdd_table)
+   #combined_table_laggdd <- bind_rows(combined_table_laggdd, laggdd_table)
 }
 
 

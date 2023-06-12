@@ -43,10 +43,10 @@ for (i in seq_along(rds_files) ) {
   }
   models <- selected_data %>% 
     group_by(species_id) %>%
-    summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y)), gdd_x = list(gdd.x), gdd_y = list(gdd.y), lon = list(longitude.x), lat = list(latitude.x))%>%
+    summarise(model = list(mycircular(first_yes_doy.x, first_yes_doy.y)), gdd_x = list(gdd.x), gdd_y = list(gdd.y), lon = list(longitude.x), lat = list(latitude.x), individual_id = list(individual_id), yr = list(first_yes_year))%>%
     filter(map_lgl(model, ~ .x$coefficient$p.value < 0.05)) %>%
     unnest_wider(model) %>% 
-    unnest_longer(c("x", "y", "y_fit","gdd_x","gdd_y", "lon", "lat")) %>% 
+    unnest_longer(c("x", "y", "y_fit","gdd_x","gdd_y", "lon", "lat","individual_id","yr")) %>% 
     filter(gdd_x>0) %>% 
     filter(gdd_y>0) %>%
     group_by(species_id) %>%

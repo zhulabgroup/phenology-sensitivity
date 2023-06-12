@@ -8,8 +8,8 @@ date: "2023-05-18"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 # download data
-```{r}
-# source("scripts/download_npn.R")
+```{r include=FALSE}
+source("scripts/download_npn.R")
 ```
 
 # select data
@@ -55,6 +55,47 @@ source("scripts/plot_avail_individual_yr.R")
 
 
 ### lag with climate
+
+-------------------
+# the whole story
+get data
+```{r message=FALSE, warning=FALSE}
+source("scripts/function_npn_select_model_data.R")
+
+data <- get_modelled_data()
+```
+
+# Introduction
+flower time and amount is important phenology related to seed production and pollen.
+
+studying them need data
+
+lots of trees are wind pollinated trees which has catkin flowers, and is hard to observe
+
+while leafing observation is easier by satillite images
+
+so we want to using leaf to infer flower, at least inform the potential species that can be infer from leaf to flower
+
+# leaf flower correlation
+whether leaf and flower is correlated (select highly related species)
+```{r}
+source("scripts/function_npn_select_model_data.R")
+print(combined_plot)
+```
+
+# leaf flowering calendar day lag (average + std)
+select species with small std
+
+# leaf flowering gdd day lag
+if we have temperature, the lag can be further precisely informed 
+
+# 
+
+
+
+
+
+
 
 
 

@@ -54,7 +54,7 @@ for (i in seq_along(rds_files) ) {
     ungroup() %>% 
     mutate(lag = y - x,
            lag = ifelse(lag < -182, lag + 365, ifelse(lag > 182, lag - 365, lag))) %>%
-    mutate(lagadd = gdd_y - gdd_x) %>% 
+    mutate(laggdd = gdd_y - gdd_x) %>% 
   ungroup()
   
   if (nrow(models) == 0) {

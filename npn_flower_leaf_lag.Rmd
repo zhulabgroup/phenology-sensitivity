@@ -81,10 +81,19 @@ whether leaf and flower is correlated (select highly related species)
 ```{r}
 source("scripts/function_npn_select_model_data.R")
 print(combined_plot)
+rm(list = setdiff(ls(), "data"))
+
 ```
 
 # leaf flowering calendar day lag (average + std)
 select species with small std
+```{r}
+source("scripts/table_lag_statistics.R")
+source("scripts/plot_lag_statistics.R")
+print(combinefigure)
+rm(list = setdiff(ls(), "data"))
+```
+
 
 # leaf flowering gdd day lag
 if we have temperature, the lag can be further precisely informed 
@@ -93,8 +102,21 @@ if we have temperature, the lag can be further precisely informed
 
 
 
+---------
+# SI
 
+## data availability: need to be combined in a figure
+```{r}
+source("scripts/plot_avail_individual_yr.R")
 
+```
+
+## lag histogram: the distribution behind the mean and std we repoted
+This is important information, maybe think about making a large figure
+```{r message=FALSE, warning=FALSE}
+source("scripts/plot_histogram_of_lag.R")
+
+```
 
 
 

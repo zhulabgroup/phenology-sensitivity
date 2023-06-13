@@ -1,32 +1,7 @@
+if (!exists("data")) {
 source("scripts/function_npn_select_model_data.R")
-
 data <- get_modelled_data()
-
-combined_table_lag <- NULL
-combined_table_laggdd <- NULL
-
-for (i in seq_along(data) ) {
-  
-   lag_table <- data[[i]] %>%
-     group_by(species_id) %>%
-     summarise(
-       average = mean(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
-       std_dev = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)
-     )
-     
-   
-   # laggdd_table <- data[[i]] %>%
-   #   group_by(species_id) %>%
-   #   summarise(
-   #     average = mean(remove_outliers(lag),c(.25, .75)),
-   #     std_dev = sd(remove_outliers(lag),c(.25, .75))
-   #   )
-  
-
-   combined_table_lag <- bind_rows(combined_table_lag, lag_table)
-   #combined_table_laggdd <- bind_rows(combined_table_laggdd, laggdd_table)
 }
-
 
 remove_outliers <- function(x, threshold, na.rm = TRUE, ...) {
   qnt <- quantile(x, probs=threshold, na.rm = na.rm, ...)
@@ -35,4 +10,25 @@ remove_outliers <- function(x, threshold, na.rm = TRUE, ...) {
   return(x)
 }
 
-tem <- as.tibble(laggdd_table$std_dev/ combined_table_lag$std_dev)
+delete_grass <- data[setdiff(names(data), "Poaceae")]
+combined_table_lag <- NULL
+
+for (i in seq_along(delete_grass) ) {
+  
+   lag_table <- delete_grass[[i]] %>%
+     group_by(species_id) %>%
+     summarise(
+       genus = names(data)[i],
+       lagday_average = mean(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
+       lagday_std_dev = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
+       laggdd_average = mean(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE),
+       laggdd_std_dev = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)
+     )
+
+   combined_table_lag <- bind_rows(combined_table_lag, lag_table)
+}
+
+# tem <- as.tibble(laggdd_table$std_dev/ combined_table_lag$std_dev)
+
+
+

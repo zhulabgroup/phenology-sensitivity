@@ -1,17 +1,11 @@
 if (!exists("data")) {
   source("scripts/function_npn_select_model_data.R")
-  
   data <- get_modelled_data()
 }
 
 library(patchwork)
 library(rnpn)
 species_code <- rnpn::npn_species()
-
-
-site_gg <- map2(data, names(data), ~ create_plot(.x, .y))
-
-combined_plot <- wrap_plots(site_gg, nrow = 4, ncol = 2)
 
 create_plot <- function(data,name) {
   data %>% group_by(species_id) %>%
@@ -37,6 +31,11 @@ create_plot <- function(data,name) {
     ylab("Flowering Day")
 
 }
+
+site_gg <- map2(data, names(data), ~ create_plot(.x, .y))
+
+combined_plot <- wrap_plots(site_gg, nrow = 4, ncol = 2)
+
 
 
 

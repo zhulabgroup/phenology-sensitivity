@@ -12,8 +12,8 @@ create_plot <- function(data, average_var, std_dev_var) {
     geom_point()
 }
 
-plot1 <- create_plot(combined_table_lag, "lagday_average", "lagday_std_dev")
-plot2 <- create_plot(combined_table_lag, "laggdd_average", "laggdd_std_dev")
+plot1 <- create_plot(combined_table_lag, "lagday_average", "lagday_std")
+plot2 <- create_plot(combined_table_lag, "laggdd_average", "laggdd_std")
 
 combinefigure <- plot1 + plot2
 

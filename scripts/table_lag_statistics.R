@@ -3,7 +3,7 @@ source("scripts/function_npn_select_model_data.R")
 data <- get_modelled_data()
 }
 
-remove_outliers <- function(x, threshold, na.rm = TRUE, ...) {
+remove_outliers <- function(x, threshold = c(.1, .9), na.rm = TRUE, ...) {
   qnt <- quantile(x, probs=threshold, na.rm = na.rm, ...)
   H <- 1.5 * IQR(x, na.rm = na.rm)
   x[x < (qnt[1] - H) | x > (qnt[2] + H)] <- NA
@@ -17,8 +17,8 @@ for (i in seq_along(delete_grass) ) {
   
    lag_table <- delete_grass[[i]] %>%
      group_by(species_id) %>%
-     mutate(lag_out = remove_outliers(lag,c(.1, .9)),
-            laggdd_out = remove_outliers(laggdd,c(.1, .9))) %>%
+     mutate(lag_out = remove_outliers(lag),
+            laggdd_out = remove_outliers(laggdd)) %>%
      summarise(
        genus = names(data)[i],
        lagday_average = mean(lag_out, na.rm = TRUE),

@@ -1,20 +1,19 @@
 library(patchwork)
 
-plot1 <- combined_table_lag %>% 
-ggplot(aes(lagday_average, as.factor(species_id))) +
-  geom_errorbar(aes(xmin = lagday_average - lagday_std_dev, xmax = lagday_average + lagday_std_dev),
-                width = 0.2,                      # Width of the error bars
-                color = "blue",                    # Color of the error bars
-                size = 1.5)   +                     # Size of the error bars
-  geom_point() 
+create_plot <- function(data, average_var, std_dev_var) {
+  average <- sym(average_var)
+  std_dev <- sym(std_dev_var)
+  
+  data %>%
+    ggplot(aes(x = !!average, y = as.factor(species_id))) +
+    geom_errorbar(aes(xmin = !!average - !!std_dev, 
+                      xmax = !!average + !!std_dev),
+                  width = 0.2, color = "blue", size = 1.5) +
+    geom_point()
+}
 
-plot2 <- combined_table_lag %>% 
-  ggplot(aes(laggdd_average, as.factor(species_id))) +
-  geom_errorbar(aes(xmin = laggdd_average - laggdd_std_dev, xmax = laggdd_average + laggdd_std_dev),
-                width = 0.2,                      # Width of the error bars
-                color = "blue",                    # Color of the error bars
-                size = 1.5)   +                     # Size of the error bars
-  geom_point() 
+plot1 <- create_plot(combined_table_lag, "lagday_average", "lagday_std_dev")
+plot2 <- create_plot(combined_table_lag, "laggdd_average", "laggdd_std_dev")
 
 combinefigure <- plot1 + plot2
 

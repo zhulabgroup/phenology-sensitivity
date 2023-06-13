@@ -1,7 +1,6 @@
 
 if (!exists("data")) {
   source("scripts/function_npn_select_model_data.R")
-  
   data <- get_modelled_data()
 }
 

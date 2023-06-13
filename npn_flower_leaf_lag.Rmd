@@ -78,7 +78,7 @@ so we want to using leaf to infer flower, at least inform the potential species 
 
 # leaf flower correlation
 whether leaf and flower is correlated (select highly related species)
-```{r}
+```{r message=FALSE, warning=FALSE}
 source("scripts/function_npn_select_model_data.R")
 print(combined_plot)
 rm(list = setdiff(ls(), "data"))
@@ -87,7 +87,7 @@ rm(list = setdiff(ls(), "data"))
 
 # leaf flowering calendar day lag and gdd lag (average + std)
 select species with small std
-```{r}
+```{r message=FALSE, warning=FALSE}
 source("scripts/table_lag_statistics.R")
 source("scripts/plot_lag_statistics.R")
 print(combinefigure)
@@ -97,7 +97,7 @@ rm(list = setdiff(ls(), "data"))
 
 # compare calendar day and gdd which is better
 use lag
-```{r}
+```{r message=FALSE, warning=FALSE}
 source("scripts/table_lag_statistics.R")
 source("scripts/plot_lag_statistics_compare.R")
 print(compare_figure)
@@ -108,17 +108,18 @@ use flower
 # compare 
 
 # lag~climate relationship
-```{r}
+```{r message=FALSE, warning=FALSE}
 source("scripts/plot_lag_climate.R")
-print(combined_plot)
-rm(list = setdiff(ls(), "data"))
+print(combined_plot_day)
+print(combined_plot_gdd)
+# rm(list = setdiff(ls(), "data"))
 
 ```
 
 ---------
 # SI
 
-## data availability: need to be combined in a figure
+## data availability: need to be combined in a figure, no need to separate for genus
 ```{r}
 source("scripts/plot_avail_individual_yr.R")
 

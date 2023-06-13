@@ -17,14 +17,16 @@ for (i in seq_along(delete_grass) ) {
   
    lag_table <- delete_grass[[i]] %>%
      group_by(species_id) %>%
+     mutate(lag_out = remove_outliers(lag,c(.1, .9)),
+            laggdd_out = remove_outliers(laggdd,c(.1, .9))) %>%
      summarise(
        genus = names(data)[i],
-       lagday_average = mean(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
-       lagday_std = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
-       lagday_std_normal = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)/(max(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)-min(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)),
-       laggdd_average = mean(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE),
-       laggdd_std = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE),
-       laggdd_std_normal = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)/(max(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)-min(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE))
+       lagday_average = mean(lag_out, na.rm = TRUE),
+       lagday_std = sd(lag_out, na.rm = TRUE),
+       lagday_std_normal = sd(lag_out, na.rm = TRUE)/diff(range(lag_out, na.rm = TRUE)),
+       laggdd_average = mean(laggdd_out, na.rm = TRUE),
+       laggdd_std = sd(laggdd_out, na.rm = TRUE),
+       laggdd_std_normal = sd(laggdd_out, na.rm = TRUE)/diff(range(laggdd_out, na.rm = TRUE)),
      ) 
    
 

@@ -20,10 +20,13 @@ for (i in seq_along(delete_grass) ) {
      summarise(
        genus = names(data)[i],
        lagday_average = mean(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
-       lagday_std_dev = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
+       lagday_std = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE),
+       lagday_std_normal = sd(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)/(max(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)-min(remove_outliers(lag,c(.1, .9)), na.rm = TRUE)),
        laggdd_average = mean(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE),
-       laggdd_std_dev = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)
-     )
+       laggdd_std = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE),
+       laggdd_std_normal = sd(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)/(max(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE)-min(remove_outliers(laggdd,c(.1, .9)), na.rm = TRUE))
+     ) 
+   
 
    combined_table_lag <- bind_rows(combined_table_lag, lag_table)
 }

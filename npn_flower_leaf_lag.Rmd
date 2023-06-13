@@ -85,7 +85,7 @@ rm(list = setdiff(ls(), "data"))
 
 ```
 
-# leaf flowering calendar day lag (average + std)
+# leaf flowering calendar day lag and gdd lag (average + std)
 select species with small std
 ```{r}
 source("scripts/table_lag_statistics.R")
@@ -95,10 +95,8 @@ rm(list = setdiff(ls(), "data"))
 ```
 
 
-# leaf flowering gdd day lag
-if we have temperature, the lag can be further precisely informed 
+# compare which is better
 
-# 
 
 
 

@@ -4,64 +4,11 @@ output: html_document
 date: "2023-05-18"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-# download data
-```{r include=FALSE}
-source("scripts/download_npn.R")
-```
-
-# select data
-## datasource: Nature's notebook similar to neon (powerpoint)
-## phenophase: 2 & 7 has the most observations (taxa). However 1 & 7 has grass (taxa_1). Both use linear regression
-
-# check distribution of data
-
-# correlation beween flowering and leafing
-## linear regression
-## robust linear regression
-taxa_rlm
-## circular-circular statistics
-Visual for cc_statistics
-1.each genus a pdf
-2.combined figure for one species in each genus
-```{r}
-source("scripts/plot_cc_stat_1speciespergenus.R")
-combined_plot
-rm(list = ls())
-```
-
-# lag and gddlag between flower and leaf
-boxplot
-histogram
-```{r}
-source("scripts/plot_histogram_of_lag.R")
-```
-
-statistics tibble
-delete outliers
-what statistics should we use to report the lag (average+std), is the outstanding zero value be a problem?
-```{r}
-source("scripts/table_lag_statistics.R")
-rm(list = ls())
-```
-
-```{r}
-source("scripts/plot_avail_individual_yr.R")
-
-```
-
-
-
-### lag with climate
-
 -------------------
 # the whole story
 get data
 ```{r message=FALSE, warning=FALSE}
 source("scripts/function_npn_select_model_data.R")
-
 data <- get_modelled_data()
 ```
 
@@ -79,7 +26,7 @@ so we want to using leaf to infer flower, at least inform the potential species 
 # leaf flower correlation
 whether leaf and flower is correlated (select highly related species)
 ```{r message=FALSE, warning=FALSE}
-source("scripts/function_npn_select_model_data.R")
+source("scripts/plot_cc_stat_1speciespergenus.R")
 print(combined_plot)
 rm(list = setdiff(ls(), "data"))
 
@@ -118,14 +65,14 @@ print(combined_plot_gdd)
 # SI
 
 ## data availability: need to be combined in a figure, no need to separate for genus
-```{r}
+```{r include=FALSE}
 source("scripts/plot_avail_individual_yr.R")
 
 ```
 
 ## lag histogram: the distribution behind the mean and std we repoted
 This is important information, maybe think about making a large figure
-```{r message=FALSE, warning=FALSE}
+```{r include=FALSE}
 source("scripts/plot_histogram_of_lag.R")
 
 ```

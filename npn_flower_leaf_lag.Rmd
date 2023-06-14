@@ -95,17 +95,15 @@ rm(list = setdiff(ls(), "data"))
 ```
 
 
-# compare calendar day and gdd which is better
+# compare calendar day and gdd which is better (use flower instead of lag to compare?) | using leaf or climate directly
 use lag
 ```{r message=FALSE, warning=FALSE}
 source("scripts/table_lag_statistics.R")
 source("scripts/plot_lag_statistics_compare.R")
-print(compare_figure)
+print(gdd_doy)
+print(leaf_climate)
 rm(list = setdiff(ls(), "data"))
 ```
-use flower
-
-# compare 
 
 # lag~climate relationship
 ```{r message=FALSE, warning=FALSE}

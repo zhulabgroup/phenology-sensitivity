@@ -18,7 +18,8 @@ for (i in seq_along(delete_grass) ) {
    lag_table <- delete_grass[[i]] %>%
      group_by(species_id) %>%
      mutate(lag_out = remove_outliers(lag),
-            laggdd_out = remove_outliers(laggdd)) %>%
+            laggdd_out = remove_outliers(laggdd),
+            flogdd_out = remove_outliers(gdd_y)) %>%
      summarise(
        genus = names(data)[i],
        lagday_average = mean(lag_out, na.rm = TRUE),
@@ -27,6 +28,9 @@ for (i in seq_along(delete_grass) ) {
        laggdd_average = mean(laggdd_out, na.rm = TRUE),
        laggdd_std = sd(laggdd_out, na.rm = TRUE),
        laggdd_std_normal = sd(laggdd_out, na.rm = TRUE)/diff(range(laggdd_out, na.rm = TRUE)),
+       flogdd_average = mean(flogdd_out, na.rm = TRUE),
+       flogdd_std = sd(flogdd_out, na.rm = TRUE),
+       flogdd_std_normal = sd(flogdd_out, na.rm = TRUE)/diff(range(flogdd_out, na.rm = TRUE))
      ) 
    
 

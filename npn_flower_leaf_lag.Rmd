@@ -9,7 +9,7 @@ date: "2023-05-18"
 get data
 ```{r message=FALSE, warning=FALSE}
 source("scripts/function_npn_select_model_data.R")
-data <- get_modelled_data()
+npndata <- get_modelled_data()
 ```
 
 # Introduction
@@ -28,7 +28,7 @@ whether leaf and flower is correlated (select highly related species)
 ```{r message=FALSE, warning=FALSE}
 source("scripts/plot_cc_stat_1speciespergenus.R")
 print(combined_plot)
-rm(list = setdiff(ls(), "data"))
+rm(list = setdiff(ls(), "npndata"))
 
 ```
 
@@ -38,7 +38,7 @@ select species with small std
 source("scripts/table_lag_statistics.R")
 source("scripts/plot_lag_statistics.R")
 print(combinefigure)
-rm(list = setdiff(ls(), "data"))
+rm(list = setdiff(ls(), "npndata"))
 ```
 
 
@@ -49,7 +49,7 @@ source("scripts/table_lag_statistics.R")
 source("scripts/plot_lag_statistics_compare.R")
 print(gdd_doy)
 print(leaf_climate)
-rm(list = setdiff(ls(), "data"))
+rm(list = setdiff(ls(), "npndata"))
 ```
 
 # lag~climate relationship
@@ -57,7 +57,7 @@ rm(list = setdiff(ls(), "data"))
 source("scripts/plot_lag_climate.R")
 print(combined_plot_day)
 print(combined_plot_gdd)
-# rm(list = setdiff(ls(), "data"))
+rm(list = setdiff(ls(), "npndata"))
 
 ```
 

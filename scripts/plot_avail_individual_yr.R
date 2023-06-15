@@ -1,12 +1,13 @@
-source("scripts/function_npn_select_model_data.R")
-
-data <- get_modelled_data()
+if (!exists("npndata")) {
+  source("scripts/function_npn_select_model_data.R")
+  npndata <- get_modelled_data()
+}
 
 site_gg <- vector(mode = "list")
 
-for (i in seq_along(data) ) {
+for (i in seq_along(npndata) ) {
   
-  histograms <- data[[i]] %>% 
+  histograms <- npndata[[i]] %>% 
    ggplot() +
     geom_point(aes(x = yr,y = individual_id)) +
     facet_wrap(~ species_id, scales = "free")

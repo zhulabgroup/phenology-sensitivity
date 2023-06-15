@@ -1,8 +1,8 @@
 # Load required packages
 
-if (!exists("data")) {
+if (!exists("npndata")) {
   source("scripts/function_npn_select_model_data.R")
-  data <- get_modelled_data()
+  npndata <- get_modelled_data()
 }
 # Read the TIFF file
 raster_data <- terra::rast("/nfs/turbo/seas-zhukai/climate/CHELSA/climatology/bio1.tif")
@@ -22,9 +22,9 @@ generate_plot <- function(df, variable, title) {
 }
 
 # Generate plots for laggdd
-site_gg_laggdd <- map2(data, names(data), ~generate_plot(.x, laggdd, .y))
+site_gg_laggdd <- map2(npndata, names(npndata), ~generate_plot(.x, laggdd, .y))
 combined_plot_gdd <- wrap_plots(site_gg_laggdd, nrow = 4, ncol = 2)
 
 # Generate plots for lag
-site_gg_lagday <- map2(data, names(data), ~generate_plot(.x, lag, .y))
+site_gg_lagday <- map2(npndata, names(npndata), ~generate_plot(.x, lag, .y))
 combined_plot_day <- wrap_plots(site_gg_lagday, nrow = 4, ncol = 2)

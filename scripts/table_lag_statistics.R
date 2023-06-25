@@ -1,6 +1,6 @@
-if (!exists("data")) {
-source("scripts/function_npn_select_model_data.R")
-data <- get_modelled_data()
+if (!exists("npndata")) {
+  source("scripts/function_npn_select_model_data.R")
+  npndata <- get_modelled_data()
 }
 
 remove_outliers <- function(x, threshold = c(.1, .9), na.rm = TRUE, ...) {
@@ -10,7 +10,7 @@ remove_outliers <- function(x, threshold = c(.1, .9), na.rm = TRUE, ...) {
   return(x)
 }
 
-delete_grass <- data[setdiff(names(data), "Poaceae")]
+delete_grass <- npndata[setdiff(names(npndata), "Poaceae")]
 combined_table_lag <- NULL
 
 for (i in seq_along(delete_grass) ) {
@@ -21,7 +21,7 @@ for (i in seq_along(delete_grass) ) {
             laggdd_out = remove_outliers(laggdd),
             flogdd_out = remove_outliers(gdd_y)) %>%
      summarise(
-       genus = names(data)[i],
+       genus = names(npndata)[i],
        lagday_average = mean(lag_out, na.rm = TRUE),
        lagday_std = sd(lag_out, na.rm = TRUE),
        lagday_std_normal = sd(lag_out, na.rm = TRUE)/diff(range(lag_out, na.rm = TRUE)),

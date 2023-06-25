@@ -1,3 +1,5 @@
+get_buffle_data <- function(buffer = 50){
+
 library(tidyverse)
  
 # prepare acer nab data
@@ -38,7 +40,7 @@ points_sf <- st_as_sf(individual_list,
                       remove = FALSE)
 
 # Create a buffer of 200km around each station
-station_buffers <- st_buffer(stations_sf, dist = 200000)  # 200000 meters = 200 kilometers
+station_buffers <- st_buffer(stations_sf, dist = buffer*1000)  # 200000 meters = 200 kilometers
 
 # Create an empty list to store points within each station buffer
 points_within_buffer <- vector("list", length = nrow(stations_sf))
@@ -55,23 +57,9 @@ for (i in 1:nrow(stations_sf)) {
 
 names(points_within_buffer) <- station_info$id
 
-library(lubridate)
+points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0)
 
-site_gg <- vector(mode = "list")
+return(points_within_buffer_filtered)
 
-for (i in seq_along(points_within_buffer) ) {
-
-  id <- names(points_within_buffer[i])
-  
-  sample_nab <- nab_acer %>% filter(stationid==id)
-  
-  site_gg[[i]] <- ggplot() + 
-    geom_tile(data = sample_nab, aes(x = yday(date), y = year(date), fill = ifelse(count == 0, 0, log(count)))) + # loged
-    scale_fill_gradient(low = "white", high = "brown") +
-    labs(x = "Day of year", y = "Year") +
-    geom_point(data = test, aes(x = first_yes_doy, y = first_yes_year))
 }
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/leaf_pollen.pdf", width = 8, height = 8 * .618)
-print(site_gg)
-dev.off()

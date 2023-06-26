@@ -1,19 +1,17 @@
 get_buffle_data <- function(buffer = 50){
 
 library(tidyverse)
- 
-# prepare acer nab data
-
-nab_acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/nab_renew.rds") %>% filter(taxa=="Acer")
-
-
+library(sf)
+  
 # prepare acer npn data
 
-station_info <- read.csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% filter(country=="US")
+station_info <- read.csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% 
+  filter(country=="US")
 
 npn_acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/climate/Acer.rds")
 
-npn_acer_qc <- npn_acer %>% filter(observed_status_conflict_flag == "-9999") %>% # Removing Status Conflicts
+npn_acer_qc <- npn_acer %>% 
+  filter(observed_status_conflict_flag == "-9999") %>% # Removing Status Conflicts
   group_by(individual_id, first_yes_year, pheno_class_id) %>%
   arrange(first_yes_doy) %>%
   slice(1)%>%
@@ -25,7 +23,6 @@ npn_acer_qc <- npn_acer %>% filter(observed_status_conflict_flag == "-9999") %>%
 
 individual_list <- distinct(npn_acer_qc, longitude, latitude)
 
-library(sf)
 
 # Convert data frames to sf objects
 stations_sf <- st_as_sf(station_info, 

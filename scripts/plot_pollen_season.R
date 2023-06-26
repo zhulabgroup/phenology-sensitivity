@@ -2,13 +2,13 @@
 library(tidyverse)
 library(lubridate)
 library(zoo)
-
 nab_acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/nab_renew.rds") %>% filter(taxa=="Acer")
 
 nab_acer$date <- as.Date(nab_acer$date)  # Convert date column to Date object
 
 nab_completed <- nab_acer %>%
-  group_by(stationid) %>%
+  group_by(stationid, year(date)) %>%
+  # filter(n() >= 255) %>%
   complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(count = NaN)) %>%
   arrange(date) %>%
   mutate(count_smoothed = rollmean(count, k = 7, fill = NA, align = "center", na.rm = TRUE)) %>% 
@@ -40,6 +40,6 @@ for (i in seq_along(unique_stations)) {
 }
 site_gg <- site_gg[!sapply(site_gg, is.null)]
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/pollen_season_50.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/pollen_season_no_50.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()

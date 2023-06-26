@@ -1,6 +1,6 @@
 if (!exists("points_within_buffer")) {
   source("scripts/function_generate_nab_npn_buffer.R")
-  points_within_buffer <- get_buffle_data(200)
+  points_within_buffer <- get_buffle_data(50)
 }
 
 # prepare acer nab data
@@ -25,7 +25,7 @@ for (i in seq_along(points_within_buffer) ) {
     ggtitle(id)
 }
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/leaf_pollen_200.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/leaf_pollen_50.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 

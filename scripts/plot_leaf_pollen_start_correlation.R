@@ -1,53 +1,46 @@
+library(lubridate)
+library(zoo)
+
+# get npn by station
 if (!exists("points_within_buffer")) {
   source("scripts/function_generate_nab_npn_buffer.R")
-  points_within_buffer <- get_buffle_data(200)
+  points_within_buffer <- get_buffle_data(50)
 }
-library(lubridate)
 
-# prepare npn data
 npn <- map(points_within_buffer, function(df) {
-    df %>%
-      group_by(first_yes_year) %>%
-      filter(n() >= 3) %>%
-      summarize(average_first_yes_doy = mean(first_yes_doy))
-  }) %>% 
+  df %>%
+    group_by(first_yes_year) %>%
+    filter(n() >= 3) %>%
+    summarize(median_first_yes_doy = median(first_yes_doy))
+}) %>% 
   keep(~ nrow(.x) > 0) %>%
   enframe(name = "station", value = "data")  %>%
   unnest(data) %>% 
   rename(year = first_yes_year)
 
 
-# prepare acer nab data
-
+# get nab smoothed
 nab_acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/nab_renew.rds") %>% filter(taxa=="Acer")
 
-nab <- map2(npn$station, npn$year, function(station, year) {
-  nab <- nab_acer %>%
-    filter(stationid == station, year(date) == year)
-  
-  first_date <- if (nrow(nab) > 200) {
-    nab %>%
-      mutate(count_smoothed = zoo::rollmean(count, k = 7, fill = NA, align = "center")) %>%
-      filter(count_smoothed > 50) %>%
-      pull(date) %>%
-      min(na.rm = TRUE)
-  } else {
-    NA
-  }
-  
-  if (is.infinite(first_date)) {
-    first_date <- NA
-  }
-  
-  data.frame(station = station, year = year, first_date = first_date)
-}) %>% 
-  enframe(value = "data") %>% 
-  unnest(data) %>% 
-  dplyr::select(-name)
+nab_acer$date <- as.Date(nab_acer$date)  # Convert date column to Date object
+
+nab <- nab_acer %>%
+  mutate(year = year(date)) %>% 
+  group_by(stationid, year) %>%
+  complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(count = NA)) %>%
+  arrange(date) %>%
+  mutate(count_smoothed = rollmean(count, k = 7, fill = NA, align = "center", na.rm = TRUE)) %>% 
+  filter(count_smoothed > 50) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  rename(station = stationid) 
+
 
 joint_data <- inner_join(npn, nab, by = c("station", "year"))
 
 ggplot(joint_data)+
-  geom_point(aes(x = average_first_yes_doy, y = yday(first_date)))
+  geom_point(aes(x = median_first_yes_doy, y = yday(date)))+
+  facet_wrap(~ station)
 
-cor(joint_data$average_first_yes_doy, yday(joint_data$first_date),use = "complete.obs", method = "spearman")
+
+cor(joint_data$median_first_yes_doy, yday(joint_data$date))

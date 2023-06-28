@@ -1,6 +1,5 @@
 get_smoothed_nab <- function(specifictaxa){
 # get nab smoothed
-  library(tidyverse)
   library(zoo)
   library(lubridate)
   

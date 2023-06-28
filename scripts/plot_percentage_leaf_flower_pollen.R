@@ -1,7 +1,9 @@
-source("scripts/function_generate_nab_npn_buffer.R")
-npn <- get_buffle_npn_percentage(50,1)
-source()
-nab <- get_smoothed_nab("Acer")
+library(tidyverse)
+source("scripts/function_get_bufferednpn_percentage.R")
+npn_leaf <- get_buffle_npn_percentage(50,7,"Quercus")
+source("scripts/function_get_smoothed_nab_for_taxa.R")
+nab <- get_smoothed_nab("Quercus")
+
 
 library(scales)
 
@@ -41,16 +43,52 @@ for (i in seq_along(npn)) {
 }
 site_gg <- keep(site_gg, function(plot) nrow(plot$data) > 0)
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/reproduce_leaf_pollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_reproduce_flower_pollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 
-write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/reproduce_leaf_pollen.csv")
 
-flower <- read.csv("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/reproduce_flower_pollen.csv")
-leaf <- read.csv("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/reproduce_leaf_pollen.csv")
+
+
+write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_reproduce_flower_pollen.csv")
+
+flower <- read.csv("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_reproduce_flower_pollen.csv") %>% 
+  filter(!is.na(correlation))
+leaf <- read.csv("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_reproduce_leaf_pollen.csv") %>% 
+  filter(!is.na(correlation))
+
+station_groups <- full_join(flower, leaf, by = c("station", "year"))
+
+station_groups_inner <- inner_join(flower, leaf, by = c("station", "year"))
+ggplot(station_groups_inner) +
+  geom_violin(aes(x = "correlation.x", y = correlation.x)) +
+  geom_violin(aes(x = "correlation.y", y = correlation.y)) +
+  xlab("") +
+  ylab("Correlation") +
+  labs(x = "") +
+  ggtitle("Correlation Distribution") +
+  scale_x_discrete(labels = c("correlation.x", "correlation.y")) +
+  theme_bw()
+
+
+ggplot(station_groups_inner) +
+  geom_violin(aes(correlation.x))+
+  geom_violin(aes(correlation.y))
+
 combined_data <- rbind(leaf, flower)
 combined_data$group <- c(rep("leaf", nrow(leaf)), rep("flower", nrow(flower)))
 
 ggplot(combined_data, aes(x = group, y = correlation)) +
-  geom_boxplot()
+  geom_violin()
+
+ggplot(combined_data, aes(x = group, y = correlation)) +
+  geom_point()
+
+station_groups %>%
+  ggplot(aes(x = correlation.x, y = correlation.y)) +
+  geom_point() +
+  xlab("Correlation (flower)") +
+  ylab("Correlation (leaf)") +
+  ggtitle("Correlation Comparison")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") 
+  

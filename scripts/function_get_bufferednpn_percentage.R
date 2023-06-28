@@ -1,4 +1,4 @@
-get_buffle_npn_percentage <- function(buffer, phenoclass){
+get_buffle_npn_percentage <- function(buffer, phenoclass, taxa){
   
 library(sf)
 
@@ -6,7 +6,7 @@ npn_phenophases <- rnpn::npn_phenophases()
 
 id <- npn_phenophases[npn_phenophases$pheno_class_id==phenoclass,"phenophase_id"]
 
-acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/Acer.rds") %>%
+pollen <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/", taxa, ".rds")) %>%
   filter(phenophase_id %in% id$phenophase_id) %>%
   select(latitude, longitude, individual_id, observation_date, phenophase_status) %>%
   mutate(observation_date = as.Date(observation_date),
@@ -14,7 +14,7 @@ acer <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/Acer.rds")
          doy = lubridate::yday(observation_date)) %>% 
   filter(phenophase_status > -1)
 
-individual_list <- distinct(acer, longitude, latitude)
+individual_list <- distinct(pollen, longitude, latitude)
 
 station_info <- read.csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% 
   filter(country=="US")
@@ -43,7 +43,7 @@ for (i in 1:nrow(stations_sf)) {
   
   # Find points within the station buffer
   temp <- st_intersection(points_sf, station_buffer)
-  points_within_buffer[[i]] <- acer %>%
+  points_within_buffer[[i]] <- pollen %>%
     semi_join(temp, by = c("latitude", "longitude"))
 }
 

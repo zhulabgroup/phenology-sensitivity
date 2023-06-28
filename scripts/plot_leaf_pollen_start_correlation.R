@@ -4,7 +4,7 @@ library(zoo)
 # get npn by station
 if (!exists("points_within_buffer")) {
   source("scripts/function_generate_nab_npn_buffer.R")
-  points_within_buffer <- get_buffle_data(50)
+  points_within_buffer <- get_buffle_data(50,7)
 }
 
 npn <- map(points_within_buffer, function(df) {
@@ -37,10 +37,13 @@ nab <- nab_acer %>%
 
 
 joint_data <- inner_join(npn, nab, by = c("station", "year"))
+cor_data <- joint_data %>%
+  group_by(station) %>%
+  summarize(cor_coef = round(cor(median_first_yes_doy, yday(date)), 2))
 
-ggplot(joint_data)+
-  geom_point(aes(x = median_first_yes_doy, y = yday(date)))+
-  facet_wrap(~ station)
+ggplot(joint_data) +
+  geom_point(aes(x = median_first_yes_doy, y = yday(date))) +
+  facet_wrap(~ station) +
+  geom_text(data = cor_data, aes(x = Inf, y = Inf, label = paste("Correlation:", cor_coef)),
+            hjust = 1, vjust = 1, size = 4)
 
-
-cor(joint_data$median_first_yes_doy, yday(joint_data$date))

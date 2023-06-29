@@ -2,11 +2,12 @@ get_buffle_npn_percentage <- function(buffer, phenoclass, taxa){
   
 library(sf)
 
+# get npn data
 npn_phenophases <- rnpn::npn_phenophases() 
 
 id <- npn_phenophases[npn_phenophases$pheno_class_id==phenoclass,"phenophase_id"]
 
-pollen <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/", taxa, ".rds")) %>%
+npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/", taxa, ".rds")) %>%
   filter(phenophase_id %in% id$phenophase_id) %>%
   select(latitude, longitude, individual_id, observation_date, phenophase_status) %>%
   mutate(observation_date = as.Date(observation_date),
@@ -14,8 +15,9 @@ pollen <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/"
          doy = lubridate::yday(observation_date)) %>% 
   filter(phenophase_status > -1)
 
-individual_list <- distinct(pollen, longitude, latitude)
+individual_list <- distinct(npn_wind, longitude, latitude)
 
+# get nab station
 station_info <- read.csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% 
   filter(country=="US")
 
@@ -43,7 +45,7 @@ for (i in 1:nrow(stations_sf)) {
   
   # Find points within the station buffer
   temp <- st_intersection(points_sf, station_buffer)
-  points_within_buffer[[i]] <- pollen %>%
+  points_within_buffer[[i]] <- npn_wind %>%
     semi_join(temp, by = c("latitude", "longitude"))
 }
 
@@ -56,13 +58,41 @@ df %>%
     group_by(observation_date) %>%
     summarize(percentage = mean(phenophase_status)) %>% 
     rename(date = observation_date) %>% 
-    mutate(year = lubridate::year(date)) %>% 
+    mutate(year = lubridate::year(date),
+           doy = lubridate::yday(date)) %>% 
     group_by(year) %>% 
-    filter(!all(percentage == 0)) 
-    
-}) 
-# %>% 
-#   enframe(name = "station", value = "data")  %>%
-#   unnest(data)
+    filter(!all(percentage == 0)) %>% 
+    filter(n()>3)
+}) %>%
+  enframe(name = "station", value = "data")  %>%
+  unnest(data) %>% 
+  select(-date) %>% 
+  group_by(station, year) %>% 
+  complete(doy = seq(min(doy), max(doy)), fill = list(percentage = NA)) %>% 
+  mutate(count_l = na.approx(percentage, maxgap = 14),
+         count_l = replace(count_l, is.na(count_l), 0),
+         count_w = ptw::whit1(count_l, lambda = 100)) %>% 
+  complete(doy = 1:365, fill = list(count_l = 0, count_w = 0)) %>% 
+  ungroup()
+
 return(npn) 
 }
+
+stationlist <- unique(npn$station)
+
+site_gg <- vector(mode = "list")
+
+for (i in seq_along(stationlist)) {
+  site_gg[[i]] <- npn %>% 
+    filter(station==stationlist[i]) %>% 
+    ggplot()  +
+    geom_point(aes(x = doy, y = percentage, color = "original"),size = 1, alpha = 0.5) +
+    geom_line(aes(x = doy, y = count_l, color = "linear")) +
+    geom_line(aes(x = doy, y = count_w, color = "whit"), linewidth = 1.5, alpha = 0.75) +
+    facet_wrap(~ year)+
+    ggtitle(stationlist[i])
+}
+
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_smooth_npn_100lamda.pdf", width = 8, height = 8 * .618)
+print(site_gg)
+dev.off()

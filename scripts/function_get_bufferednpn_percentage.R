@@ -52,10 +52,14 @@ names(points_within_buffer) <- station_info$id
 points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0)
 
 npn <- map(points_within_buffer_filtered, function(df) {
-  df %>%
+df %>%
     group_by(observation_date) %>%
     summarize(percentage = mean(phenophase_status)) %>% 
-    rename(date = observation_date)
+    rename(date = observation_date) %>% 
+    mutate(year = lubridate::year(date)) %>% 
+    group_by(year) %>% 
+    filter(!all(percentage == 0)) 
+    
 }) 
 # %>% 
 #   enframe(name = "station", value = "data")  %>%

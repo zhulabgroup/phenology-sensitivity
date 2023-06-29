@@ -31,7 +31,7 @@ for (i in seq_along(npn)) {
   
   # Plot the data
   site_gg[[i]] <- ggplot(joint_data) +
-    geom_point(aes(x = yday(date), y = percentage), alpha = 0.2) +
+    geom_point(aes(x = yday(date), y = rescale(percentage)), alpha = 0.2) +
     geom_point(aes(x = yday(date), y = rescale(count)), alpha = 0.2, color = "red") +
     geom_line(aes(x = yday(date), y = rescale(count_smoothed)), color = "red") +
     facet_wrap(~ year) +
@@ -43,7 +43,7 @@ for (i in seq_along(npn)) {
 }
 site_gg <- keep(site_gg, function(plot) nrow(plot$data) > 0)
 
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_reproduce_flower_pollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Sum_Quercus_reproduce_flower_pollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 

@@ -1,7 +1,7 @@
-get_buffle_npn_percentage <- function(buffer, phenoclass, taxa){
+get_buffle_npn_percentage <- function(buffer, phenoclass, taxa, lam){
   
 library(sf)
-
+library(zoo)
 # get npn data
 npn_phenophases <- rnpn::npn_phenophases() 
 
@@ -71,28 +71,10 @@ df %>%
   complete(doy = seq(min(doy), max(doy)), fill = list(percentage = NA)) %>% 
   mutate(count_l = na.approx(percentage, maxgap = 14),
          count_l = replace(count_l, is.na(count_l), 0),
-         count_w = ptw::whit1(count_l, lambda = 100)) %>% 
+         count_w = ptw::whit1(count_l, lambda = lam)) %>% 
   complete(doy = 1:365, fill = list(count_l = 0, count_w = 0)) %>% 
   ungroup()
 
 return(npn) 
 }
 
-stationlist <- unique(npn$station)
-
-site_gg <- vector(mode = "list")
-
-for (i in seq_along(stationlist)) {
-  site_gg[[i]] <- npn %>% 
-    filter(station==stationlist[i]) %>% 
-    ggplot()  +
-    geom_point(aes(x = doy, y = percentage, color = "original"),size = 1, alpha = 0.5) +
-    geom_line(aes(x = doy, y = count_l, color = "linear")) +
-    geom_line(aes(x = doy, y = count_w, color = "whit"), linewidth = 1.5, alpha = 0.75) +
-    facet_wrap(~ year)+
-    ggtitle(stationlist[i])
-}
-
-pdf("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus_smooth_npn_100lamda.pdf", width = 8, height = 8 * .618)
-print(site_gg)
-dev.off()

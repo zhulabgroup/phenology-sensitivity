@@ -40,4 +40,4 @@ for (i in seq_along(rds_files) ) {
   
 }
 
-combined_plot <- patchwork::wrap_plots(site_gg, nrow = 4, ncol = 2)
+combined_plot <- patchwork::wrap_plots(site_gg, nrow = 2, ncol = 4)

@@ -1,0 +1,29 @@
+---
+title: "leaf_flower_pollen"
+author: "Yi"
+date: "2023-07-03"
+output: html_document
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+# leaf flower start date in NPN 
+
+## correlation
+
+We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
+
+```{r rlm, message=FALSE, warning=FALSE, fig.width=8, fig.height=8*1.618}
+source("scripts/plot_rlm_combined_8genuses.R")
+combined_plot
+```
+
+Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each dot represents a individual in a year. Each color represent a species. The wide black line represents the total dots robust linear regression. The thin black line is the 1:1 line.
+
+
+

@@ -21,9 +21,17 @@ We want to check whether some species have fixed lag: y = x+b. Here we can see t
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=8, fig.height=8*1.618}
 source("scripts/plot_rlm_combined_8genuses.R")
 combined_plot
+rm(ls())
 ```
 
 Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each dot represents a individual in a year. Each color represent a species. The wide black line represents the total dots robust linear regression. The thin black line is the 1:1 line.
 
 
+## lag distribution
+
+```{r}
+source("scripts/plot_rlm_combined_8genuses.R")
+combined_plot
+rm(ls())
+```
 

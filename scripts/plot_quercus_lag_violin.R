@@ -19,19 +19,44 @@ joined_data <- data_qc %>%
   dplyr::select('first_yes_doy.x', 'first_yes_doy.y','species_id') %>% 
   rename(leaf = first_yes_doy.x, flower = first_yes_doy.y) %>% 
   mutate(lag = flower-leaf) %>% 
+  filter(abs(lag)<183) %>% 
   group_by(species_id) %>% 
-  filter(n()>30)
+  filter(n()>30) %>% 
+  ungroup()
+
+
+
   
-joined_data %>%
-  ggplot(aes(x = lag, y = as.factor(species_id))) +
-  geom_violinhalf() +
-  geom_jitter(shape=16, position=position_jitter(0.2), alpha = 0.1) +
-  geom_boxplot(width=0.1)
+p <- joined_data %>%
+  ggplot(aes(y = lag, x = as.factor(species_id))) +
+  geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
+  geom_jitter(alpha = 0.1, width = 0.15) +
+  stat_summary(fun = mean, geom = "errorbar", width = 0.2, color = "black") +
+  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "black", fill = "white") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "black", fun.args = list(mult = 1)) +
+  xlab("species_id")+
+  ylab("flower day - leafing day")
+  theme(legend.position = "none") 
 
-joined_data %>% ggplot(joined_data, aes(x = lag, y = as.factor(species_id))) +
-  geom_violin()
-  geom_jitter(shape=16, position=position_jitter(0.2))
+p2 <- p +
+  scale_y_continuous(limits = c(-20, 50))
 
-joined_data %>% 
-  ggplot() +
-  geom_jitter(aes(x = leaf, y = flower), shape=16, position = position_jitter(0.2))
+p3 <- joined_data %>%
+  ggplot(aes(x = "Quercus", y = lag)) +
+  geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
+  geom_jitter(alpha = 0.1, width = 0.15) +
+  stat_summary(fun = mean, geom = "errorbar", width = 0.2, color = "black") +
+  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "black", fill = "white") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "black", fun.args = list(mult = 1)) +
+  xlab("species_id")+
+  ylab("flower day - leafing day")
+theme(legend.position = "none") +
+  scale_y_continuous(limits = c(-20, 50))
+
+
+design <- "BBBBBC
+           AAAAAC"
+
+lags_violin <- wrap_plots(B = p, A = p2, C=p3, design = design)
+
+

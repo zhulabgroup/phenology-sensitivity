@@ -71,5 +71,7 @@ pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quer
 print(site_gg)
 dev.off()
 
+write_rds(site_gg,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
+write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.csv")
 
   

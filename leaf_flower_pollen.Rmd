@@ -10,9 +10,10 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(see)
 ```
 
-# leaf flower start date in NPN 
+# leaf flower start date realtion in NPN 
 
 ## correlation
 
@@ -35,4 +36,15 @@ print(lags_violin)
 rm(list = ls())
 ```
 Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
+
+# using npn to predict pollen
+
+## let's see the result if we supppose leaf and flower is the same and compare their ability to predict pollen
+```{r lag, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
+source("scripts/plot_quercus_lag_violin.R")
+print(lags_violin)
+rm(list = ls())
+```
+Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
+
 

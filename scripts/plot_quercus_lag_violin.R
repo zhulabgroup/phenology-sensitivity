@@ -1,6 +1,5 @@
 # calculate the lag of Quercus
-invisible({
-library(see)
+
 
 quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus.rds")
 
@@ -63,6 +62,4 @@ lags_violin <- p + p2 + p3 +
   "AAAAAC
   BBBBBC"
           )
-  
-})
 

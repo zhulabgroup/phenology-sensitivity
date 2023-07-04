@@ -19,7 +19,7 @@ library(see)
 
 We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
+```{r rlm, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R")
 combined_plot
 rm(list = ls())
@@ -30,7 +30,7 @@ Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each 
 
 ## lag distribution
 
-```{r lag, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
+```{r lag, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
 source("scripts/plot_quercus_lag_violin.R")
 print(lags_violin)
 rm(list = ls())
@@ -40,11 +40,21 @@ Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) 
 # using npn to predict pollen
 
 ## let's see the result if we supppose leaf and flower is the same and compare their ability to predict pollen
-```{r lag, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
-source("scripts/plot_quercus_lag_violin.R")
-print(lags_violin)
+```{r station_lfp, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
+figures <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
+print(figures[24])
 rm(list = ls())
 ```
-Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
+Fig.3 Flowering and leafing initiation observations from npn and pollen count from nab.
+
+We can see that: 1) we have more leafing observations than flowering. 2) leafing is a little bit ahead of flowering, adding a lag to leafing may make leaf fits better.
+
+Here are the statistics:
+
+```{r RMSE_sta, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8,cache=TRUE} 
+source("scripts/plot_RMSE_compare.R")
+print(RMSE_violin)
+rm(list = ls())
+```
 
 

@@ -1,4 +1,6 @@
 # calculate the lag of Quercus
+invisible({
+library(see)
 
 quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus.rds")
 
@@ -10,6 +12,7 @@ data_qc <- quercus %>%   filter(observed_status_conflict_flag == "-9999") %>% # 
   mutate(numdays_since_prior_no = na_if(numdays_since_prior_no, "-9999")) %>% # set the -9999 values to NA
   filter(numdays_since_prior_no < 20) %>% # Filtering Data by Prior No
   dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id)
+
 
 joined_data <- data_qc %>%
   filter(pheno_class_id == 1) %>%
@@ -26,16 +29,16 @@ joined_data <- data_qc %>%
 
 
 
+
   
 p <- joined_data %>%
   ggplot(aes(y = lag, x = as.factor(species_id))) +
   geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
   geom_jitter(alpha = 0.1, width = 0.15) +
-  stat_summary(fun = mean, geom = "errorbar", width = 0.2, color = "black") +
-  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "black", fill = "white") +
-  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "black", fun.args = list(mult = 1)) +
+  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "red", fill = "white") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "red", fun.args = list(mult = 1)) +
   xlab("species_id")+
-  ylab("flower day - leafing day")
+  ylab("flower day - leafing day") +
   theme(legend.position = "none") 
 
 p2 <- p +
@@ -45,18 +48,21 @@ p3 <- joined_data %>%
   ggplot(aes(x = "Quercus", y = lag)) +
   geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
   geom_jitter(alpha = 0.1, width = 0.15) +
-  stat_summary(fun = mean, geom = "errorbar", width = 0.2, color = "black") +
-  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "black", fill = "white") +
-  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "black", fun.args = list(mult = 1)) +
-  xlab("species_id")+
-  ylab("flower day - leafing day")
+  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "red", fill = "white") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "red", fun.args = list(mult = 1)) +
+  xlab("")+
+  ylab("flower day - leafing day") +
 theme(legend.position = "none") +
   scale_y_continuous(limits = c(-20, 50))
 
 
-design <- "BBBBBC
-           AAAAAC"
 
-lags_violin <- wrap_plots(B = p, A = p2, C=p3, design = design)
-
+lags_violin <- p + p2 + p3 +
+  patchwork::plot_annotation(tag_levels = "A") +
+  patchwork::plot_layout(design = 
+  "AAAAAC
+  BBBBBC"
+          )
+  
+})
 

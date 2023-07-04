@@ -18,10 +18,10 @@ library(ggplot2)
 
 We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=8, fig.height=8*1.618}
+```{r rlm, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
 source("scripts/plot_rlm_combined_8genuses.R")
 combined_plot
-rm(ls())
+rm(list = ls())
 ```
 
 Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each dot represents a individual in a year. Each color represent a species. The wide black line represents the total dots robust linear regression. The thin black line is the 1:1 line.
@@ -29,9 +29,10 @@ Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each 
 
 ## lag distribution
 
-```{r}
-source("scripts/plot_rlm_combined_8genuses.R")
-combined_plot
-rm(ls())
+```{r lag, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8}
+source("scripts/plot_quercus_lag_violin.R")
+print(lags_violin)
+rm(list = ls())
 ```
+Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
 

@@ -8,7 +8,10 @@ nab <- get_smoothed_nab("Quercus")
 # stardarize the data (should be put into getting data?)
 npn_leaf_s <- npn_leaf %>% 
   select(station,year, doy,count_w) %>% 
-  rename(leaf = count_w)
+  rename(leaf = count_w) %>% 
+  mutate(doy = doy+15) %>% 
+  mutate(doy = ifelse(doy > 365, doy - 365, doy))
+
 
 npn_flower_s <- npn_flower %>% 
   select(station,year, doy,count_w) %>% 
@@ -32,7 +35,7 @@ to_plot <- full_join(npn_leaf_s,npn_flower_s,by = c("station","year","doy"))  %>
 stationlist <- unique(to_plot$station)
 
 site_gg <- vector(mode = "list")
-correlation_table <- tibble(year = integer(), leaf_correlation = numeric(), flower_correlation = numeric(), station = character())
+correlation_table <- tibble(year = integer(), leaf_rmse = numeric(), flower_rmse = numeric(), station = character())
 
 rmse <- function(actual, predicted) {
   sqrt(mean((actual - predicted)^2, na.rm = TRUE))
@@ -67,11 +70,13 @@ for (i in seq_along(stationlist)) {
 }
 
 
-pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 
-write_rds(site_gg,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
-write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.csv")
+correlation_table <- correlation_table %>% select(-leaf_correlation,-flower_correlation)
+
+write_rds(site_gg,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.rds")
+write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.csv")
 
   

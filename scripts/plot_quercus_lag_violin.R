@@ -1,5 +1,7 @@
 # calculate the lag of Quercus
-
+library(rnpn)
+species_code <- rnpn::npn_species() %>% 
+  select('functional_type', 'common_name', 'species_id')
 
 quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus.rds")
 
@@ -26,22 +28,22 @@ joined_data <- data_qc %>%
   filter(n()>30) %>% 
   ungroup()
 
-
+joined_data_name <- joined_data %>% 
+  left_join(species_code, by = "species_id")
 
 
   
-p <- joined_data %>%
-  ggplot(aes(y = lag, x = as.factor(species_id))) +
+p <- joined_data_name %>%
+  ggplot(aes(y = lag, x = common_name, fill = functional_type)) +
   geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
   geom_jitter(alpha = 0.1, width = 0.15) +
   stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "red", fill = "white") +
-  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "red", fun.args = list(mult = 1)) +
-  xlab("species_id")+
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = 'red', fun.args = list(mult = 1)) +
+  xlab("Species")+
   ylab("flower day - leafing day") +
-  theme(legend.position = "none") 
-
-p2 <- p +
-  scale_y_continuous(limits = c(-20, 50))
+  coord_flip() +
+  scale_y_continuous(limits = c(-20, 50)) +
+  labs(fill = "Functional Type")  
 
 p3 <- joined_data %>%
   ggplot(aes(x = "Quercus", y = lag)) +
@@ -51,15 +53,21 @@ p3 <- joined_data %>%
   stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "red", fun.args = list(mult = 1)) +
   xlab("")+
   ylab("flower day - leafing day") +
-theme(legend.position = "none") +
-  scale_y_continuous(limits = c(-20, 50))
+  scale_y_continuous(limits = c(-20, 50))+
+  coord_flip()
 
 
 
-lags_violin <- p + p2 + p3 +
+lags_violin <- p + p3 +
   patchwork::plot_annotation(tag_levels = "A") +
   patchwork::plot_layout(design = 
-  "AAAAAC
-  BBBBBC"
+  "A
+  A
+  A
+  A
+  A
+  A
+  A
+  B"
           )
 

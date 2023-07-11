@@ -1,7 +1,7 @@
 # calculate the lag of Quercus
 library(rnpn)
 species_code <- rnpn::npn_species() %>% 
-  select('functional_type', 'common_name', 'species_id')
+  dplyr::select('functional_type', 'common_name', 'species_id')
 
 quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus.rds")
 

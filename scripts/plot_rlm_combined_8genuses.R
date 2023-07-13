@@ -8,6 +8,7 @@ folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/"
 # Get list of RDS files in the folder
 rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)[c(1, 3, 5, 7, 8, 9, 10, 11)] 
 
+
 # Loop through each RDS file
 site_gg <- vector(mode = "list")
 for (i in seq_along(rds_files) ) {
@@ -22,9 +23,29 @@ for (i in seq_along(rds_files) ) {
     filter(numdays_since_prior_no < 20) %>% # Filtering Data by Prior No
     dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id)
   
-  joined_data <- data_qc %>%
+ # visial check the normal distribution
+ # data_qc %>%
+ #    group_by(pheno_class_id, species_id) %>%
+ #    filter(n() > 30) %>%
+ #    ungroup() %>%
+ #    ggplot() +
+ #    geom_histogram(aes(x = first_yes_doy), bins = 30) +
+ #    facet_grid(species_id ~ pheno_class_id)
+    
+  data_qc_outlier <- data_qc %>%
+    group_by(pheno_class_id, species_id) %>%
+    filter(n() > 30) %>%
+    summarise(aver = mean(first_yes_doy),
+              std = sd(first_yes_doy),
+              lower = aver - 1.645 * std,
+              upper = aver + 1.645 * std) %>%
+    inner_join(data_qc, by = c("pheno_class_id", "species_id")) %>%
+    filter(first_yes_doy > lower & first_yes_doy < upper) %>%
+    ungroup()
+  
+  joined_data <- data_qc_outlier %>%
     filter(pheno_class_id == 1) %>%
-    inner_join(data_qc %>%
+    inner_join(data_qc_outlier %>%
                  filter(pheno_class_id == 7),
                by = c("individual_id", "first_yes_year", "species_id", "dataset_id"))
   

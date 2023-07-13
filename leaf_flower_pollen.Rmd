@@ -19,7 +19,7 @@ library(see)
 
 We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::select is masked
 combined_plot
 #rm(list = ls())

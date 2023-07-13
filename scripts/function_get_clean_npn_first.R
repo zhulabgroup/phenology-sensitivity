@@ -8,7 +8,7 @@ data_qc <- taxadata %>%   filter(observed_status_conflict_flag == "-9999") %>% #
   slice(1)%>%
   mutate(numdays_since_prior_no = na_if(numdays_since_prior_no, "-9999")) %>% # set the -9999 values to NA
   filter(numdays_since_prior_no < 20) %>% # Filtering Data by Prior No
-  dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id)
+  dplyr::select(individual_id, first_yes_year, first_yes_doy, species_id, dataset_id, pheno_class_id, longitude, latitude)
 
 # visial check the normal distribution
 # data_qc %>%
@@ -37,7 +37,7 @@ joined_data <- data_qc_outlier %>%
   filter(pheno_class_id == 1) %>%
   inner_join(data_qc_outlier %>%
                filter(pheno_class_id == 7),
-             by = c("individual_id", "first_yes_year", "species_id", "dataset_id")) %>% 
+             by = c("individual_id", "first_yes_year", "species_id", "dataset_id", "longitude", "latitude")) %>% 
   group_by(species_id) %>% 
   filter(n()>30) 
 }

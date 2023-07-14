@@ -31,31 +31,31 @@ oak_rlm <- ggplot(joined_data_name,aes(x = leaf, y = flower)) +
   
 
 # plot lag violin  
-p <- joined_data_name %>%
+# Calculate mean and standard deviation
+summarised_data <- joined_data_name %>%
+  group_by(common_name, functional_type) %>%
+  summarise(mean_lag = mean(lag, na.rm = TRUE), 
+            sd_lag = sd(lag, na.rm = TRUE))
+# Draw the plot
+oak_violin <- joined_data_name %>%
   ggplot(aes(y = lag, x = reorder(common_name, lag, FUN = mean), fill = functional_type)) +
-  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "red", fill = "white") +
-  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = 'red', fun.args = list(mult = 1)) +
   geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
   geom_jitter(alpha = 0.1, width = 0.15) +
+  geom_point(data = summarised_data, aes(y = mean_lag, 
+                                         x = reorder(common_name, mean_lag)),shape = 16, size = 4, color = "red", fill = "white") +
+  geom_errorbar(data = summarised_data, 
+                aes(ymin = mean_lag - sd_lag, ymax = mean_lag + sd_lag, x = reorder(common_name, mean_lag)), 
+                width = 0.2, color = 'red', inherit.aes = FALSE) +
   xlab("Species") +
   ylab("flower day - leafing day") +
   scale_y_continuous(limits = c(-20, 50)) +
   coord_flip() +
-  labs(fill = "Functional Type")
+  labs(fill = "Functional Type")  
+  
+  
+ 
 
-p3 <- joined_data %>%
-  ggplot(aes(x = "Quercus", y = lag)) +
-  geom_violinhalf(position = position_nudge(x = .2, y = 0)) +
-  geom_jitter(alpha = 0.1, width = 0.15) +
-  stat_summary(fun = mean, geom = "point", shape = 16, size = 4, color = "red", fill = "white") +
-  stat_summary(fun.data = "mean_sdl", geom = "errorbar", width = 0.2, color = "red", fun.args = list(mult = 1)) +
-  xlab("")+
-  ylab("flower day - leafing day") +
-  scale_y_continuous(limits = c(-20, 50))+
-  coord_flip()
-
-
-
+##################
 lags_violin <- p + p3 +
   patchwork::plot_annotation(tag_levels = "A") +
   patchwork::plot_layout(design = 
@@ -132,4 +132,9 @@ joined_data_name %>%
   geom_smooth(method = "lm", se = FALSE) +
   ggrepel::geom_text_repel(aes(label = common_name), hjust = 0, vjust = 0)
 
-  
+# report species level lag
+lag_table <- joined_data_name %>% 
+  group_by(common_name,species_id) %>% 
+  summarise(avelag = mean(lag))
+
+write_csv(lag_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv")

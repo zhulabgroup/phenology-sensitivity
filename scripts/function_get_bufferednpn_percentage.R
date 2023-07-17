@@ -2,6 +2,7 @@ get_buffle_npn_percentage <- function(buffer, phenoclass, taxa, lam){
   
 library(sf)
 library(zoo)
+  
 # get npn data
 npn_phenophases <- rnpn::npn_phenophases() 
 
@@ -9,10 +10,10 @@ id <- npn_phenophases[npn_phenophases$pheno_class_id==phenoclass,"phenophase_id"
 
 npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/", taxa, ".rds")) %>%
   filter(phenophase_id %in% id$phenophase_id) %>%
-  select(latitude, longitude, individual_id, observation_date, phenophase_status) %>%
+  select(latitude, longitude, individual_id, observation_date, phenophase_status, species_id) %>%
   mutate(observation_date = as.Date(observation_date),
-         year = lubridate::year(observation_date),
-         doy = lubridate::yday(observation_date)) %>% 
+         year = year(observation_date),
+         doy = yday(observation_date)) %>% 
   filter(phenophase_status > -1)
 
 individual_list <- distinct(npn_wind, longitude, latitude)
@@ -33,7 +34,7 @@ points_sf <- st_as_sf(individual_list,
                       agr = "constant", 
                       remove = FALSE)
 
-# Create a buffer of 200km around each station
+# Create a buffer of 50km around each station
 station_buffers <- st_buffer(stations_sf, dist = buffer*1000)  # 200000 meters = 200 kilometers
 
 # Create an empty list to store points within each station buffer
@@ -58,8 +59,8 @@ df %>%
     group_by(observation_date) %>%
     summarize(percentage = mean(phenophase_status)) %>% 
     rename(date = observation_date) %>% 
-    mutate(year = lubridate::year(date),
-           doy = lubridate::yday(date)) %>% 
+    mutate(year = year(date),
+           doy = yday(date)) %>% 
     group_by(year) %>% 
     filter(!all(percentage == 0)) %>% 
     filter(n()>3)

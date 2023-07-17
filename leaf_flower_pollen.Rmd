@@ -11,6 +11,9 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(see)
+library(purrr)
+library(tibble)
+library(lubridate)
 ```
 
 # leaf flower start date realtion in NPN 

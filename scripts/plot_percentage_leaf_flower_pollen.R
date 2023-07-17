@@ -1,4 +1,3 @@
-library(tidyverse)
 source("scripts/function_get_bufferednpn_percentage.R")
 npn_leaf <- get_buffle_npn_percentage(50,1,"Quercus",10)
 npn_flower <- get_buffle_npn_percentage(50,7,"Quercus",10)

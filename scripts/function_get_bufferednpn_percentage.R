@@ -2,7 +2,7 @@ get_buffle_npn_percentage <- function(buffer, phenoclass, taxa, lam){
   
 library(sf)
 library(zoo)
-  
+
 # get npn data
 npn_phenophases <- rnpn::npn_phenophases() 
 
@@ -14,7 +14,11 @@ npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa
   mutate(observation_date = as.Date(observation_date),
          year = year(observation_date),
          doy = yday(observation_date)) %>% 
-  filter(phenophase_status > -1)
+  filter(phenophase_status > -1) %>% 
+  unique() %>%
+  group_by(year, doy, individual_id) %>%
+  filter(n() == 1) %>%
+  ungroup() 
 
 individual_list <- distinct(npn_wind, longitude, latitude)
 
@@ -55,10 +59,7 @@ names(points_within_buffer) <- station_info$id
 points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0)
 
 npn <- map(points_within_buffer_filtered, function(df) {
-df %>%  unique() %>%
-    group_by(year, doy, species_id) %>%
-    filter(n() == 1) %>%
-    ungroup() %>% 
+df %>%  
     group_by(observation_date) %>%
     summarize(percentage = mean(phenophase_status)) %>% 
     rename(date = observation_date) %>% 

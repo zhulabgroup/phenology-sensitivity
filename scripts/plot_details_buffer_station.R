@@ -3,10 +3,7 @@
 sample_staiton <- points_within_buffer_filtered[["5effe609-c645-4620-bc99-a3b34934897c"]]
 
 sample_staiton_uni <- sample_staiton %>% 
-  unique() %>%
-  group_by(year, doy, species_id) %>%
-  filter(n() == 1) %>%
-  ungroup() %>% 
+
   mutate(individual_id <- as.factor(individual_id),
          species_id <- as.factor(species_id))
 

@@ -23,6 +23,8 @@ print(site_gg)
 dev.off()
 
 # plot smoothed npn
+npn <- get_buffle_npn_percentage(50, 1, "Quercus", 10)
+
 stationlist <- unique(npn$station)
 
 site_gg <- vector(mode = "list")

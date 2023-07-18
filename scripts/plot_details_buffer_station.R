@@ -6,17 +6,24 @@ sample_staiton_uni <- sample_staiton %>%
   unique() %>%
   group_by(year, doy, species_id) %>%
   filter(n() == 1) %>%
-  ungroup()
+  ungroup() %>% 
+  mutate(individual_id <- as.factor(individual_id),
+         species_id <- as.factor(species_id))
 
 oak_station_insight <-
- 
-  sample_staiton_uni %>%
-  ggplot() + 
-  geom_tile(aes(x = doy, y = as.factor(individual_id), fill = factor(phenophase_status))) +
-  scale_fill_manual(values = c("grey", "brown")) +
-  labs(x = "Day of year", y = "Year") + 
-  facet_wrap(~ year)
 
+  
+
+sample_staiton_uni %>%
+  filter(year==2022) %>% 
+  ggplot() + 
+  geom_tile(aes(x = doy, y = reorder(individual_id, species_id), fill = factor(phenophase_status))) +
+  scale_fill_manual(values = c("grey", "brown")) +  
+  ylab('individual') +
+  theme(
+        axis.text.y = element_blank()
+        ) +
+  ggtitle("5effe609-c645-4620-bc99-a3b34934897c year2022")
 
   
   

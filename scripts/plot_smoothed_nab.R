@@ -40,6 +40,6 @@ for (i in seq_along(stationlist)) {
     ggtitle(stationlist[i])
 }
 
-pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/leaf.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/leaf_lag_outlier.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()

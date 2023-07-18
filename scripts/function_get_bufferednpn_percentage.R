@@ -20,7 +20,33 @@ npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa
   filter(n() == 1) %>%
   ungroup() 
 
-individual_list <- distinct(npn_wind, longitude, latitude)
+# read the lag info
+lag <- read_csv("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv")
+
+withlag <- npn_wind %>%
+  inner_join(lag, by = "species_id") %>% 
+  mutate(doy = doy+avelag,
+         year = if_else(doy > 365, year + 1, as.double(year)),
+         doy = if_else(doy > 365, doy - 365, as.double(doy) ))
+
+
+# generate the outlier list:
+outliers <- withlag %>% 
+  filter(phenophase_status==1) %>% 
+  group_by(species_id) %>% 
+  filter(n() > 30) %>%
+  summarise(aver = mean(doy),
+            std = sd(doy),
+            lower = aver - 1.645 * std,
+            upper = aver + 1.645 * std) %>% 
+  inner_join(withlag, by = "species_id") %>% 
+  filter((doy > lower & doy < upper) | phenophase_status == 0) %>%
+  ungroup() %>% 
+  dplyr::select(-aver,-std,-lower,-upper)
+  
+
+
+individual_list <- distinct(outliers, longitude, latitude)
 
 # get nab station
 station_info <- read.csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% 
@@ -50,7 +76,7 @@ for (i in 1:nrow(stations_sf)) {
   
   # Find points within the station buffer
   temp <- st_intersection(points_sf, station_buffer)
-  points_within_buffer[[i]] <- npn_wind %>%
+  points_within_buffer[[i]] <- outliers %>%
     semi_join(temp, by = c("latitude", "longitude"))
 }
 

@@ -1,11 +1,24 @@
+# check the species outlier
+species_obs <- npn_wind %>% 
+  filter(species_id==297 & phenophase_status == 1) 
+
+ggplot(species_obs) +
+  geom_histogram(aes(x = doy))
+
+x_den<-density(species_obs$doy, from = 0, to = 364)
+x_thres <- data.frame(x = x_den$x, y = x_den$y) %>%
+  arrange(y) %>%
+  head(1) %>%
+  pull(x)
+
 # show the detail of the flower and leaf data & the effect of the lag
 
 sample_staiton <- points_within_buffer_filtered[["5effe609-c645-4620-bc99-a3b34934897c"]]
 
 sample_staiton_uni <- sample_staiton %>% 
 
-  mutate(individual_id <- as.factor(individual_id),
-         species_id <- as.factor(species_id))
+  mutate(individual_id = as.factor(individual_id),
+         species_id = as.factor(species_id))
 
 oak_station_insight <-
 

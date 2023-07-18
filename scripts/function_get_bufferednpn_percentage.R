@@ -55,7 +55,10 @@ names(points_within_buffer) <- station_info$id
 points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0)
 
 npn <- map(points_within_buffer_filtered, function(df) {
-df %>%
+df %>%  unique() %>%
+    group_by(year, doy, species_id) %>%
+    filter(n() == 1) %>%
+    ungroup() %>% 
     group_by(observation_date) %>%
     summarize(percentage = mean(phenophase_status)) %>% 
     rename(date = observation_date) %>% 

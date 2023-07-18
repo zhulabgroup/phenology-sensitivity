@@ -1,28 +1,42 @@
-source("scripts/function_get_bufferednpn_percentage.R")
-npn_leaf <- get_buffle_npn_percentage(50,1,"Quercus",10)
+source("scripts/function_get_lagbufferednpn_percentage.R")
+npn_leaf <- get_buffle_npn_percentage(50,1,"Quercus",10,TRUE)
 npn_flower <- get_buffle_npn_percentage(50,7,"Quercus",10)
 source("scripts/function_get_smoothed_nab_for_taxa.R")
 nab <- get_smoothed_nab("Quercus")
 
 # stardarize the data (should be put into getting data?)
-npn_leaf_s <- npn_leaf %>% 
+npn_leaf_n <- npn_leaf %>% 
   select(station,year, doy,count_w) %>% 
-  rename(leaf = count_w) %>% 
-  mutate(doy = doy+15) %>% 
-  mutate(doy = ifelse(doy > 365, doy - 365, doy))
+  rename(leaf = count_w)
+npn_leaf_s <- npn_leaf_n %>% 
+  group_by(station,year) %>% 
+  summarise(total = sum(leaf)) %>% 
+  inner_join(npn_leaf_n, by = c("station","year")) %>% 
+  mutate(leaf = leaf/total) %>% 
+  select(-total) %>% 
+  ungroup()
 
-
-npn_flower_s <- npn_flower %>% 
+npn_flower_n <- npn_flower %>% 
   select(station,year, doy,count_w) %>% 
   rename(flower = count_w)
+npn_flower_s <- npn_flower_n %>% 
+  group_by(station,year) %>% 
+  summarise(total = sum(flower)) %>% 
+  inner_join(npn_flower_n, by = c("station","year")) %>% 
+  mutate(flower = flower/total) %>% 
+  select(-total) %>% 
+  ungroup()
 
-nab_s <- nab %>% 
+nab_n <- nab %>% 
   mutate(doy = lubridate::yday(date)) %>% 
   select(stationid, year, doy, count_w) %>% 
-  rename(station = stationid, pollen = count_w) %>% 
+  rename(station = stationid, pollen = count_w) 
+nab_s <- nab_n%>% 
   group_by(station, year) %>% 
-  mutate(pollen = pollen/max(pollen)) %>% 
-  ungroup()
+  summarise(total = sum(pollen)) %>%
+  inner_join(nab_n, by = c("station","year")) %>% 
+  mutate(pollen = pollen/total) %>% 
+  select(-total)
 
 
 # visial check
@@ -69,13 +83,12 @@ for (i in seq_along(stationlist)) {
 }
 
 
-pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 
-correlation_table <- correlation_table %>% select(-leaf_correlation,-flower_correlation)
 
-write_rds(site_gg,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.rds")
-write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/lag_RMSE_Smooth_Quercus_leafflowerpollen.csv")
+write_rds(site_gg,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.rds")
+write_csv(correlation_table,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.csv")
 
   

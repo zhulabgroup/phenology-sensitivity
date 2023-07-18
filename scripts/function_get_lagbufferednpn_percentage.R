@@ -1,4 +1,4 @@
-get_buffle_npn_percentage <- function(buffer, phenoclass, taxa, lam){
+get_buffle_npn_percentage <- function(buffer, phenoclass, taxa, lam, lagbi = FALSE){
   
 library(sf)
 library(zoo)
@@ -20,14 +20,19 @@ npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa
   filter(n() == 1) %>%
   ungroup() 
 
-# read the lag info
-lag <- read_csv("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv")
+if (lagbi){
+  # read the lag info
+  lag <- read_csv("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv")
+  
+  withlag <- npn_wind %>%
+    inner_join(lag, by = "species_id") %>% 
+    mutate(doy = doy+avelag,
+           year = if_else(doy > 365, year + 1, as.double(year)),
+           doy = if_else(doy > 365, doy - 365, as.double(doy) ))
+} else {
+  withlag <- npn_wind
+}
 
-withlag <- npn_wind %>%
-  inner_join(lag, by = "species_id") %>% 
-  mutate(doy = doy+avelag,
-         year = if_else(doy > 365, year + 1, as.double(year)),
-         doy = if_else(doy > 365, doy - 365, as.double(doy) ))
 
 
 # generate the outlier list:

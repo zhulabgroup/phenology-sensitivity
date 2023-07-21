@@ -1,4 +1,4 @@
-# calculate the lag of Quercus
+# calculate the lag of Quercus for npn
 source("scripts/function_get_clean_npn_first.R")
 
 species_code <- rnpn::npn_species() %>% 
@@ -9,15 +9,23 @@ quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/NPN/leaf_flower/Quercus.rd
   rename(leaf = first_yes_doy.x, flower = first_yes_doy.y) %>% 
   mutate(lag = flower-leaf)
 
-
+# get climate data
 raster_tem <- terra::rast("/nfs/turbo/seas-zhukai/climate/CHELSA/climatology/bio1.tif")
 raster_pre <- terra::rast("/nfs/turbo/seas-zhukai/climate/CHELSA/climatology/bio12.tif")
 
-
+# connect them
 joined_data_name <- quercus %>% 
   left_join(species_code, by = "species_id") %>% 
-  mutate(tem = terra::extract(raster_tem, cbind(longitude, latitude)),
-         pre = terra::extract(raster_pre, cbind(longitude, latitude))) 
+  mutate(tem = terra::extract(raster_tem, cbind(longitude, latitude))$bio1,
+         pre = terra::extract(raster_pre, cbind(longitude, latitude))$bio12) 
+
+
+
+chatgpt_output <- joined_data_name %>% 
+  select(tem, pre, common_name, flower, lag, leaf)
+
+write_csv(chatgpt_output,"/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/trygpt.csv")
+
 
 
 #plot rlm

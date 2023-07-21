@@ -15,10 +15,14 @@ x_thres <- data.frame(x = x_den$x, y = x_den$y) %>%
 
 sample_staiton <- points_within_buffer_filtered[["5effe609-c645-4620-bc99-a3b34934897c"]]
 
+test <- sample_staiton %>% 
+  group_by(species_id,year) %>% 
+  summarise(count = n())
+
 sample_staiton_uni <- sample_staiton %>% 
 
   mutate(individual_id = as.factor(individual_id),
-         species_id = as.factor(species_id))
+         species_id =  as.factor(species_id))
 
 oak_station_insight <-
 

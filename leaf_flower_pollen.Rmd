@@ -61,4 +61,7 @@ print(RMSE_violin)
 rm(list = ls())
 ```
 
+```{r}
+rm(list = setdiff(ls(), c("npn_leaf", "npn_leaf_lag", "npn_flower", "nab")))
+```
 

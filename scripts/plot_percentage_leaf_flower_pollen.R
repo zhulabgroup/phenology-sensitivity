@@ -31,17 +31,6 @@ nab_s <- standardize_data(nab %>%
                             rename(station = stationid), pollen)
 
 
-
-# visial check
-to_plot <- npn_leaf_s %>% 
-  full_join(npn_leaf_lag_s, by = c("station", "year", "doy")) %>% 
-  full_join(npn_flower_s, by = c("station", "year", "doy")) %>% 
-  left_join(nab_s,by = c("station","year","doy")) %>% 
-  group_by(station,year) %>%
-  filter(!all(is.na(pollen)))
-
-stationlist <- unique(to_plot$station)
-
 site_gg <- vector(mode = "list")
 
 correlation_table <- to_plot %>%
@@ -77,13 +66,13 @@ for (i in seq_along(stationlist)) {
               aes(x = Inf, y = Inf, 
                   label = paste0("leaf_corr: ", round(leaf_correlation, 2), "\n",
                                  "leaf_lag_corr: ", round(leaf_lag_correlation, 2), "\n",
-                                 "flower_corr: ", round(flower_rmse, 2))), 
+                                 "flower_corr: ", round(flower_correlation, 2))), 
               hjust = 1, vjust = 1, size = 4) +
     ggtitle(stationlist[i])
 }
 
 
-pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_sperc_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 

@@ -1,7 +1,7 @@
 source("scripts/function_get_lagbufferednpn_percentage.R")
-npn_leaf <- get_buffle_npn_percentage(50,1,"Quercus",10)
-npn_leaf_lag <- get_buffle_npn_percentage(50,1,"Quercus",10,TRUE)
-npn_flower <- get_buffle_npn_percentage(50,7,"Quercus",10)
+npn_leaf <- get_buffle_npn_percentage(50,1,"Quercus",10)[[1]]
+npn_leaf_lag <- get_buffle_npn_percentage(50,1,"Quercus",10,TRUE)[[1]]
+npn_flower <- get_buffle_npn_percentage(50,7,"Quercus",10)[[1]]
 source("scripts/function_get_smoothed_nab_for_taxa.R")
 nab <- get_smoothed_nab("Quercus")
 
@@ -24,12 +24,19 @@ standardize_data <- function(data, new_name) {
 }
 
 npn_leaf_s <- standardize_data(npn_leaf, leaf)
-npn_leaf_lag_s <- standardize_data(npn_leaf_lag, leaf_lag)
+npn_leaf_lag_s <- standardize_data(npn_leaf_lag, leaf_lag) 
 npn_flower_s <- standardize_data(npn_flower, flower)
 nab_s <- standardize_data(nab %>% 
                             mutate(doy = lubridate::yday(date))%>% 
                             rename(station = stationid), pollen)
+to_plot <- npn_leaf_s %>% 
+  full_join(npn_leaf_lag_s, by = c("station", "year", "doy")) %>% 
+  full_join(npn_flower_s, by = c("station", "year", "doy")) %>% 
+  left_join(nab_s,by = c("station","year","doy")) %>% 
+  group_by(station,year) %>%
+  filter(!all(is.na(pollen)))
 
+stationlist <- unique(to_plot$station)
 
 site_gg <- vector(mode = "list")
 
@@ -57,7 +64,7 @@ for (i in seq_along(stationlist)) {
   
   site_gg[[i]] <-  to_plot_station %>% 
     ggplot() +
-    geom_line(aes(x = doy, y = pollen, color = "pollen"), linewidth = 2, alpha = 0.75) +
+    geom_line(aes(x = doy, y = pollen, color = "pollen"), linewidth = 1, alpha = 0.75) +
     geom_line(aes(x = doy, y = leaf, color = "leaf"), linewidth = 1.5, alpha = 0.75) +
     geom_line(aes(x = doy, y = flower, color = "flower"), linewidth = 1, alpha = 0.75) +
     geom_line(aes(x = doy, y = leaf_lag, color = "leaf_lag"), linewidth = 0.5, alpha = 0.75) +

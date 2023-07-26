@@ -20,17 +20,21 @@ npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa
   filter(n() == 1) %>%
   ungroup() 
 
+lag <- read_csv("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv") %>% 
+  mutate(avelag = round(avelag))
+  
+
 if (lagbi){
   # read the lag info
-  lag <- read_csv("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/oak_species_lag.csv")
   
   withlag <- npn_wind %>%
     inner_join(lag, by = "species_id") %>% 
     mutate(doy = doy+avelag,
            year = if_else(doy > 365, year + 1, as.double(year)),
-           doy = if_else(doy > 365, doy - 365, as.double(doy) ))
+           doy = if_else(doy > 365, doy - 365, as.double(doy) )) # pay attention observation data is not changed
 } else {
-  withlag <- npn_wind
+  withlag <- npn_wind %>%
+    inner_join(lag, by = "species_id") 
 }
 
 
@@ -47,7 +51,7 @@ outliers <- withlag %>%
   inner_join(withlag, by = "species_id") %>% 
   filter((doy > lower & doy < upper) | phenophase_status == 0) %>%
   ungroup() %>% 
-  dplyr::select(-aver,-std,-lower,-upper)
+  select(-aver,-std,-lower,-upper)
   
 
 
@@ -87,22 +91,19 @@ for (i in 1:nrow(stations_sf)) {
 
 names(points_within_buffer) <- station_info$id
 
-points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0)
+points_within_buffer_filtered <- keep(points_within_buffer, ~ nrow(.x) > 0) # last step with individual info
 
 npn <- map(points_within_buffer_filtered, function(df) {
 df %>%  
-    group_by(observation_date) %>%
-    summarize(percentage = mean(phenophase_status)) %>% 
-    rename(date = observation_date) %>% 
-    mutate(year = year(date),
-           doy = yday(date)) %>% 
+    group_by(doy,year) %>%
+    summarize(percentage = mean(phenophase_status), .groups = "drop") %>% 
     group_by(year) %>% 
     filter(!all(percentage == 0)) %>% 
-    filter(n()>3)
+    filter(n()>3) %>% 
+    ungroup()
 }) %>%
   enframe(name = "station", value = "data")  %>%
   unnest(data) %>% 
-  select(-date) %>% 
   group_by(station, year) %>% 
   complete(doy = seq(min(doy), max(doy)), fill = list(percentage = NA)) %>% 
   mutate(count_l = na.approx(percentage, maxgap = 14),
@@ -111,6 +112,6 @@ df %>%
   complete(doy = 1:365, fill = list(count_l = 0, count_w = 0)) %>% 
   ungroup()
 
-return(npn) 
+return(list(npn, points_within_buffer_filtered))
 }
 

@@ -1,4 +1,40 @@
+# check the lag process:
+# 1. why for most station, the lag is not obvious
+# 2. why lag helped reduct outliers?
+# "1afdaa42-0a1f-4610-b9cd-c30a1493a2c9" "5effe609-c645-4620-bc99-a3b34934897c"
+# 575c20d1-846d-4ae3-bdb1-8aed42847a4a
+
+
+test <- npn_leaf %>% 
+  filter(year == 2020 & station == "575c20d1-846d-4ae3-bdb1-8aed42847a4a")
+test2 <- npn_leaf_lag %>% 
+  filter(year == 2020 & station == "575c20d1-846d-4ae3-bdb1-8aed42847a4a")
+  
+ggplot() +
+  geom_point(data = test, aes(x = doy, y = percentage, color = "leaf"), linewidth = 1.5, alpha = 0.75) +
+  geom_point(data = test2, aes(x = doy, y = percentage, color = "leaf_lag"), linewidth = 0.5, alpha = 0.75) 
+
+
+to_plot_station <- to_plot %>% 
+  filter(station == stationlist[i]) %>% 
+  mutate(pollen = replace_na(pollen, 0)) 
+
+to_plot %>% 
+  filter(year == 2022 & station == "5effe609-c645-4620-bc99-a3b34934897c") %>% 
+  ggplot() +
+  geom_line(aes(x = doy, y = leaf, color = "leaf"), linewidth = 1.5, alpha = 0.75) +
+  geom_line(aes(x = doy, y = leaf_lag, color = "leaf_lag"), linewidth = 0.5, alpha = 0.75) 
+
+
+
+
+
+
+
+
+
 # check the species outlier
+
 species_obs <- npn_wind %>% 
   filter(species_id==297 & phenophase_status == 1) 
 

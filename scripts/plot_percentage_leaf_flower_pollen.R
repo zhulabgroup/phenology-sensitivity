@@ -40,12 +40,11 @@ stationlist <- unique(to_plot$station)
 
 site_gg <- vector(mode = "list")
 
-correlation_table <- to_plot %>%
-  mutate(pollen = replace_na(pollen, 0)) %>% 
-  group_by(station, year) %>%
-  summarise(cor_leaf = cor(leaf, pollen, method = "spearman"),
-            cor_leaf_lag = cor(leaf_lag, pollen, method = "spearman"),
-            cor_flower = cor(flower, pollen, method = "spearman"))
+correlation_table <- tibble(year = integer(), leaf_rmse = numeric(),leaf_lag_rmse = numeric(), flower_rmse = numeric(), station = character())
+
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2/max(actual) - min(actual), na.rm = TRUE))
+}
 
 
 for (i in seq_along(stationlist)) {
@@ -57,10 +56,13 @@ for (i in seq_along(stationlist)) {
   
   cor_data <- to_plot_station %>%
     group_by(year) %>%
-    summarize(leaf_correlation = cor(leaf, pollen, method = "spearman",  use = "na.or.complete"),
-              flower_correlation = cor(flower, pollen, method = "spearman",  use = "na.or.complete"),
-              leaf_lag_correlation = cor(leaf_lag, pollen, method = "spearman",  use = "na.or.complete")) %>% 
+    summarize(leaf_rmse = rmse(leaf, pollen),
+              leaf_lag_rmse = rmse(leaf_lag, pollen),
+              flower_rmse = rmse(flower, pollen)) %>% 
     mutate(station = stationlist[i])
+  
+  correlation_table <- bind_rows(correlation_table, cor_data)
+
   
   site_gg[[i]] <-  to_plot_station %>% 
     ggplot() +
@@ -71,15 +73,15 @@ for (i in seq_along(stationlist)) {
     facet_wrap(~ year)+
     geom_text(data = cor_data, 
               aes(x = Inf, y = Inf, 
-                  label = paste0("leaf_corr: ", round(leaf_correlation, 2), "\n",
-                                 "leaf_lag_corr: ", round(leaf_lag_correlation, 2), "\n",
-                                 "flower_corr: ", round(flower_correlation, 2))), 
+                  label = paste0("leaf_rmse: ", round(leaf_rmse, 2), "\n",
+                                 "leaf_lag_rmse: ", round(leaf_lag_rmse, 2), "\n",
+                                 "flower_rmse: ", round(flower_rmse, 2))), 
               hjust = 1, vjust = 1, size = 4) +
     ggtitle(stationlist[i])
 }
 
 
-pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_sperc_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
+pdf("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.pdf", width = 8, height = 8 * .618)
 print(site_gg)
 dev.off()
 

@@ -1,17 +1,32 @@
 # check the lag process:
 # 1. why for most station, the lag is not obvious
 # 2. why lag helped reduct outliers?
-# "1afdaa42-0a1f-4610-b9cd-c30a1493a2c9" "5effe609-c645-4620-bc99-a3b34934897c"
-# 575c20d1-846d-4ae3-bdb1-8aed42847a4a
+# "1afdaa42-0a1f-4610-b9cd-c30a1493a2c9" check why they are the same 12.44 lag
+# "5effe609-c645-4620-bc99-a3b34934897c"
+# 575c20d1-846d-4ae3-bdb1-8aed42847a4a to check advancing after lag
+source("scripts/function_get_lagbufferednpn_percentage.R")
+result <- get_buffle_npn_percentage(50,1,"Quercus",10)
+npn_leaf <- result[[1]]
+npn_leaf_raw <- result[[2]]
+
+result2<- get_buffle_npn_percentage(50,1,"Quercus",10,TRUE)
+npn_leaf_lag <- result2[[1]]
+npn_leaf_lag_raw <- result2[[2]]
 
 
-test <- npn_leaf %>% 
-  filter(year == 2020 & station == "575c20d1-846d-4ae3-bdb1-8aed42847a4a")
+test <- npn_leaf_raw[["575c20d1-846d-4ae3-bdb1-8aed42847a4a"]] %>% 
+  filter(year == 2020)
+
+test_lag <- npn_leaf_lag_raw[["575c20d1-846d-4ae3-bdb1-8aed42847a4a"]] %>% 
+  filter(year == 2020)
+
+test1 <- npn_leaf %>% 
+  filter(year == 2016 & station == "1afdaa42-0a1f-4610-b9cd-c30a1493a2c9")
 test2 <- npn_leaf_lag %>% 
-  filter(year == 2020 & station == "575c20d1-846d-4ae3-bdb1-8aed42847a4a")
+  filter(year == 2016 & station == "1afdaa42-0a1f-4610-b9cd-c30a1493a2c9")
   
 ggplot() +
-  geom_point(data = test, aes(x = doy, y = percentage, color = "leaf"), linewidth = 1.5, alpha = 0.75) +
+  geom_point(data = test1, aes(x = doy, y = percentage, color = "leaf"), linewidth = 1.5, alpha = 0.75) +
   geom_point(data = test2, aes(x = doy, y = percentage, color = "leaf_lag"), linewidth = 0.5, alpha = 0.75) 
 
 

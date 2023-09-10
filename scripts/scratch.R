@@ -89,3 +89,22 @@ ggplot() +
   labs(x = "Longitude", y = "Latitude") +
   ggtitle("Spatial Coverage of Observations in 1-degree x 1-degree Grids") +
   theme_minimal()
+
+
+temp <- quercus %>%
+  filter(species_id == 102) %>%           # Filter data for species with ID 102
+  group_by(individual_id) %>%             # Group data by individual_id
+  filter(n() > 10) %>%                     # Keep groups with more than 5 observations
+  ggplot() +                              # Initialize a ggplot object
+  geom_boxplot(aes(x = as.factor(individual_id), y = lag)) 
+  
+install.packages("daymetr")
+library(daymetr) 
+
+data <- download_daymet(lat = 42.54604, lon = -71.3545)
+
+
+season_data <- daymet_grid_agg(data, 
+                               int = "seasonal",
+                               fun = "mean")
+ 

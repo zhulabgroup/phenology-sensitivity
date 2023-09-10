@@ -41,6 +41,24 @@ rm(list = ls())
 ```
 Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
 
+# using environmental factor to explain the lag
+## download winter spring temperature
+```{r}
+# source("scripts/download_daymetwinsprtem_for_q.R")
+```
+
+## individual level temporal comparation
+```{r}
+source("scripts/plot_individual_oak_norm.R")
+plot_individual_varibility
+rm(list = ls())
+```
+## individual level spatial comparation
+```{r}
+source("scripts/plot_oak_spatial_compare.R")
+rm(list = ls())
+```
+
 # using npn to predict pollen
 
 ## let's see the result if we supppose leaf and flower is the same and compare their ability to predict pollen

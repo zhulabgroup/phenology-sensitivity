@@ -5,11 +5,11 @@ get_winter_spring_temperatures <- function(locations_data) {
   results <- data.frame()
   
   for (i in 1:nrow(locations_data)) {
-    lon <- locations_data[i, "longitude"]
-    lat <- locations_data[i, "latitude"]
-    myyear <- locations_data[i, "year"]
+    lon <- locations_data[i, ] %>% pull(longitude) 
+    lat <- locations_data[i, ] %>% pull(latitude) 
+    myyear <- locations_data[i, ] %>% pull(year)
     
-    daymet_data <- download_daymet(lon = lon, lat = lat, start = myyear-1,end = myyear)
+    daymet_data <- download_daymet(lon = locations_data[i, "longitude"], lat = locations_data[i, "latitude"], start = myyear-1,end = myyear)
 
     temperature <- daymet_data$data %>% 
       dplyr::select("tmin..deg.c.", "tmax..deg.c.", "yday", "year") %>%

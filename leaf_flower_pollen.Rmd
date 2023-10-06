@@ -20,6 +20,7 @@ library(patchwork)
 # leaf flower start date realtion in NPN 
 
 ## correlation
+First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
 
 We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
 

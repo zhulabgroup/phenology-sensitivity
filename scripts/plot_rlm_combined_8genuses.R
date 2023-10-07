@@ -2,6 +2,9 @@
 source("scripts/function_get_clean_npn_first.R")
 library(MASS)
 
+species_code <- rnpn::npn_species() %>% 
+  dplyr::select('functional_type', 'common_name', 'species_id')
+
 # Folder path
 folder_path <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/" 
 
@@ -10,7 +13,8 @@ rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TR
 
 # Loop through each RDS file
 site_gg <- list()
-genus_stat <- c()
+species_stat <- tibble()
+
 for (i in seq_along(rds_files) ) {
   # Read the RDS file
   taxadata <- read_rds(rds_files[i]) %>% 
@@ -32,7 +36,14 @@ for (i in seq_along(rds_files) ) {
     guides(color = FALSE)
   
 
-
+  genus_result <- taxadata %>% 
+    summarize(
+      n = n(),
+      slope = broom::tidy(rlm(flower ~ leaf))$estimate[2], # Extract slope (coefficient for "leaf")
+      intercept = broom::tidy(rlm(flower ~ leaf))$estimate[1] # Extract intercept
+    ) %>% 
+    mutate(scientific_name = taxa_name)
+    
   # Group by species and calculate robust linear regression for each group
   grouped_results <- taxadata %>%
     group_by(species_id) %>%
@@ -40,18 +51,16 @@ for (i in seq_along(rds_files) ) {
       n = n(),
       slope = broom::tidy(rlm(flower ~ leaf))$estimate[2], # Extract slope (coefficient for "leaf")
       intercept = broom::tidy(rlm(flower ~ leaf))$estimate[1] # Extract intercept
-    )
+    ) %>% 
+    left_join(species_code,by = "species_id") %>% 
+    dplyr::select(-species_id,-functional_type) 
   
-  # Store the genus-level statistics and coefficients
-  genus_stat[[i]] <- list(
-    genus_name = taxa_name,
-    genus_n = nrow(taxadata),
-    coefficients = broom::tidy(rlm(flower ~ leaf, data = taxadata)),
-    species_results = grouped_results
-  )
+  species_stat <- bind_rows(species_stat, genus_result, grouped_results) 
   
 }
 }
+
+
 
 combined_plot <- site_gg %>% 
   discard(is.null) %>% 

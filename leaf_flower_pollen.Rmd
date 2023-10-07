@@ -15,6 +15,7 @@ library(purrr)
 library(tibble)
 library(lubridate)
 library(patchwork)
+# ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
 # leaf flower start date realtion in NPN 
@@ -26,12 +27,17 @@ We want to check whether some species have fixed lag: y = x+b. Here we can see t
 
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::select is masked
-combined_plot
-#rm(list = ls())
 ```
 
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+combined_plot
+```
 Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each dot represents a individual in a year. Each color represent a species. The wide black line represents the total dots robust linear regression. The thin black line is the 1:1 line.
 
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+species_stat
+write_csv(species_stat, "data/figure1_stat.csv")
+```
 
 ## lag distribution
 

@@ -10,7 +10,7 @@ rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TR
 
 # Loop through each RDS file
 site_gg <- list()
-genus_stat <- list()
+genus_stat <- c()
 for (i in seq_along(rds_files) ) {
   # Read the RDS file
   taxadata <- read_rds(rds_files[i]) %>% 
@@ -18,7 +18,7 @@ for (i in seq_along(rds_files) ) {
     rename(leaf = first_yes_doy.x, flower = first_yes_doy.y, year = first_yes_year) %>% 
     dplyr::select(species_id,leaf,flower,year)
   
-  if (!is.null(taxadata)) {
+  if (nrow(taxadata)!=0) {
     taxa_name <- stringr::str_extract(rds_files[i], "(?<=//)(.*?)(?=\\.rds)")
     
   site_gg[[i]] <- ggplot(taxadata) +
@@ -38,7 +38,8 @@ for (i in seq_along(rds_files) ) {
     group_by(species_id) %>%
     summarize(
       n = n(),
-      rlm_result = list(broom::tidy(rlm(flower ~ leaf))),
+      slope = broom::tidy(rlm(flower ~ leaf))$estimate[2], # Extract slope (coefficient for "leaf")
+      intercept = broom::tidy(rlm(flower ~ leaf))$estimate[1] # Extract intercept
     )
   
   # Store the genus-level statistics and coefficients
@@ -52,5 +53,7 @@ for (i in seq_along(rds_files) ) {
 }
 }
 
-combined_plot <- patchwork::wrap_plots(site_gg, nrow = 2)
+combined_plot <- site_gg %>% 
+  discard(is.null) %>% 
+  patchwork::wrap_plots(nrow = 2)
 

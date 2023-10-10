@@ -23,8 +23,6 @@ library(patchwork)
 ## correlation
 First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
 
-We want to check whether some species have fixed lag: y = x+b. Here we can see that maple, birch, pine, oak and elm shows the pattern. Except Elm, other genus shows a y = x pattern which means we may use leaf and flower interchangeably. But let's check the lag between lower and leaf first to see whether the lag is almost zero.
-
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::select is masked
 ```
@@ -32,12 +30,47 @@ source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::sele
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 combined_plot
 ```
+
 Fig.1 Leaf and flowering day relationship of pollen allergy related genus. Each dot represents a individual in a year. Each color represent a species. The wide black line represents the total dots robust linear regression. The thin black line is the 1:1 line.
 
+From this figure, we can see:
+1. the data availability, Acer (species: ) and Quercus have the most observations
+2. except grass, most of those species has a nearby leaf flower time and there is a clear correlation between leaf and flower. Grass has flower much later than leaf and the correlation between leaf and flower is messy.
+3. Though with an overall clear genus level leaf-flower correlation. There is clear inter-species difference, e.g., maple can be flower first/leaf first (figure 2a), pine and oak (figure 2b) has some species always flower/leaf earlier while others always late which may undermine the genus level trend. There is a need for species level analysis
+
+## species level correlation
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 species_stat
-write_csv(species_stat, "data/figure1_stat.csv")
+# write_csv(species_stat, "data/figure1_stat.csv")
+rm(list = ls())
 ```
+
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("scripts/plot_species_observation_slope.R") 
+observation_slope
+rm(list = ls())
+```
+
+Figure S1: relationship between number of observations and the leaf-flower linear model slope
+
+
+Most species has positive relationship between leaf and flower. From this table and figure, we can see as we have more observations (more robust result), the slope is more between 0.5-1 (check those species). More close to 1 slope means leaf and flower has more sync change in both rate and direction. 
+
+
+Let's disentangle the species in acer and oak
+
+### oak species and acer species
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("scripts/plot_maple_oak_species.R") 
+combined_plot
+# rm(list = ls())
+```
+
+Figure 2: species level leaf-flower relationship. In each genus, species are arranged from most observation to least observation
+
+
+
+
 
 ## lag distribution
 

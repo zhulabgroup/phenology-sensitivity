@@ -23,11 +23,11 @@ library(patchwork)
 ## genus level correlation
 First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r fig1 prepare, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::select is masked
 ```
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r fig1, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 combined_plot
 ```
 
@@ -39,13 +39,13 @@ From this figure, we can see:
 3. Though with an overall clear genus level leaf-flower correlation. There is clear inter-species difference, e.g., maple can be flower first/leaf first (figure 2a), pine and oak (figure 2b) has some species always flower/leaf earlier while others always late which may undermine the genus level trend. There is a need for species level analysis
 
 ## species level correlation
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r table1, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 species_stat
 # write_csv(species_stat, "data/figure1_stat.csv")
 rm(list = ls())
 ```
 
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r sf1, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_species_observation_slope.R") 
 observation_slope
 rm(list = ls())
@@ -60,7 +60,7 @@ Most species has positive relationship between leaf and flower. From this table 
 Let's disentangle the species in acer and oak
 
 ## oak species and acer species
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r figure2, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_maple_oak_species.R") 
 combined_plot
 # rm(list = ls())
@@ -86,27 +86,62 @@ Let's see whether this reflects different sensibility of leaf and flower to envi
 ```
 
 ## individual temporal change
-```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+```{r figure3:temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_individual_oak_norm.R")
 plot_individual_varibility
 rm(list = ls())
 ```
 
+Figure 3. Phenology's response to climate change reflected on inter-year climate varibility. Each dot is a individual-year. Each individual is recentered based on it's multiple-year average. So this figure shows the inter-year variblity of climate's impact on the same individual. We stack the individuals together to show a general trend. The red line is the linear model with intercept = 0 means no phenology change if no climate change (assumption).
+
+From this figure we can see:
+1. As tem increase (no matter winter or spring), leaf and flower will advance.
+2. winter temperature has larger varibility than spring temperature. 
+2. Both leaf and flower has a high sensitivity to spring tem change but less sensitivity to large winter tem change.
+3. Leaf is more sensitive to winter temperature, so lag is bigger with increasing tem (leaf before flower). They have almost same sensitivity to spring tem so the lag's response to spring tem is tiny. 
 
 
-## individual level spatial comparation
-```{r}
+## individual spatial change
+```{r figure4:spatial, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_oak_spatial_compare.R")
+plot_spatial_varibility
 rm(list = ls())
 ```
 
+Figure 4. Phenology's response to climate change reflected on spatial distribution. Each dot is an indiviudal.
+
+We can see that 
+1. as moving to a warmer area, both leaf and flower will advance, but the trend is more dominant by species shift (sf2 to see intra-species trend)
+2. as moving to warmer area, species composition is changing. therefore the spatial trend is not extendable because of the distribution limitation.
+3. warmer area has a higher variability while phenology time at colder area is more constrained
+
+
+```{r sf2, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("scripts/plot_spatial_northredoak.R")
+plot_spatial_northernredoak
+rm(list = ls())
+```
+
+SF 2. Northern red oak's phenlogy response to climate reflected on spatial distribution. 
+
+Interesting! Unlike one individual multiple year change, here we see that growing to in a warmer area has slight more impact on flower than leaf which cause a slight decrease in lag (leaf before flower). 
+
+
 # using npn to predict pollen
 
-## let's see the result if we supppose leaf and flower is the same and compare their ability to predict pollen
+From those analysis we can see that leaf and flower mostly change synchronourly. The winter and spring temperature's impact on the lag between flower and leaf is tiny. Thus, using a fixed lag to use leaf to predict flower further pollen is plausible feasible. Here we use a sample study to show this.
+
+## leaf-flower-pollen 
+similar super good: 2017	0.014835547	0.016191712	67e7f6ab-b262-45a0-b592-e71cbf433b2f
+similar average good: 2016	0.031382947	0.039839431	6261714f-e5ae-41ef-96a7-0b1c108256a2
+similar super bad: 2017	0.067786149	0.055293799	d22bab5b-768e-4bcc-a70f-8ebe9ef7cb4d
+
+with leaf only, but leaf good: 2020	0.013496487	NA	fd742905-ee8d-4184-8543-23029fc676b1
+
 ```{r station_lfp, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
-figures <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
-print(figures[24])
-rm(list = ls())
+# figures <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
+# print(figures[24])
+# rm(list = ls())
 ```
 Fig.3 Flowering and leafing initiation observations from npn and pollen count from nab.
 
@@ -115,12 +150,12 @@ We can see that: 1) we have more leafing observations than flowering. 2) leafing
 Here are the statistics:
 
 ```{r RMSE_sta, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8,cache=TRUE} 
-source("scripts/plot_RMSE_compare.R")
-print(RMSE_violin)
-rm(list = ls())
+# source("scripts/plot_RMSE_compare.R")
+# print(RMSE_violin)
+# rm(list = ls())
 ```
 
 ```{r}
-rm(list = setdiff(ls(), c("npn_leaf", "npn_leaf_lag", "npn_flower", "nab")))
+# rm(list = setdiff(ls(), c("npn_leaf", "npn_leaf_lag", "npn_flower", "nab")))
 ```
 

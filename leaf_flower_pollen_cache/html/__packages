@@ -5,3 +5,7 @@ ggplot2
 see
 MASS
 rnpn
+purrr
+tibble
+lubridate
+patchwork

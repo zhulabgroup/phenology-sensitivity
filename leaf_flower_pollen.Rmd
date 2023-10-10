@@ -20,7 +20,7 @@ library(patchwork)
 
 # leaf flower start date realtion in NPN 
 
-## correlation
+## genus level correlation
 First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
 
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
@@ -59,7 +59,7 @@ Most species has positive relationship between leaf and flower. From this table 
 
 Let's disentangle the species in acer and oak
 
-### oak species and acer species
+## oak species and acer species
 ```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_maple_oak_species.R") 
 combined_plot
@@ -69,30 +69,31 @@ combined_plot
 Figure 2: species level leaf-flower relationship. In each genus, species are arranged from most observation to least observation
 
 
+From acer, we can see that red maple has a large window for both leafing and flowering while other species has a relative later and shorter window. Most of them leaf, no matter leaf first or flower first, has closely related leaf and flower time. Vine maple is a little special relative small flower variability than leaf may be related to (1) garden plants, human management (2) short shrub (refer to grass has flower-leaf not well related)
+
+For oak, all the species have same leaf before flower order.  There is a clear different leaf/flower window for different species.
+
+Together, most of them has a slope ~ 1 (leaf flower change at similar rate and direction). But most are smaller than 1 rather than larger than 1 which means leafing time change is greater than flowering change (variability). 
+
+Let's see whether this reflects different sensibility of leaf and flower to environment change: if we consider warming tem and earlier events, leaf first (oak) will show an increasing lag, while flower first will show decrease lag (red maple). Since oaks are more consistent order, we use oak as an example to show environment change's effect.
 
 
+# different sensitivity of flower and leaf to climate change
 
-## lag distribution
-
-```{r lag, message=FALSE, warning=FALSE, fig.width=8 , fig.height=8*1.618, cache=TRUE}
-source("scripts/plot_quercus_lag_violin.R")
-print(lags_violin)
-rm(list = ls())
-```
-Fig.2 Lag of flowering after leafing of Oak. A) Lag distribution by species. B) Zoom in to [-20 ~ 40] range. C) Total lag distribution of oak, average is 15 days.
-
-# using environmental factor to explain the lag
 ## download winter spring temperature
 ```{r}
 # source("scripts/download_daymetwinsprtem_for_q.R")
 ```
 
-## individual level temporal comparation
-```{r}
+## individual temporal change
+```{r rlm, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_individual_oak_norm.R")
 plot_individual_varibility
 rm(list = ls())
 ```
+
+
+
 ## individual level spatial comparation
 ```{r}
 source("scripts/plot_oak_spatial_compare.R")

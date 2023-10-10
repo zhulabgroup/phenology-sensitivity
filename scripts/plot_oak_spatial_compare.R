@@ -6,7 +6,7 @@ individual_aggre <- quercus %>%
   summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) 
 
 # Function to create individual plots
-create_plot <- function(data, x_var, y_var) {
+create_plot <- function(data, x_var = c("winter_avg_temp", "spring_avg_temp"), y_var = c("leaf", "flower","lag")) {
   ggplot(data, aes(x = data[[x_var]], y = data[[y_var]], color = common_name)) +
     geom_point(alpha = 0.5) +
     labs(
@@ -17,8 +17,6 @@ create_plot <- function(data, x_var, y_var) {
     theme(legend.position="none") # remove individual plot legends
 }
 
-x_vars <- c("winter_avg_temp", "spring_avg_temp", "latitude", "longitude")
-y_vars <- c("lag", "leaf", "flower")
 
 combinations <- expand.grid(x=x_vars, y=y_vars)
 

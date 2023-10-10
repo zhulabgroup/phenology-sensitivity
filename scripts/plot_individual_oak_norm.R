@@ -8,7 +8,7 @@ standarized_data <- quercus %>%
   ungroup()
 
 x_vars <- c("winter_avg_temp", "spring_avg_temp")
-y_vars <- c("lag", "leaf", "flower")
+y_vars <- c("leaf", "flower","lag")
 
 
 

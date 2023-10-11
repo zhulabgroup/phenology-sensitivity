@@ -18,10 +18,15 @@ library(patchwork)
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
-# 1. leaf flower start date realtion in NPN 
+# Research questions:
+1. What's the flower-leaf sequence across different genus and species in INDIVIDUAL level?
+2. How does climatic factors influence flower-leaf sequence? (order, lag)
+3. Can we use leaf phenology and flower-leaf sequence to predict pollen phenology?
 
-## 1.1 genus level correlation
-First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
+# 1. Flower-leaf sequence in INDIVIDUAL level
+
+## 1.1 flower-leaf sequence across different genus
+Starts with the 11 allergy causing genus.
 
 ```{r fig1 prepare, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_rlm_combined_8genuses.R") # after libaray mass, dplyr::select is masked
@@ -38,7 +43,7 @@ From this figure, we can see:
 2. except grass, most of those species has a nearby leaf flower time and there is a clear correlation between leaf and flower. Grass has flower much later than leaf and the correlation between leaf and flower is messy.
 3. Though with an overall clear genus level leaf-flower correlation. There is clear inter-species difference, e.g., maple can be flower first/leaf first (figure 2a), pine and oak (figure 2b) has some species always flower/leaf earlier while others always late which may undermine the genus level trend. There is a need for species level analysis
 
-## 1.2 species level correlation
+## 1.2 flower-leaf sequence across different species
 ```{r table1, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 species_stat
 # write_csv(species_stat, "data/figure1_stat.csv")
@@ -59,7 +64,7 @@ Most species has positive relationship between leaf and flower. From this table 
 
 Let's disentangle the species in acer and oak
 
-## 1.3 oak species and acer species
+## 1.3 Case study: oak species and acer species
 ```{r figure2, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_maple_oak_species.R") 
 combined_plot
@@ -80,12 +85,12 @@ Let's see whether this reflects different sensibility of leaf and flower to envi
 
 # 2. different sensitivity of flower and leaf to climate change
 
-## 2.1 download winter spring temperature
+## download winter spring temperature
 ```{r}
 # source("scripts/download_daymetwinsprtem_for_q.R")
 ```
 
-## individual temporal change
+## 2.1 temporal gradient
 ```{r figure3:temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_individual_oak_norm.R")
 plot_individual_varibility
@@ -94,6 +99,13 @@ rm(list = ls())
 
 Figure 3. Phenology's response to climate change reflected on inter-year climate varibility. Each dot is a individual-year. Each individual is recentered based on it's multiple-year average. So this figure shows the inter-year variblity of climate's impact on the same individual. We stack the individuals together to show a general trend. The red line is the linear model with intercept = 0 means no phenology change if no climate change (assumption).
 
+```{r figure3v2:temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+# to get p-value, go back to linear model with intercept (0 point at the center may affet the intercept, so delete if only 1 observation)
+source("scripts/plot_individual_oak_norm_v2.R")
+plot_individual_varibility
+#rm(list = ls())
+```
+
 From this figure we can see:
 1. As tem increase (no matter winter or spring), leaf and flower will advance.
 2. winter temperature has larger varibility than spring temperature. 
@@ -101,7 +113,7 @@ From this figure we can see:
 3. Leaf is more sensitive to winter temperature, so lag is bigger with increasing tem (leaf before flower). They have almost same sensitivity to spring tem so the lag's response to spring tem is tiny. 
 
 
-## 2.2 individual spatial change
+## 2.2 spatial gradient
 ```{r figure4:spatial, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_oak_spatial_compare.R")
 plot_spatial_varibility

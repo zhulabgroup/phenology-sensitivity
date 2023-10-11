@@ -16,7 +16,7 @@ get_smoothed_nab <- function(specifictaxa){
     filter(num_50 > 3 & num_obs > 36 & leng_obs > 100) 
   
   nab_smooth <- filtered_group %>%
-    select(stationid,year) %>% 
+    dplyr::select(stationid,year) %>% 
     left_join(nab, by = c("stationid", "year")) %>% 
     group_by(stationid, year) %>% 
     complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(count = NA)) %>%

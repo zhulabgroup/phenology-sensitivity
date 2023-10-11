@@ -9,3 +9,5 @@ purrr
 tibble
 lubridate
 patchwork
+sf
+zoo

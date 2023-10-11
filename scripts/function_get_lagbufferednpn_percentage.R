@@ -10,7 +10,7 @@ id <- npn_phenophases[npn_phenophases$pheno_class_id==phenoclass,"phenophase_id"
 
 npn_wind <- read_rds(paste0("/nfs/turbo/seas-zhukai/phenology/NPN/wind_poll_taxa/", taxa, ".rds")) %>%
   filter(phenophase_id %in% id$phenophase_id) %>%
-  select(latitude, longitude, individual_id, observation_date, phenophase_status, species_id) %>%
+  dplyr::select(latitude, longitude, individual_id, observation_date, phenophase_status, species_id) %>%
   mutate(observation_date = as.Date(observation_date),
          year = year(observation_date),
          doy = yday(observation_date)) %>% 
@@ -51,7 +51,7 @@ outliers <- withlag %>%
   inner_join(withlag, by = "species_id") %>% 
   filter((doy > lower & doy < upper) | phenophase_status == 0) %>%
   ungroup() %>% 
-  select(-aver,-std,-lower,-upper)
+  dplyr::select(-aver,-std,-lower,-upper)
   
 
 

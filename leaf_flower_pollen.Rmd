@@ -18,9 +18,9 @@ library(patchwork)
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
-# leaf flower start date realtion in NPN 
+# 1. leaf flower start date realtion in NPN 
 
-## genus level correlation
+## 1.1 genus level correlation
 First, we want to see in the 11 allergy causing genus, which has a high flower-leaf relationship therefore we can use leaf to infer flower.
 
 ```{r fig1 prepare, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
@@ -38,7 +38,7 @@ From this figure, we can see:
 2. except grass, most of those species has a nearby leaf flower time and there is a clear correlation between leaf and flower. Grass has flower much later than leaf and the correlation between leaf and flower is messy.
 3. Though with an overall clear genus level leaf-flower correlation. There is clear inter-species difference, e.g., maple can be flower first/leaf first (figure 2a), pine and oak (figure 2b) has some species always flower/leaf earlier while others always late which may undermine the genus level trend. There is a need for species level analysis
 
-## species level correlation
+## 1.2 species level correlation
 ```{r table1, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 species_stat
 # write_csv(species_stat, "data/figure1_stat.csv")
@@ -59,7 +59,7 @@ Most species has positive relationship between leaf and flower. From this table 
 
 Let's disentangle the species in acer and oak
 
-## oak species and acer species
+## 1.3 oak species and acer species
 ```{r figure2, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_maple_oak_species.R") 
 combined_plot
@@ -78,9 +78,9 @@ Together, most of them has a slope ~ 1 (leaf flower change at similar rate and d
 Let's see whether this reflects different sensibility of leaf and flower to environment change: if we consider warming tem and earlier events, leaf first (oak) will show an increasing lag, while flower first will show decrease lag (red maple). Since oaks are more consistent order, we use oak as an example to show environment change's effect.
 
 
-# different sensitivity of flower and leaf to climate change
+# 2. different sensitivity of flower and leaf to climate change
 
-## download winter spring temperature
+## 2.1 download winter spring temperature
 ```{r}
 # source("scripts/download_daymetwinsprtem_for_q.R")
 ```
@@ -101,7 +101,7 @@ From this figure we can see:
 3. Leaf is more sensitive to winter temperature, so lag is bigger with increasing tem (leaf before flower). They have almost same sensitivity to spring tem so the lag's response to spring tem is tiny. 
 
 
-## individual spatial change
+## 2.2 individual spatial change
 ```{r figure4:spatial, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("scripts/plot_oak_spatial_compare.R")
 plot_spatial_varibility
@@ -127,35 +127,23 @@ SF 2. Northern red oak's phenlogy response to climate reflected on spatial distr
 Interesting! Unlike one individual multiple year change, here we see that growing to in a warmer area has slight more impact on flower than leaf which cause a slight decrease in lag (leaf before flower). 
 
 
-# using npn to predict pollen
+# 3. using npn to predict pollen
 
 From those analysis we can see that leaf and flower mostly change synchronourly. The winter and spring temperature's impact on the lag between flower and leaf is tiny. Thus, using a fixed lag to use leaf to predict flower further pollen is plausible feasible. Here we use a sample study to show this.
 
-## leaf-flower-pollen 
+
 similar super good: 2017	0.014835547	0.016191712	67e7f6ab-b262-45a0-b592-e71cbf433b2f
 similar average good: 2016	0.031382947	0.039839431	6261714f-e5ae-41ef-96a7-0b1c108256a2
 similar super bad: 2017	0.067786149	0.055293799	d22bab5b-768e-4bcc-a70f-8ebe9ef7cb4d
 
 with leaf only, but leaf good: 2020	0.013496487	NA	fd742905-ee8d-4184-8543-23029fc676b1
 
-```{r station_lfp, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
-# figures <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/RMSE_Smooth_Quercus_leafflowerpollen.rds")
-# print(figures[24])
-# rm(list = ls())
-```
-Fig.3 Flowering and leafing initiation observations from npn and pollen count from nab.
-
-We can see that: 1) we have more leafing observations than flowering. 2) leafing is a little bit ahead of flowering, adding a lag to leafing may make leaf fits better.
-
-Here are the statistics:
-
-```{r RMSE_sta, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8,cache=TRUE} 
-# source("scripts/plot_RMSE_compare.R")
-# print(RMSE_violin)
-# rm(list = ls())
+```{r example_lfp, message=FALSE, warning=FALSE, fig.width=8*1.618 , fig.height=8, cache=TRUE}
+source("scripts/plot_threeexamples_boxplotrmse.R")
+three_examples_boxplot
 ```
 
-```{r}
-# rm(list = setdiff(ls(), c("npn_leaf", "npn_leaf_lag", "npn_flower", "nab")))
-```
+Figure 5: Leaf has the same ability with flower in predict pollen. A. the good prediction flower and leaf make; moderate good prediction and bad prediction. B the RMSE summary of leaf and flower to predict pollen and the number of available compare pairs for flower and leaf.
+
+From this figure we can see that flower and leaf has similar prediction accuracy of pollen. But we have more spatial coverage and more frequent observation for leaf which can increase polle prediction, specially for places without pollen observation.
 

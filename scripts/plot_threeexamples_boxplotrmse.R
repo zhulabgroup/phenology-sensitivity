@@ -13,9 +13,9 @@ boxplot_lf <- rmse_table %>%
   ggplot(aes(x = pheno, y = rmse)) +
   geom_boxplot() +
   geom_text(data = count_data, aes(label = n, y = 0.1), vjust = -0.5, size = 5) +
-  coord_flip() +
   theme_minimal() +
-  labs(x = "Pheno", y = "RMSE") 
+  labs(x = "Pheno", y = "RMSE") +
+  scale_y_continuous(limits = c(0, 0.105)) # Extend the y-axis to 0.12
 
 #### get station figures
 source("scripts/function_get_lagbufferednpn_percentage.R")
@@ -90,7 +90,7 @@ three_examples <- to_plot %>%
     geom_line(aes(x = doy, y = pollen, color = "pollen"), linewidth = 1, alpha = 0.75) +
     geom_line(aes(x = doy, y = flower, color = "flower"), linewidth = 1, alpha = 0.75) +
     geom_line(aes(x = doy, y = leaf, color = "leaf"), linewidth = 0.5, alpha = 0.75) +
-  facet_wrap(~ factor(station_name, levels = desired_order)) +    
+  facet_wrap(~ factor(station_name, levels = desired_order), ncol = 1) +    
   geom_text(data = cor_data, 
               aes(x = Inf, y = Inf, 
                   label = paste0("leaf_rmse: ", round(leaf_rmse, 2), "\n",
@@ -98,11 +98,11 @@ three_examples <- to_plot %>%
               hjust = 1, vjust = 1, size = 4) 
 
 
-three_examples_boxplot <- three_examples+boxplot_lf+
+three_examples_boxplot <- boxplot_lf + three_examples +
   patchwork::plot_annotation(tag_levels = "A") +
   patchwork::plot_layout(design = 
-                           "AAA
-                            AAA
-                            BBB"
+                           "ABBB
+                            ABBB
+                            ABBB"
   )
 

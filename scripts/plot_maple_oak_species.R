@@ -18,7 +18,7 @@ for (i in seq_along(rds_files) ) {
   taxadata <- read_rds(rds_files[i]) %>% 
     get_clean_npn_first() %>% 
     rename(leaf = first_yes_doy.x, flower = first_yes_doy.y, year = first_yes_year) %>% 
-    dplyr::select(species_id,leaf,flower,year) %>% 
+    dplyr::select(species_id,leaf,flower,year,latitude) %>% 
     left_join(species_code,by = "species_id")
   
   # Calculate the count of observations per common_name
@@ -31,15 +31,17 @@ for (i in seq_along(rds_files) ) {
   
   taxa_name <- stringr::str_extract(rds_files[i], "(?<=//)(.*?)(?=\\.rds)")
   
+  
     site_gg[[i]] <- ggplot(taxadata) +
-      geom_point(aes(x = leaf, y = flower, color = as.factor(common_name) ), alpha = 0.1) +
-      geom_smooth(method = "rlm", aes(x = leaf, y = flower, color = as.factor(common_name)), se = FALSE) +
+      geom_point(aes(x = leaf, y = flower),  alpha = 0.1) +
+      geom_smooth(method = "rlm", aes(x = leaf, y = flower), color = "black", se = FALSE) +
       xlab("Leafing Day") +
       ylab("Flowering Day") +
       ggtitle(taxa_name) +
-      geom_abline(intercept = 0, slope = 1)+
-      guides(color = FALSE) +
-      facet_wrap(~common_name, ncol = 8) 
+      geom_abline(intercept = 0, slope = 1,color = "red")+
+      facet_wrap(~common_name, ncol = 8) +
+      theme_bw() +
+      theme(strip.text = element_text(face = "italic"))
 }
 
 

@@ -14,8 +14,9 @@ boxplot_lf <- rmse_table %>%
   geom_boxplot() +
   geom_text(data = count_data, aes(label = n, y = 0.1), vjust = -0.5, size = 5) +
   theme_minimal() +
-  labs(x = "Pheno", y = "RMSE") +
-  scale_y_continuous(limits = c(0, 0.105)) # Extend the y-axis to 0.12
+  labs(x = " ", y = "RMSE") +
+  scale_y_continuous(limits = c(0, 0.105)) +
+  scale_x_discrete(labels = c("Leaf\nPollen", "Flower\nPollen"))
 
 #### get station figures
 source("scripts/function_get_lagbufferednpn_percentage.R")
@@ -53,7 +54,7 @@ nab_s <- standardize_data(nab %>%
 
 #find station name
 station_info <- read_csv("/nfs/turbo/seas-zhukai/phenology/nab/clean/2023-04-25/renew_station_info.csv") %>% 
-  mutate(station_name = paste(name, city, sep = ", ")) %>% 
+  mutate(station_name = paste(city, state, sep = ", ")) %>% 
   dplyr::select(station_name,id) %>% 
   rename(station = id)
 
@@ -79,23 +80,26 @@ cor_data <- to_plot %>%
             flower_rmse = rmse(flower, pollen)) 
 
 
-desired_order <- c("STARx Allergy & Asthma Center, Springfield",
-                   "Allergy and Asthma Specialty Physicians, LLC, Mount Laurel", 
-                   "Allergy and Asthma Associates of No. California, San Jose")
+desired_order <- c("Springfield, NJ",
+                   "Mount Laurel, NJ", 
+                   "San Jose, CA")
 
 
 
 three_examples <- to_plot %>% 
     ggplot() +
-    geom_line(aes(x = doy, y = pollen, color = "pollen"), linewidth = 1, alpha = 0.75) +
-    geom_line(aes(x = doy, y = flower, color = "flower"), linewidth = 1, alpha = 0.75) +
-    geom_line(aes(x = doy, y = leaf, color = "leaf"), linewidth = 0.5, alpha = 0.75) +
+    geom_line(aes(x = doy, y = pollen, color = "Pollen"), linewidth = 1, alpha = 0.75) +
+    geom_line(aes(x = doy, y = flower, color = "Flower"), linewidth = 1, alpha = 0.75) +
+    geom_line(aes(x = doy, y = leaf, color = "Leaf"), linewidth = 0.5, alpha = 0.75) +
   facet_wrap(~ factor(station_name, levels = desired_order), ncol = 1) +    
   geom_text(data = cor_data, 
               aes(x = Inf, y = Inf, 
-                  label = paste0("leaf_rmse: ", round(leaf_rmse, 2), "\n",
-                                 "flower_rmse: ", round(flower_rmse, 2))), 
-              hjust = 1, vjust = 1, size = 4) 
+                  label = paste0("leaf_pollen_rmse: ", round(leaf_rmse, 2), "\n",
+                                 "flower_pollen_rmse: ", round(flower_rmse, 2))), 
+              hjust = 1, vjust = 1, size = 4) +
+  labs(x = "Day of Year", y = "Normalized Index")+
+  scale_color_manual(name = "Phenology", values = c("Flower" = "purple", "Leaf" = "green", "Pollen" = "black"))+
+  theme_bw()
 
 
 three_examples_boxplot <- boxplot_lf + three_examples +

@@ -80,9 +80,9 @@ cor_data <- to_plot %>%
             flower_rmse = rmse(flower, pollen)) 
 
 
-desired_order <- c("Springfield, NJ",
+desired_order <- c("San Jose, CA",
                    "Mount Laurel, NJ", 
-                   "San Jose, CA")
+                   "Springfield, NJ")
 
 
 
@@ -97,7 +97,7 @@ three_examples <- to_plot %>%
                   label = paste0("leaf_pollen_rmse: ", round(leaf_rmse, 2), "\n",
                                  "flower_pollen_rmse: ", round(flower_rmse, 2))), 
               hjust = 1, vjust = 1, size = 4) +
-  labs(x = "Day of Year", y = "Normalized Index")+
+  labs(x = "Day of year", y = "Normalized index")+
   scale_color_manual(name = "Phenology", values = c("Flower" = "purple", "Leaf" = "green", "Pollen" = "black"))+
   theme_bw()
 

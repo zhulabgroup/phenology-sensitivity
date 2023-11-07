@@ -35,13 +35,12 @@ for (i in seq_along(rds_files) ) {
     site_gg[[i]] <- ggplot(taxadata) +
       geom_point(aes(x = leaf, y = flower),  alpha = 0.1) +
       geom_smooth(method = "rlm", aes(x = leaf, y = flower), color = "black", se = FALSE) +
-      xlab("Leafing Day") +
-      ylab("Flowering Day") +
-      ggtitle(taxa_name) +
+      xlab("Leafing day") +
+      ylab("Flowering day") +
+      ggtitle(bquote(italic(.(taxa_name)))) +
       geom_abline(intercept = 0, slope = 1,color = "red")+
       facet_wrap(~common_name, ncol = 8) +
-      theme_bw() +
-      theme(strip.text = element_text(face = "italic"))
+      theme_bw() 
 }
 
 

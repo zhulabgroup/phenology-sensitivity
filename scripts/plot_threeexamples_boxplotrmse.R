@@ -1,7 +1,7 @@
 rmse_table <- read_csv("data/delete_npn_repeat_conflict/lag_RMSE_Smooth_Quercus_leafflowerpollen.csv") %>% 
   dplyr::select(leaf_lag_rmse, flower_rmse) %>% 
   rename(leaf = leaf_lag_rmse, flower = flower_rmse) %>% 
-  pivot_longer(cols = c("leaf", "flower"), names_to = "pheno", values_to = "rmse")
+  pivot_longer(cols = c("leaf", "flower"), names_to = "pheno", values_to = "rmse") 
 
 
 count_data <- rmse_table %>%
@@ -16,7 +16,8 @@ boxplot_lf <- rmse_table %>%
   theme_minimal() +
   labs(x = " ", y = "RMSE") +
   scale_y_continuous(limits = c(0, 0.105)) +
-  scale_x_discrete(labels = c("Leaf\nPollen", "Flower\nPollen"))
+  scale_x_discrete(breaks = c("flower", "leaf"), 
+                   labels = c("Flower\nPollen", "Leaf\nPollen"))
 
 #### get station figures
 source("scripts/function_get_lagbufferednpn_percentage.R")

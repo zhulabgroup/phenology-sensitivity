@@ -1,12 +1,14 @@
-# 
-library(MASS)
 
 quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds")
 
 individual_aggre <- quercus %>%
   filter(common_name %in% c("northern red oak")) %>% 
   group_by(individual_id, longitude, latitude, common_name) %>%
-  summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) 
+  summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) %>% 
+  ungroup() %>% 
+  mutate_at(vars(flower, lag, leaf, winter_avg_temp, spring_avg_temp), 
+            ~ . - mean(.)) 
+
 
 source("function_plot_sensitive.R")
 

@@ -8,7 +8,7 @@ standarized_data <- quercus %>%
             ~ . - mean(.)) %>%
   ungroup()
 
-source("scripts/function_plot_sensitive.R")
+source("function_plot_sensitive.R")
 
 plots <- plot_sensitive(standarized_data)
 

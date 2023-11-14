@@ -1,0 +1,35 @@
+---
+title: "Spatial_temporal_gradient"
+author: "Yi"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+output: html_document
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(see)
+library(purrr)
+library(tibble)
+library(lubridate)
+library(patchwork)
+knitr::opts_knit$set(root.dir = "/home/yia/yia_R/npn_flower_leaf_lag/scripts/")
+# ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
+```
+
+
+# temporal gradient
+```{r temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("plot_individual_northoak_norm.R")
+plot_individual_varibility
+rm(list = ls())
+```
+
+# spatial gradient
+```{r spatial, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("plot_spatial_northredoak.R")
+plot_spatial_northernredoak
+rm(list = ls())
+```

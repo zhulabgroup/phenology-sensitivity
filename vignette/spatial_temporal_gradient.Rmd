@@ -15,7 +15,7 @@ library(purrr)
 library(tibble)
 library(lubridate)
 library(patchwork)
-knitr::opts_knit$set(root.dir = "/home/yia/yia_R/npn_flower_leaf_lag/scripts/")
+knitr::opts_knit$set(root.dir = "~/yia_R/npn_flower_leaf_lag/scripts/")
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
@@ -46,7 +46,7 @@ rm(list = ls())
 # all species summary
 
 ```{r species summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("/home/yia/yia_R/npn_flower_leaf_lag/scripts/table_temporal_statistics.R")
+source("~/yia_R/npn_flower_leaf_lag/scripts/table_spatial_temporal_statistics.R")
 species_summary
 spatial_temporal
 ```

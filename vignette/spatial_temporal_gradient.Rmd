@@ -20,6 +20,8 @@ knitr::opts_knit$set(root.dir = "/home/yia/yia_R/npn_flower_leaf_lag/scripts/")
 ```
 
 
+I am using the observation with both leaf and flower observations
+
 # temporal gradient
 ```{r temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
 source("plot_individual_northoak_norm.R")
@@ -34,8 +36,18 @@ plot_spatial_northernredoak
 rm(list = ls())
 ```
 
-
+# data map for north red oak
+```{r map, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("plot_data_map.R")
+data_map
+rm(list = ls())
+```
 
 # all species summary
 
+```{r species summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("/home/yia/yia_R/npn_flower_leaf_lag/scripts/table_temporal_statistics.R")
+species_summary
+spatial_temporal
+```
 

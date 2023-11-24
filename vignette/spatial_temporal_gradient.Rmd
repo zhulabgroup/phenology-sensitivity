@@ -22,17 +22,10 @@ knitr::opts_knit$set(root.dir = "~/yia_R/npn_flower_leaf_lag/scripts/")
 
 I am using the observation with both leaf and flower observations
 
-# temporal gradient
+# temporal_spatial gradient
 ```{r temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("plot_individual_northoak_norm.R")
-plot_individual_varibility
-rm(list = ls())
-```
-
-# spatial gradient
-```{r spatial, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("plot_spatial_northredoak.R")
-plot_spatial_northernredoak
+source("plot_temporal_spatial_northoak_norm.R")
+temporal_spatial
 rm(list = ls())
 ```
 

@@ -44,3 +44,16 @@ species_summary
 spatial_temporal
 ```
 
+# compare the datasets in npn
+```{r}
+npn %>%
+  group_by(dataset_id) %>% 
+  summarise(count = n())
+```
+
+```{r}
+npn %>%
+  group_by(npn$partner_group) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+```

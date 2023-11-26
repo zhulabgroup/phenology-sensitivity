@@ -1,5 +1,5 @@
 # data pre process for npn first day data
-# 1. delete conflice and repeated observations
+# 1. delete conflict and repeated observations
 # 2. using normal distribution to delete outliers 
 # 3. pair lead with flower and only keep >30 observatino species
 

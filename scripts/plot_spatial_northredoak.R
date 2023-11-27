@@ -22,8 +22,9 @@ individual_aggre <- quercus %>%
 
 library(plotly)
 
-gg <- ggplot(individual_aggre, aes(x = spring_avg_temp_Mean, y = leaf_Mean, text = spring_avg_temp_Min)) +
+gg <- ggplot(individual_aggre, aes(x = spring_avg_temp_Mean, y = leaf_Mean, color = latitude, text = spring_avg_temp_Min)) +
   geom_point() +
+  scale_color_continuous(low = "blue", high = "red") +  # Customize the color scale+
   geom_errorbarh(
     aes(
       xmin = spring_avg_temp_Mean + spring_avg_temp_Min,

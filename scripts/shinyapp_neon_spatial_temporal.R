@@ -8,8 +8,8 @@ test <- quercus_leaf %>%
   summarise(count = n()) %>% 
   filter(count>10)
 
-source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_spatial_sensitive.R")
-source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_temporal_sensitive.R")
+source("function_plot_spatial_sensitive.R")
+source("function_plot_temporal_sensitive.R")
 
 # Define UI
 ui <- fluidPage(
@@ -17,12 +17,16 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       selectInput("species", "Select Species:",
-                  choices = unique(test$common_name))
+                  choices = test$common_name)
     ),
     mainPanel(
       fluidRow(
         column(6, plotOutput("temporalPlot")),
         column(6, plotOutput("spatialPlot"))
+      ),
+      fluidRow(
+        column(12, plotOutput("spatial_distribution_leaf")),
+        column(12, plotOutput("spatial_distribution_flower"))
       )
     )
   )
@@ -57,7 +61,7 @@ server <- function(input, output) {
     data_filtered_leaf <- quercus_leaf %>%
       filter(common_name %in% input$species) %>% 
       rename(leaf = first_yes_doy) %>%
-      group_by(individual_id, longitude, latitude, common_name) %>%
+      group_by(longitude, latitude) %>%
       summarise(
         across(
           c(leaf, spring_avg_temp),
@@ -73,10 +77,10 @@ server <- function(input, output) {
       mutate_at(vars(leaf_Mean, spring_avg_temp_Mean), 
                 ~ . - mean(.)) 
     
-      data_filtered_flower <- quercus_leaf %>%
+      data_filtered_flower <- quercus_flower %>%
         filter(common_name %in% input$species) %>% 
         rename(flower = first_yes_doy) %>%
-        group_by(individual_id, longitude, latitude, common_name) %>%
+        group_by(longitude, latitude) %>%
         summarise(
           across(
             c(flower, spring_avg_temp),
@@ -97,6 +101,25 @@ server <- function(input, output) {
     spatial_leaf / spatial_flower
   })
   
+  output$spatial_distribution_leaf <- renderPlot({
+    us_map <- map_data("state")
+    
+    data_filtered_leaf <- quercus_leaf %>%
+      filter(common_name %in% input$species) %>%
+      distinct(longitude, latitude) 
+    
+    data_filtered_flower <- quercus_flower %>%
+      filter(common_name %in% input$species) %>%
+      distinct(longitude, latitude) 
+    
+    ggplot() +
+      geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+      geom_point(data = data_filtered_leaf, aes(x = longitude, y = latitude), size = 2, color = "green", alpha = 0.2) +
+      geom_point(data = data_filtered_flower, aes(x = longitude, y = latitude), size = 2, color = "yellow", alpha = 0.2) +
+      coord_fixed(ratio = 1.5) +  # Adjust the aspect ratio for a better display of the US
+      labs(x = "Longitude", y = "Latitude") +  # Label axes
+      theme_minimal() 
+  })
 }
 
 # Run the application

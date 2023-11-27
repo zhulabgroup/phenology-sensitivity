@@ -24,7 +24,7 @@ I am using the observation with both leaf and flower observations
 
 # temporal_spatial gradient
 ```{r temporal, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("plot_temporal_spatial_northoak_norm.R")
+source("plot_temporal_spatial_northredoak.R")
 temporal_spatial
 rm(list = ls())
 ```

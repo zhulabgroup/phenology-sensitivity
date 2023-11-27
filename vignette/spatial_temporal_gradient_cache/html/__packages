@@ -7,3 +7,5 @@ purrr
 tibble
 lubridate
 patchwork
+shiny
+stringr

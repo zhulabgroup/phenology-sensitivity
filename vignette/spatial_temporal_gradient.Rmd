@@ -3,6 +3,8 @@ title: "Spatial_temporal_gradient"
 author: "Yi"
 date: "`r format(Sys.Date(), '%m/%d/%Y')`"
 output: html_document
+runtime: shiny
+
 ---
 
 ```{r setup, echo=FALSE, message=FALSE}
@@ -15,6 +17,8 @@ library(purrr)
 library(tibble)
 library(lubridate)
 library(patchwork)
+library(shiny)
+library(stringr)
 knitr::opts_knit$set(root.dir = "~/yia_R/npn_flower_leaf_lag/scripts/")
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
@@ -38,22 +42,33 @@ rm(list = ls())
 
 # all species summary
 
-```{r species summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("~/yia_R/npn_flower_leaf_lag/scripts/table_spatial_temporal_statistics.R")
+```{r species_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("table_spatial_temporal_statistics.R")
 species_summary
-spatial_temporal
+plotly::ggplotly(species_summary)
+```
+
+```{r species_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
+source("shinyapp_spatial_temporal.R")
+shinyApp(ui = ui, server = server)
 ```
 
 # compare the datasets in npn
-```{r}
+```{r dataset_statistic}
+path_npn <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/"
+npn <- read_rds(str_c(path_npn, "Quercus", ".rds"))
+
 npn %>%
   group_by(dataset_id) %>% 
   summarise(count = n())
-```
 
-```{r}
 npn %>%
   group_by(npn$partner_group) %>% 
   summarise(count = n()) %>% 
   arrange(desc(count))
+```
+
+```{r species_neon_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
+source("~/yia_R/npn_flower_leaf_lag/scripts/shinyapp_neon_spatial_temporal.R")
+shinyApp(ui = ui, server = server)
 ```

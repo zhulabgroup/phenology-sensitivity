@@ -1,11 +1,6 @@
-library(shiny)
-library(ggplot2)
-library(dplyr)
-library(readr)
-library(patchwork)
 
 # Load the data and source functions
-quercus <- readRDS("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds") 
+quercus <- readRDS("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds") 
 source("function_plot_spatial_sensitive.R")
 source("function_plot_temporal_sensitive.R")
 
@@ -69,4 +64,3 @@ server <- function(input, output) {
 }
 
 # Run the application
-shinyApp(ui = ui, server = server)

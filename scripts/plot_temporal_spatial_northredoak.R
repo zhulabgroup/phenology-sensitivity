@@ -20,7 +20,7 @@ individual_aggre <- quercus %>%
   mutate_at(vars(flower_Mean, lag_Mean, leaf_Mean, winter_avg_temp_Mean, spring_avg_temp_Mean), 
             ~ . - mean(.)) 
 
-source("scripts/function_plot_spatial_sensitive.R")
+source("function_plot_spatial_sensitive.R")
 spatial_leaf <- plot_spatial_sensitive(individual_aggre, "leaf")
 spatial_flower <- plot_spatial_sensitive(individual_aggre, "flower")
 
@@ -31,7 +31,7 @@ standarized_data <- quercus %>%
             ~ . - mean(.)) %>%
   ungroup()
 
-source("scripts/function_plot_temporal_sensitive.R")
+source("function_plot_temporal_sensitive.R")
 temporal_leaf <- plot_temporal_sensitive(standarized_data, "leaf")
 temporal_flower <- plot_temporal_sensitive(standarized_data, "flower")
 

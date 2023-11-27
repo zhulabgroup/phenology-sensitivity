@@ -1,19 +1,10 @@
-library(shiny)
-library(ggplot2)
-library(dplyr)
-library(readr)
-library(patchwork)
-
-# Load the data and source functions
-quercus_leaf <- readRDS("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds") 
-quercus_flower <- readRDS("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds") 
 
 #test
-quercus_leaf <- joined_data_leaf
-quercus_flower <- joined_data_flower
+quercus_leaf <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/neon/Quercus_leaf_winsprtem.rds")
+quercus_flower <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/neon/Quercus_flower_winsprtem.rds")
 
-source("scripts/function_plot_spatial_sensitive.R")
-source("scripts/function_plot_temporal_sensitive.R")
+source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_spatial_sensitive.R")
+source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_temporal_sensitive.R")
 
 # Define UI
 ui <- fluidPage(
@@ -104,4 +95,3 @@ server <- function(input, output) {
 }
 
 # Run the application
-shinyApp(ui = ui, server = server)

@@ -17,7 +17,7 @@ individual_aggre <- quercus %>%
   ungroup()
 
 
-source("scripts/function_table_sensitive.R")
+source("function_table_sensitive.R")
 
 
 temporal <- get_stats(standarized_data) %>% 
@@ -64,6 +64,4 @@ species_summary <- spatial_temporal %>%
   labs(x = "Temporal Slope", y = "Spatial Slope") +
   scale_color_discrete(name = "Pheno")
 
-ggplotly(species_summary)
 
-  plotly

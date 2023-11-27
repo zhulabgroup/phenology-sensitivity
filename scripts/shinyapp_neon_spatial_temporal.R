@@ -3,6 +3,11 @@
 quercus_leaf <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/neon/Quercus_leaf_winsprtem.rds")
 quercus_flower <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/neon/Quercus_flower_winsprtem.rds")
 
+test <- quercus_leaf %>% 
+  group_by(common_name) %>% 
+  summarise(count = n()) %>% 
+  filter(count>10)
+
 source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_spatial_sensitive.R")
 source("~/yia_R/npn_flower_leaf_lag/scripts/function_plot_temporal_sensitive.R")
 
@@ -12,7 +17,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       selectInput("species", "Select Species:",
-                  choices = unique(quercus$common_name))
+                  choices = unique(test$common_name))
     ),
     mainPanel(
       fluidRow(

@@ -53,6 +53,11 @@ source("shinyapp_spatial_temporal.R")
 shinyApp(ui = ui, server = server)
 ```
 
+```{r species_neon_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
+source("~/yia_R/npn_flower_leaf_lag/scripts/shinyapp_neon_spatial_temporal.R")
+shinyApp(ui = ui, server = server)
+```
+
 # compare the datasets in npn
 ```{r dataset_statistic}
 path_npn <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/"
@@ -68,7 +73,3 @@ npn %>%
   arrange(desc(count))
 ```
 
-```{r species_neon_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-source("~/yia_R/npn_flower_leaf_lag/scripts/shinyapp_neon_spatial_temporal.R")
-shinyApp(ui = ui, server = server)
-```

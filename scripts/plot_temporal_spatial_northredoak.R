@@ -26,7 +26,7 @@ spatial_flower <- plot_spatial_sensitive(individual_aggre, "flower")
 
 standarized_data <- quercus %>%
   filter(common_name %in% c("northern red oak")) %>% 
-  group_by(individual_id) %>%
+  group_by(longitude, latitude) %>%
   mutate_at(vars(flower, lag, leaf, winter_avg_temp, spring_avg_temp), 
             ~ . - mean(.)) %>%
   ungroup()

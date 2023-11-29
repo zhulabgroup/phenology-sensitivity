@@ -7,7 +7,7 @@ quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/
 
 individual_aggre <- quercus %>%
   filter(common_name %in% c("northern red oak")) %>% 
-  group_by(individual_id, longitude, latitude, common_name) %>%
+  group_by(longitude, latitude) %>%
   summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) %>% 
   ungroup() 
 

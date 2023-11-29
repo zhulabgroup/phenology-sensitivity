@@ -9,7 +9,7 @@ standarized_data <- quercus %>%
 
 
 individual_aggre <- quercus %>%
-  group_by(individual_id, longitude, latitude, common_name) %>%
+  group_by(longitude, latitude, common_name) %>%
   summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) %>% 
   group_by(common_name) %>% 
   mutate_at(vars(flower, lag, leaf, winter_avg_temp, spring_avg_temp), 

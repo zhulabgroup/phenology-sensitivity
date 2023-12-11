@@ -1,0 +1,42 @@
+---
+title: "Part 2"
+author: "Yi"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+output: html_document
+runtime: shiny
+
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(see)
+library(purrr)
+library(tibble)
+library(lubridate)
+library(patchwork)
+library(shiny)
+library(stringr)
+knitr::opts_knit$set(root.dir = "~/yia_R/npn_flower_leaf_lag/scripts/")
+# ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
+```
+
+
+# part 2:
+
+Using the observation with leaf and flower separately
+
+## all species summary
+
+```{r species_separate_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
+source("table_sepa_spatial_temporal_statistics.R")
+species_summary
+plotly::ggplotly(species_summary)
+```
+
+```{r species_separate_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
+source("shinyapp_all_spatial_temporal.R")
+shinyApp(ui = ui, server = server)
+```

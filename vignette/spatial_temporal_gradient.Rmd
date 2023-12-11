@@ -41,22 +41,6 @@ source("shinyapp_spatial_temporal.R")
 shinyApp(ui = ui, server = server)
 ```
 
-# part 2:
-
-Using the observation with leaf and flower separately
-
-## all species summary
-
-```{r species_separate_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("table_sepa_spatial_temporal_statistics.R")
-species_summary
-plotly::ggplotly(species_summary)
-```
-
-```{r species_separate_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-source("shinyapp_all_spatial_temporal.R")
-shinyApp(ui = ui, server = server)
-```
 
 
 # part 3: only neon

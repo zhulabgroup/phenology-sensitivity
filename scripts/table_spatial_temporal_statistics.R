@@ -1,23 +1,23 @@
-quercus <- read_rds("/nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag/delete_npn_repeat_conflict/Quercus_winsprtem.rds")
+quercus <- read_rds("data/different_species/maple.rds")
 
 
 standarized_data <- quercus %>%
   group_by(individual_id) %>%
-  mutate_at(vars(flower, lag, leaf, winter_avg_temp, spring_avg_temp), 
+  mutate_at(vars(flower, leaf, winter_avg_temp, spring_avg_temp), 
             ~ . - mean(.)) %>%
   ungroup()
 
 
 individual_aggre <- quercus %>%
-  group_by(longitude, latitude, common_name) %>%
-  summarise(across(c(leaf, flower, lag, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) %>% 
+  group_by(individual_id, common_name) %>%
+  summarise(across(c(leaf, flower, winter_avg_temp, spring_avg_temp), mean, .names = "{.col}")) %>% 
   group_by(common_name) %>% 
-  mutate_at(vars(flower, lag, leaf, winter_avg_temp, spring_avg_temp), 
+  mutate_at(vars(flower, leaf, winter_avg_temp, spring_avg_temp), 
             ~ . - mean(.)) %>% 
   ungroup()
 
 
-source("function_table_sensitive.R")
+source("scripts/function_table_sensitive.R")
 
 
 temporal <- get_stats(standarized_data) %>% 

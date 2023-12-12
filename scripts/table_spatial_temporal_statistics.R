@@ -1,5 +1,8 @@
-quercus <- read_rds("data/different_species/maple.rds")
+maple <- read_rds("data/different_species/maple.rds")
+oak <- read_rds("data/different_species/oak.rds")
 
+quercus <- oak %>% 
+  filter(functional_type == "Deciduous broadleaf")
 
 standarized_data <- quercus %>%
   group_by(individual_id) %>%

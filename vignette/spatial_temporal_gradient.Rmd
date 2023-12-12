@@ -19,7 +19,6 @@ library(lubridate)
 library(patchwork)
 library(shiny)
 library(stringr)
-knitr::opts_knit$set(root.dir = "~/yia_R/npn_flower_leaf_lag/scripts/")
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
@@ -30,40 +29,17 @@ I am using the observation with both leaf and flower observations
 
 ## all species summary
 
+```{r species_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
+source("scripts/shinyapp_maple.R") # also generate the data if not already exist
+shinyApp(ui = ui, server = server)
+```
+
 ```{r species_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("table_spatial_temporal_statistics.R")
+source("scripts/table_spatial_temporal_statistics.R")
 species_summary
 plotly::ggplotly(species_summary)
 ```
 
-```{r species_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-source("shinyapp_spatial_temporal.R")
-shinyApp(ui = ui, server = server)
-```
 
 
-
-# part 3: only neon
-
-The spatial gradient is bad because of few sites
-
-```{r species_neon_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-source("shinyapp_neon_spatial_temporal.R")
-shinyApp(ui = ui, server = server)
-```
-
-# compare the datasets in npn
-```{r dataset_statistic}
-path_npn <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/"
-npn <- read_rds(str_c(path_npn, "Quercus", ".rds"))
-
-npn %>%
-  group_by(dataset_id) %>% 
-  summarise(count = n())
-
-npn %>%
-  group_by(npn$partner_group) %>% 
-  summarise(count = n()) %>% 
-  arrange(desc(count))
-```
 

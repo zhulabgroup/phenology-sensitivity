@@ -30,14 +30,14 @@ I am using the observation with both leaf and flower observations
 ## all species summary
 
 ```{r species_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-source("scripts/shinyapp_maple.R") # also generate the data if not already exist
-shinyApp(ui = ui, server = server)
+# source("scripts/shinyapp_maple.R") # also generate the data if not already exist
+# shinyApp(ui = ui, server = server)
 ```
 
 ```{r species_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("scripts/table_spatial_temporal_statistics.R")
-species_summary
-plotly::ggplotly(species_summary)
+source("scripts/plot_allspecies_temporal_spatial.R")
+site_gg[[1]]
+plotly::ggplotly(site_gg[[1]])
 ```
 
 

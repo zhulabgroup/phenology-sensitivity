@@ -1,4 +1,7 @@
-atlas_path <-  /nfs/turbo/seas-zhukai/phenology/USTreeAtlas/
+
+maple <- read_rds("data/different_species/Acer.rds")
+
+
 atlas_list <-  read_csv("/nfs/turbo/seas-zhukai/phenology/USTreeAtlas/Little_datatable.csv") %>% 
   rename(latin_name = `Latin Name`)
 
@@ -12,9 +15,13 @@ unique_species <- data.frame(species_id = unique(maple$species_id))
 maple_list <- left_join(unique_species, latin_name_list, by = "species_id") %>%
   left_join(atlas_list, by = c("latin_name" = "latin_name"))
 
+shp_name <- maple_list %>% 
+  filter(common_name == "sugar maple") %>% 
+  pull(`SHP/*`)
 
+shp_file <-  str_c("/nfs/turbo/seas-zhukai/phenology/USTreeAtlas/shp/", shp_name)
 
-maple <- read_rds("data/different_species/maple.rds")
+library(sf)
 
 us_map <- map_data("state")
 

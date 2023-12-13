@@ -19,20 +19,32 @@ shp_name <- maple_list %>%
   filter(common_name == "sugar maple") %>% 
   pull(`SHP/*`)
 
-shp_file <-  str_c("/nfs/turbo/seas-zhukai/phenology/USTreeAtlas/shp/", shp_name)
-
-library(sf)
-
-us_map <- map_data("state")
 
 data_filtered <- maple %>%
   filter(common_name == "sugar maple") %>%
   distinct(longitude, latitude) 
 
+library(sf)
+shp_path <- paste0("/nfs/turbo/seas-zhukai/phenology/USTreeAtlas/shp/", shp_name, "/",shp_name,".shp")
+shp_data <- st_read(shp_path)
 
-ggplot() +
-  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
-  geom_point(data = data_filtered, aes(x = longitude, y = latitude), size = 2, color = "red", alpha = 0.1) +
-  coord_fixed(ratio = 1.5) +  # Adjust the aspect ratio for a better display of the US
-  labs(x = "Longitude", y = "Latitude") +  # Label axes
-  theme_minimal() 
+us_map <- map_data("state")
+
+base_map <- ggplot() +
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), 
+               fill = "white", color = "black") +
+  theme_minimal()
+
+
+combined_map <- base_map +
+  geom_sf(data = shp_data, fill = "blue", alpha = 0.1, inherit.aes = FALSE)
+
+final_plot <- combined_map +
+  geom_point(data = data_filtered, aes(x = longitude, y = latitude), 
+             size = 2, color = "red", alpha = 0.1) +
+  coord_sf() +  # Use coord_sf for accurate geographical plotting
+  labs(x = "Longitude", y = "Latitude")
+
+final_plot
+
+

@@ -1,18 +1,24 @@
+quercus <- read_rds("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/different_species/Acer.rds")
+data <- quercus %>%
+  select(leaf, flower, spring_avg_temp) %>%
+  mutate(tag = "training") %>%
+  rename(springT = spring_avg_temp)
+
 library(tidyverse)
 library(nimble)
 # simulate some data
-data <- data.frame(
-  springT = rnorm(100, mean = 20, sd = 10)
-) %>%
-  mutate(
-    leaf = 100 - 1 * springT + rnorm(100, mean = 0, sd = 5),
-    flower = 100 - 1 * springT + 10 + rnorm(100, mean = 0, sd = 2),
-  ) %>%
-  mutate(
-    leaf = replace(leaf, 1:20, NA),
-    flower = replace(flower, 70:100, NA)
-  ) %>%
-  mutate(tag = "training") # as opposed to "validation"
+# data <- data.frame(
+#   springT = rnorm(100, mean = 20, sd = 10)
+# ) %>%
+#   mutate(
+#     leaf = 100 - 1 * springT + rnorm(100, mean = 0, sd = 5),
+#     flower = 100 - 1 * springT + 10 + rnorm(100, mean = 0, sd = 2),
+#   ) %>%
+#   mutate(
+#     leaf = replace(leaf, 1:20, NA),
+#     flower = replace(flower, 70:100, NA)
+#   ) %>%
+#   mutate(tag = "training") # as opposed to "validation"
 
 # specify hyperparameters (just an example. feel free to add more customizable hyperparameters.)
 hyperparam <- list(

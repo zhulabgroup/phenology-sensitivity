@@ -39,7 +39,7 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
     group_by(individual_id, latin_name) %>% 
     summarise(mean_spring_avg_temp = mean(spring_avg_temp),
               n = n()) %>% 
-    filter(n >= threshold2) %>% 
+    filter(n >= threshold1) %>% 
     ungroup()
   
   # Filter for species with >= n_threshold individuals
@@ -47,7 +47,7 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
     group_by(latin_name) %>%
     summarise(n = n()) %>%
     arrange(desc(n)) %>%
-    filter(n >= threshold1)
+    filter(n >= threshold2)
   
   # Calculate anomalies by subtracting the means
   anomaly_data <- data %>%
@@ -79,3 +79,42 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
     return(NA)
   })
 }
+
+# test spatial linearility
+r4linear <- filtered_data %>%
+  group_by(latin_name) %>%
+  summarise(count = n(),
+            r = cor(leaf, spring_avg_temp))
+
+plot(density(r4linear$r))
+
+# test lme
+mean_values <- filtered_data %>%
+  group_by(individual_id, latin_name) %>% 
+  summarise(mean_spring_avg_temp = mean(spring_avg_temp),
+            mean_leaf = mean(leaf),
+            n = n()) %>% 
+  filter(n >= 6) %>% 
+  ungroup()
+
+# Filter for species with >= n_threshold individuals
+speciesoi <- mean_values %>%
+  group_by(latin_name) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  filter(n >= 3)
+
+# Calculate anomalies by subtracting the means
+anomaly_data <- filtered_data %>%
+  filter(latin_name %in% speciesoi$latin_name) %>%
+  right_join(mean_values, by = c("individual_id", "latin_name")) %>%
+  mutate(spring_avg_temp_anomaly = spring_avg_temp - mean_spring_avg_temp,
+         leaf_anomaly = leaf - mean_leaf,
+         interaction = spring_avg_temp_anomaly*spring_avg_temp)
+  
+lme_result <- lmerTest::lmer(leaf_anomaly ~ spring_avg_temp_anomaly + 
+                               (spring_avg_temp_anomaly | latin_name / individual_id) +
+                               interaction + 
+                               (interaction | latin_name / individual_id), 
+                             data = anomaly_data) 
+                            

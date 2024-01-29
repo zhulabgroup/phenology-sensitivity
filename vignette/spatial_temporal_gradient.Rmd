@@ -19,27 +19,350 @@ library(lubridate)
 library(patchwork)
 library(shiny)
 library(stringr)
+library(lme4)
+
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
 ```
 
+# prepare data
 
-# part 1:
+```{r}
+directory_path <- "/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/different_species/"
 
-I am using the observation with both leaf and flower observations
+# Get a list of all RDS files in the directory
+rds_files <- list.files(directory_path, pattern = "\\.rds$", full.names = TRUE)
+rds_files <- rds_files[-3]
+# Initialize an empty data frame
+filtered_data <- data.frame()
 
-## all species summary
+# Read and combine the RDS files
+for (file in rds_files) {
+  data <- readRDS(file)
+  filtered_data <- rbind(filtered_data,data)
+}
 
-```{r species_shiny, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=FALSE}
-# source("scripts/shinyapp_maple.R") # also generate the data if not already exist
-# shinyApp(ui = ui, server = server)
+
+mean_values <- filtered_data  %>% 
+  filter(functional_type %in% c("Deciduous broadleaf", "Deciduous conifer")) %>%
+  group_by(individual_id, latin_name) %>% 
+  summarise(mean_spring_avg_temp = mean(spring_avg_temp),
+            mean_leaf = mean(leaf),
+            n = n()) %>% 
+  filter(n >= 3) %>% 
+  ungroup()
+
+# Filter for species with >= n_threshold individuals
+speciesoi <- mean_values %>%
+  group_by(latin_name) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  filter(n >= 3)
+
+# Calculate anomalies by subtracting the means
+anomaly_data <- filtered_data %>%
+  right_join(mean_values, by = c("individual_id", "latin_name")) %>% #also filtered individual
+  filter(latin_name %in% speciesoi$latin_name) %>%
+  mutate(spring_avg_temp_anomaly = spring_avg_temp - mean_spring_avg_temp,
+         leaf_anomaly = leaf - mean_leaf,
+         interaction = spring_avg_temp_anomaly*spring_avg_temp)
 ```
 
-```{r species_summary, message=FALSE, warning=FALSE, fig.width=6*1.618 , fig.height=6, cache=TRUE}
-source("scripts/plot_allspecies_temporal_spatial.R")
-site_gg[[1]]
-plotly::ggplotly(site_gg[[1]])
+
+# spatial linear or curved
+
+```{r}
+# Calculate correlation coefficient for each group
+rlabel_text <- anomaly_data %>% 
+  group_by(latin_name) %>% 
+  summarise(corr = cor(spring_avg_temp, leaf)) %>%
+  mutate(R2 = corr^2)  # Calculate R-squared from correlation
+
+# Prepare data for annotations
+# You might need to adjust the x and y values based on your plot's scale
+rlabel_text <- rlabel_text %>% 
+  mutate(label = paste("R^2 =", round(R2, 2)),
+         label_x = 15,  # Replace with appropriate x value
+         label_y = 200)  # Replace with appropriate y value
+
+# Plot
+p <- ggplot(anomaly_data, aes(x = spring_avg_temp, y = leaf)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = TRUE, linetype = "solid", color = "blue", fill = "blue") +
+  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, linetype = "solid", color = "red", fill = "red") +
+  facet_wrap(~ latin_name) +
+  labs(title = "Comparison of OLS and Quadratic Model")
+
+# Add R-squared value to each panel
+p + geom_text(data = rlabel_text, aes(x = label_x, y = label_y, label = label), size = 3)
+
+```
+```{r}
+hist(rlabel_text$corr)
+```
+
+```{r}
+# Get unique latin_names
+unique_latin_names <- unique(anomaly_data$latin_name)
+
+# Initialize an empty data frame to store results
+results_df <- data.frame(latin_name = character(0), linear_aic = numeric(0), quadratic_aic = numeric(0), linear_bic = numeric(0), quadratic_bic = numeric(0))
+
+# Loop through unique latin_names
+for (ln in unique_latin_names) {
+  # Filter data for the current latin_name
+  test_data <- anomaly_data %>% 
+    filter(latin_name == ln)
+  
+  # Fit the linear model
+  linear_model <- lm(leaf ~ spring_avg_temp, data = test_data)
+  
+  # Fit the quadratic model
+  quadratic_model <- lm(leaf ~ spring_avg_temp + I(spring_avg_temp^2), data = test_data)
+  
+  # Calculate AIC and BIC for both models
+  linear_aic <- AIC(linear_model)
+  quadratic_aic <- AIC(quadratic_model)
+  linear_bic <- BIC(linear_model)
+  quadratic_bic <- BIC(quadratic_model)
+  
+  # Add the results to the data frame
+  results_df <- rbind(results_df, data.frame(latin_name = ln, linear_aic = linear_aic, quadratic_aic = quadratic_aic, linear_bic = linear_bic, quadratic_bic = quadratic_bic))
+}
+
+# Print the results table
+print(results_df)
+
+```
+
+# temporal
+```{r}
+# visially check
+anomaly_data %>% 
+  dplyr::filter(latin_name == "Quercus velutina") %>% 
+  ggplot(aes(x = spring_avg_temp, y = leaf)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "black") +
+  geom_point(aes(color = as.factor(individual_id))) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, aes(color = as.factor(individual_id), fill = as.factor(individual_id))) +
+  theme(legend.position = "none")  # Remove the entire legend
+
+
+# Get unique latin_names
+unique_latin_names <- unique(anomaly_data$latin_name)
+
+# Create a PDF file to store all the plots
+pdf("all_plots.pdf")
+
+# Loop through unique latin_names and create a plot for each
+for (ln in unique_latin_names) {
+  plot_data <- anomaly_data %>%
+    filter(latin_name == ln)
+  
+  p <- ggplot(data = plot_data, aes(x = spring_avg_temp, y = leaf)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "black") +
+    geom_point(aes(color = as.factor(individual_id))) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, aes(color = as.factor(individual_id), fill = as.factor(individual_id))) +
+      labs(title = ln) +
+    theme(legend.position = "none")  # Remove the entire legend
+  
+  print(p)
+}
+
+# Close the PDF file
+dev.off()
+```
+
+
+```{r}
+# all together
+tem_simple <- lm(leaf_anomaly ~ spring_avg_temp_anomaly - 1 + 
+                               interaction, 
+                             data = anomaly_data) # intercept = 0
+summary(tem_simple)
+
+```
+```{r}
+# by species (this is strange, even spring_avg_temp_anomaly becomes not significant)
+# Get unique latin_names
+unique_latin_names <- unique(anomaly_data$latin_name)
+
+# Initialize a data frame to store results
+results_df <- data.frame(
+  latin_name = character(0),
+  significant_spring_temp = integer(0),
+  significant_interaction = integer(0),
+  coef_spring_temp = numeric(0),
+  coef_interaction = numeric(0),
+  r_squared = numeric(0),
+  rmse = numeric(0)
+)
+
+# Loop through unique latin_names
+for (ln in unique_latin_names) {
+  # Filter data for the current latin_name
+  test_data <- anomaly_data %>%
+    filter(latin_name == ln)
+  
+  # Fit the model
+  tem_simple <- lm(leaf_anomaly ~ spring_avg_temp_anomaly, data = test_data)
+  
+  # Extract coefficients and p-values
+  coef_summary <- summary(tem_simple)$coefficients
+  
+  # Check if the coefficients are significant (p-value < 0.05)
+  is_spring_temp_significant <- coef_summary["spring_avg_temp_anomaly", "Pr(>|t|)"] < 0.05
+
+  # Get the coefficients
+  coef_spring_temp <- coef_summary["spring_avg_temp_anomaly", "Estimate"]
+
+  # Calculate R-squared
+  r_squared <- summary(tem_simple)$r.squared
+  
+  # Calculate RMSE
+  predicted_values <- predict(tem_simple)
+  actual_values <- test_data$leaf_anomaly
+  rmse <- sqrt(mean((predicted_values - actual_values)^2))
+  
+  # Add the results to the data frame
+  results_df <- rbind(results_df, data.frame(
+    latin_name = ln,
+    significant_spring_temp = as.integer(is_spring_temp_significant),
+    coef_spring_temp = coef_spring_temp,
+    r_squared = r_squared,
+    rmse = rmse
+  ))
+}
+
+# Print the results table
+print(results_df)
+
+
+```
+
+
+```{r}
+tem <- lmerTest::lmer(leaf_anomaly ~ spring_avg_temp_anomaly -1 + 
+                               (-1 + spring_avg_temp_anomaly |  latin_name) +
+                               interaction + 
+                               (-1 + interaction | latin_name), 
+                             data = anomaly_data) # intercept = 0
+
+summary(tem)
+
+```
+
+```{r}
+slope_data$prepop <- predict(tem_linear_mixed,re.form=NA)  ## population level
+slope_data$predindi <- predict(tem_linear_mixed) ## individual level
+
+
+ggplot(slope_data, aes(x = mean_spring_avg_temp, y = slope)) +
+  geom_point(alpha = 0.2) +
+  labs(title = "Comparison of random effect and fixed effect",
+       x = "Predictor Variable",
+       y = "Response Variable") + 
+  geom_line(colour="blue",aes(y=predindi,group=latin_name)) + # fitted lines
+geom_line(colour="red",aes(y=prepop)) +
+  facet_wrap(~ latin_name)   # Panel for each group
+  
+```
+
+
+# spatial temporal compare
+```{r}
+spa_tem_linear <- lm(leaf ~ spring_avg_temp + spring_avg_temp_anomaly, 
+                                 data = anomaly_data)
+summary(spa_tem_linear)
+plot(anomaly_data$leaf,anomaly_data$spring_avg_temp)
+
+plot(anomaly_data$leaf,anomaly_data$spring_avg_temp_anomaly)
+```
+
+```{r}
+
+# Get unique latin_names
+unique_latin_names <- unique(anomaly_data$latin_name)
+
+# Initialize a data frame to store results
+results_df <- data.frame(
+  latin_name = character(0),
+  coef_spring_temp = numeric(0),
+  coef_interaction = numeric(0),
+  is_spring_temp_significant = character(0),
+  is_interaction_significant = character(0),
+  r_squared = numeric(0)
+)
+
+# Loop through unique latin_names
+for (ln in unique_latin_names) {
+  # Filter data for the current latin_name
+  test_data <- anomaly_data %>%
+    filter(latin_name == ln)
+  
+  # Fit the model
+  tem_simple <- lm(leaf_anomaly ~ spring_avg_temp_anomaly + interaction, data = test_data)
+  
+  # Extract coefficients and p-values
+  coef_summary <- summary(tem_simple)$coefficients
+  
+  # Check if the coefficients are significant (p-value < 0.05)
+  is_spring_temp_significant <- coef_summary["spring_avg_temp_anomaly", "Pr(>|t|)"] < 0.05
+  is_interaction_significant <- coef_summary["interaction", "Pr(>|t|)"] < 0.05
+  
+  # Get the coefficients
+  coef_spring_temp <- coef_summary["spring_avg_temp_anomaly", "Estimate"]
+  coef_interaction <- coef_summary["interaction", "Estimate"]
+  
+  # Extract R-squared
+  rsquared <- summary(tem_simple)$r.squared
+  
+  # Add the results to the data frame
+  results_df <- rbind(results_df, data.frame(
+    latin_name = ln,
+    coef_spring_temp = coef_spring_temp,
+    coef_interaction = coef_interaction,
+    is_spring_temp_significant = ifelse(is_spring_temp_significant, "Yes", "No"),
+    is_interaction_significant = ifelse(is_interaction_significant, "Yes", "No"),
+    r_squared = rsquared
+  ))
+}
+
+# Print the results table
+print(results_df)
+
 ```
 
 
 
+```{r}
+res <- lme4::lmer(leaf ~ spring_avg_temp + 
+                                    (1 | latin_name) + 
+                                   (-1 + spring_avg_temp | latin_name) + 
+                                   spring_avg_temp_anomaly +
+                                   (-1 + spring_avg_temp_anomaly | latin_name),
+                                 data = anomaly_data)
+summary(res)
+```
+
+
+
+
+
+```{r}
+x = c(1,5,10,12,13)
+y = c(2,4,6,9,13)
+z = c(1,8,3,6,1)
+
+y1 = y/z
+x1 = x/z
+z1 = z/x
+
+
+model1 <- lm(y~x)
+summary(model1)
+
+model2 <- lm(y1~x1)
+summary(model2)
+
+
+```
 

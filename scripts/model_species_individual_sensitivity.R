@@ -13,7 +13,9 @@ for (file in rds_files) {
   filtered_data <- rbind(filtered_data,data)
 }
 
-
+# select deciduous
+deciduous_data <- filtered_data %>% 
+  filter(functional_type %in% c("Deciduous broadleaf", "Deciduous conifer"))
 
 # Create an empty data frame to store results
 results_table <- data.frame(Threshold1 = integer(), Threshold2 = integer(), P_Value = numeric())
@@ -38,6 +40,7 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
   mean_values <- data %>%
     group_by(individual_id, latin_name) %>% 
     summarise(mean_spring_avg_temp = mean(spring_avg_temp),
+              mean_leaf = mean(leaf),
               n = n()) %>% 
     filter(n >= threshold1) %>% 
     ungroup()
@@ -50,23 +53,23 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
     filter(n >= threshold2)
   
   # Calculate anomalies by subtracting the means
-  anomaly_data <- data %>%
+  anomaly_data <- filtered_data %>%
     filter(latin_name %in% speciesoi$latin_name) %>%
-    right_join(mean_values, by = c("individual_id", "latin_name")) %>%
-    mutate(spring_avg_temp_anomaly = spring_avg_temp - mean_spring_avg_temp)
+    right_join(mean_values, by = c("individual_id", "latin_name")) %>% #also filtered individual
+    mutate(spring_avg_temp_anomaly = spring_avg_temp - mean_spring_avg_temp,
+           leaf_anomaly = leaf - mean_leaf,
+           interaction = spring_avg_temp_anomaly*spring_avg_temp)
   
   tryCatch({
     # Perform linear mixed-effects regression with random slopes
-    lme_result <- lmerTest::lmer(leaf ~ spring_avg_temp + 
-                                   (1 | latin_name) + 
-                                   (spring_avg_temp | latin_name) + 
-                                   spring_avg_temp_anomaly + 
-                                   (spring_avg_temp_anomaly | latin_name / individual_id), 
-                                 data = anomaly_data)
-    
+    lme_result <- lmerTest::lmer(leaf_anomaly ~ spring_avg_temp_anomaly + 
+                                   (spring_avg_temp_anomaly | latin_name / individual_id) +
+                                   interaction + 
+                                   (interaction | latin_name / individual_id), 
+                                 data = anomaly_data) 
     # Extract estimate and p-value
-    estimate <- summary(lme_result)$coefficients["spring_avg_temp_anomaly", "Estimate"]
-    p_value <- summary(lme_result)$coefficients["spring_avg_temp_anomaly", "Pr(>|t|)"]
+    estimate <- summary(lme_result)$coefficients["interaction", "Estimate"]
+    p_value <- summary(lme_result)$coefficients["interaction", "Pr(>|t|)"]
     
     # Adjust p-value based on estimate sign
     if (estimate < 0) {
@@ -80,11 +83,16 @@ fit_lme_and_extract <- function(data, threshold1, threshold2) {
   })
 }
 
-# test spatial linearility
-r4linear <- filtered_data %>%
-  group_by(latin_name) %>%
-  summarise(count = n(),
-            r = cor(leaf, spring_avg_temp))
+# Fit a linear model
+linear_model <- lm(leaf ~ spring_avg_temp, data = filtered_data)
+
+# Fit a quadratic (non-linear) model
+non_linear_model <- lm(leaf ~ spring_avg_temp + I(spring_avg_temp^2), data = filtered_data)
+
+ggplot(data = deciduous_data, aes(x = spring_avg_temp, y = leaf)) +
+  geom_point() +
+  facet_wrap(~latin_name)
+
 
 plot(density(r4linear$r))
 
@@ -94,7 +102,7 @@ mean_values <- filtered_data %>%
   summarise(mean_spring_avg_temp = mean(spring_avg_temp),
             mean_leaf = mean(leaf),
             n = n()) %>% 
-  filter(n >= 6) %>% 
+  filter(n >= 3) %>% 
   ungroup()
 
 # Filter for species with >= n_threshold individuals
@@ -113,8 +121,33 @@ anomaly_data <- filtered_data %>%
          interaction = spring_avg_temp_anomaly*spring_avg_temp)
   
 lme_result <- lmerTest::lmer(leaf_anomaly ~ spring_avg_temp_anomaly + 
-                               (spring_avg_temp_anomaly | latin_name / individual_id) +
+                               (spring_avg_temp_anomaly |  individual_id) +
                                interaction + 
-                               (interaction | latin_name / individual_id), 
+                               (interaction | individual_id), 
                              data = anomaly_data) 
+
+
+# Load the required libraries
+library(lme4)
+library(ggplot2)
+
+# Fit the OLS linear model
+ols_model <- lm(Response ~ Predictor, data = your_data)
+
+# Fit the mixed-effects model (assuming 'Group' is the grouping variable)
+mixed_model <- lmer(Response ~ Predictor + (1|Group), data = your_data)
+
+# Create a scatterplot with raw data points and model lines
+scatterplot <- ggplot(your_data, aes(x = Predictor, y = Response, color = Group)) +
+  geom_point() +  # Raw data points
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, linetype = "dashed", color = "blue") +  # OLS fit line
+  geom_smooth(method = "merMod", formula = y ~ x, method.args = list(model = mixed_model), se = FALSE, linetype = "solid", color = "red") +  # Mixed-effects model line
+  facet_wrap(~ Group) +  # Panel for each group
+  labs(title = "Comparison of OLS and Mixed-Effects Models",
+       x = "Predictor Variable",
+       y = "Response Variable")
+
+# Print the scatterplot
+print(scatterplot)
+
                             

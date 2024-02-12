@@ -243,7 +243,7 @@ print(results_df)
 tem <- lmerTest::lmer(leaf_anomaly ~ spring_avg_temp_anomaly -1 + 
                                (-1 + spring_avg_temp_anomaly |  latin_name) +
                                interaction + 
-                               (-1 + interaction | latin_name), 
+                               (-1 + interaction |  latin_name), 
                              data = anomaly_data) # intercept = 0
 
 summary(tem)
@@ -334,13 +334,16 @@ print(results_df)
 
 
 ```{r}
-res <- lme4::lmer(leaf ~ spring_avg_temp + 
+
+
+lme_result <- lmerTest::lmer(leaf ~ spring_avg_temp + 
                                     (1 | latin_name) + 
                                    (-1 + spring_avg_temp | latin_name) + 
                                    spring_avg_temp_anomaly +
                                    (-1 + spring_avg_temp_anomaly | latin_name),
                                  data = anomaly_data)
-summary(res)
+summary(lme_result)
+summary(lme_result)$coefficients["spring_avg_temp_anomaly", "Estimate"]
 ```
 
 
@@ -366,3 +369,68 @@ summary(model2)
 
 ```
 
+```{r}
+# robust test
+fit_lme_and_extract <- function(data, threshold1, threshold2) {
+  # Filter data for individuals with >= n_threshold observations
+  mean_values <- data  %>% 
+  filter(functional_type %in% c("Deciduous broadleaf", "Deciduous conifer")) %>%
+  group_by(individual_id, latin_name) %>% 
+  summarise(mean_spring_avg_temp = mean(spring_avg_temp),
+            mean_leaf = mean(leaf),
+            n = n()) %>% 
+    filter(n >= threshold1) %>% 
+  ungroup()
+
+# Filter for species with >= n_threshold individuals
+speciesoi <- mean_values %>%
+  group_by(latin_name) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+    filter(n >= threshold2)
+
+# Calculate anomalies by subtracting the means
+anomaly_data <- data %>%
+  right_join(mean_values, by = c("individual_id", "latin_name")) %>% #also filtered individual
+  filter(latin_name %in% speciesoi$latin_name) %>%
+  mutate(spring_avg_temp_anomaly = spring_avg_temp - mean_spring_avg_temp,
+         leaf_anomaly = leaf - mean_leaf,
+         interaction = spring_avg_temp_anomaly*spring_avg_temp)
+  
+  tryCatch({
+    # Perform linear mixed-effects regression with random slopes
+    lme_result <- lmerTest::lmer(leaf ~ spring_avg_temp + 
+                                    (1 | latin_name) + 
+                                   (-1 + spring_avg_temp | latin_name) + 
+                                   spring_avg_temp_anomaly +
+                                   (-1 + spring_avg_temp_anomaly | latin_name),
+                                 data = anomaly_data)
+    # Extract estimate and p-value
+    estimate <- summary(lme_result)$coefficients["spring_avg_temp_anomaly", "Estimate"]
+    p_value <- summary(lme_result)$coefficients["spring_avg_temp_anomaly", "Pr(>|t|)"]
+    
+    # Adjust p-value based on estimate sign
+    if (estimate < 0) {
+      p_value <- -p_value
+    }
+    
+    return(p_value)
+  }, warning = function(w) {
+    # Return NA for warnings (model convergence issues)
+    return(NA)
+  })
+}
+results_table <- data.frame(Threshold1 = integer(), Threshold2 = integer(), P_Value = numeric())
+for (threshold1 in 2:7) {
+  for (threshold2 in 2:7) {
+    # Call the fit_lme_and_extract function with the current thresholds
+    p_value <- fit_lme_and_extract(filtered_data, threshold1, threshold2)
+    
+    # Append the results to the table
+    results_table <- rbind(results_table, data.frame(Threshold1 = threshold1, Threshold2 = threshold2, P_Value = p_value))
+  }
+}
+
+wide_table <- results_table %>%
+  pivot_wider(names_from = Threshold1, values_from = P_Value)
+```

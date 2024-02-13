@@ -6,7 +6,6 @@ data <- anomaly_data %>%
 
 library(nimble)
 
-
 # Define the model code
 modelCode <- nimbleCode({
   # Priors
@@ -62,14 +61,6 @@ nimbleOptions(enableParallelProcessing = TRUE, setSeed = TRUE)
 # Run MCMC with multiple chains
 mcmcResults <- runMCMC(compiledMcmc, niter = niter, nburnin = nburnin, nchains = num_chains)
 
-
-
-# Convert MCMC results to a dataframe for easier handling
-mcmcDF <- as.data.frame(mcmcResults)
-
-# Basic summary of the posterior distributions
-summary(mcmcDF)
-
 library(coda)
 
 # Convert the MCMC output to a 'mcmc.list' object suitable for 'coda'
@@ -77,19 +68,16 @@ mcmcList <- mcmc.list(
   lapply(1:num_chains, function(i) as.mcmc(mcmcResults[[i]]))
 )
 
-# Compute Gelman-Rubin Diagnostic
+# coverge
 gelman.diag(mcmcList)
 
 # Calculate Effective Sample Size
 effectiveSize(mcmcList)
 
-# Plotting
-ggplot(mcmcDF, aes(x = a)) + geom_density(fill = "blue", alpha = 0.5) + xlab("a")
-ggplot(mcmcDF, aes(x = b)) + geom_density(fill = "red", alpha = 0.5) + xlab("b")
-
 mcmcObj <- as.mcmc(mcmcResults)
 mcmcList <- mcmc.list(mcmcObj)
 
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
+par(mfrow = c(1, 3))
 traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
 

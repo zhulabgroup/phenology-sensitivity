@@ -74,10 +74,13 @@ gelman.diag(mcmcList)
 # Calculate Effective Sample Size
 effectiveSize(mcmcList)
 
-mcmcObj <- as.mcmc(mcmcResults)
-mcmcList <- mcmc.list(mcmcObj)
-
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
 par(mfrow = c(1, 3))
 traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
 
+posterior <- do.call(rbind, mcmcResults)
+
+ggplot(data = as.data.frame(posterior), aes(x = b)) +
+  geom_density(fill = "blue", alpha = 0.5) +
+  xlab("b") +
+  ylab("Density")

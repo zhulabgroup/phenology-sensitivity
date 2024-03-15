@@ -1,5 +1,6 @@
 quercus <- read_rds("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/different_species/Acer.rds")
 data <- quercus %>%
+  filter(common_name == "red maple") %>% 
   select(leaf, flower, spring_avg_temp) %>%
   mutate(tag = "training") %>%
   rename(springT = spring_avg_temp)

@@ -1,5 +1,6 @@
 data <- anomaly_data %>%
-  filter(common_name == "sugar maple") %>% 
+  filter(common_name == "sugar maple") %>%
+  # filter(latin_name == "Acer rubrum") %>% 
   select(leaf, flower, spring_avg_temp) %>%
   mutate(tag = "training") %>%
   rename(springT = spring_avg_temp)
@@ -51,9 +52,9 @@ compiledMcmc <- compileNimble(mcmc, project = model)
 # Assuming compiledModel is your compiled NIMBLE model
 
 # MCMC settings
-nburnin <- 5000
+nburnin <- 500
 niter <- 10000  # Total iterations for each chain
-num_chains <- 4  # Number of chains to run
+num_chains <- 2  # Number of chains to run
 
 # Enable parallel processing in NIMBLE
 nimbleOptions(enableParallelProcessing = TRUE, setSeed = TRUE)
@@ -84,3 +85,7 @@ ggplot(data = as.data.frame(posterior), aes(x = b)) +
   geom_density(fill = "blue", alpha = 0.5) +
   xlab("b") +
   ylab("Density")
+
+spatial <- posterior[, "b"]
+
+

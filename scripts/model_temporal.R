@@ -9,13 +9,15 @@ data <- anomaly_data %>%
 modelCode <- nimbleCode({
   # Hyperpriors
   mu_a ~ dnorm(mu_a0, sd_a0^-2)
-  tau_a2 ~ T(dnorm(0, sd = sd_a), 0, )
+  tau_a2 ~ dinvgamma(nu_a, kappa_a)
+  # tau_a2 ~ T(dnorm(0, sd = sd_a), 0, )
   
   mu_b ~ dnorm(mu_b0, sd_b0^-2)
-  tau_b2 ~ T(dnorm(0, sd = sd_b), 0, )
+  tau_b2 ~ dinvgamma(nu_b, kappa_b)
+  # tau_b2 ~ T(dnorm(0, sd = sd_b), 0, )
   
-#  sigma2 ~ dinvgamma(alpha, beta)
-  sigma2 ~ T(dnorm(0, sd = sd), 0, )
+  # sigma2 ~ T(dnorm(0, sd = sd), 0, )
+  sigma2 ~ dinvgamma(alpha, beta)
   
   # Priors for individual parameters
   for(j in 1:J) {
@@ -31,14 +33,14 @@ modelCode <- nimbleCode({
 
 # Hyperparameters for the hyperpriors
 hyperparams <- list(
-  mu_a0 = 160, sd_a0 = 10,
-  mu_b0 = -3, sd_b0 = 10,
-  sd_a = 10,
-  sd_b = 10,
-  sd = 10
-  # nu_a = 2, kappa_a = 0.1,
-  # nu_b = 2, kappa_b = 1,
-  # alpha = 2, beta = 1
+  mu_a0 = 0, sd_a0 = 100,
+  mu_b0 = 0, sd_b0 = 100,
+  # sd_a = 10,
+  # sd_b = 10,
+  # sd = 10
+  nu_a = 2, kappa_a = 1,
+  nu_b = 2, kappa_b = 1,
+  alpha = 2, beta = 1
 )
 
 # Assuming `data` has columns `springT` and `leaf`
@@ -48,11 +50,11 @@ modelData <- list(
   group = data$group,
   mu_a0 = hyperparams$mu_a0, sd_a0 = hyperparams$sd_a0,
   mu_b0 = hyperparams$mu_b0, sd_b0 = hyperparams$sd_b0,
-  sd_a = hyperparams$sd_a, sd_b = hyperparams$sd_b,
-  sd = hyperparams$sd
-  # nu_a = hyperparams$nu_a, kappa_a = hyperparams$kappa_a,
-  # nu_b = hyperparams$nu_b, kappa_b = hyperparams$kappa_b,
-  # alpha = hyperparams$alpha, beta = hyperparams$beta
+  # sd_a = hyperparams$sd_a, sd_b = hyperparams$sd_b,
+  # sd = hyperparams$sd
+  nu_a = hyperparams$nu_a, kappa_a = hyperparams$kappa_a,
+  nu_b = hyperparams$nu_b, kappa_b = hyperparams$kappa_b,
+  alpha = hyperparams$alpha, beta = hyperparams$beta
 )
 
 # Correctly passing data, constants, and initial values
@@ -66,45 +68,56 @@ model <- nimbleModel(modelCode,
 )
 compiledModel <- compileNimble(model)
 
-
+# Configure MCMC
 mcmcConf <- configureMCMC(model)
 mcmc <- buildMCMC(mcmcConf)
 compiledMcmc <- compileNimble(mcmc, project = model)
-mcmcResults <- runMCMC(compiledMcmc, nburnin = 10000, niter = 50000)
 
-# Convert MCMC results to a dataframe for easier handling
-mcmcDF <- as.data.frame(mcmcResults)
 
-# Basic summary of the posterior distributions
-summary(mcmcDF)
+# Assuming compiledModel is your compiled NIMBLE model
 
-ggplot(mcmcDF, aes(x = mu_b)) + geom_density(fill = "blue", alpha = 0.5) + xlab("mu_b")
+# MCMC settings
+nburnin <- 20000
+niter <- 50000  # Total iterations for each chain
+num_chains <- 2  # Number of chains to run
 
-#
+# Enable parallel processing in NIMBLE
+nimbleOptions(enableParallelProcessing = TRUE, setSeed = TRUE)
+
+# Run MCMC with multiple chains
+mcmcResults <- runMCMC(compiledMcmc, niter = niter, nburnin = nburnin, nchains = num_chains)
+
 library(coda)
-mcmcObj <- as.mcmc(mcmcResults)
-mcmcList <- mcmc.list(mcmcObj)
 
+# Convert the MCMC output to a 'mcmc.list' object suitable for 'coda'
+mcmcList <- mcmc.list(
+  lapply(1:num_chains, function(i) as.mcmc(mcmcResults[[i]]))
+)
+# coverge
+gelman.diag(mcmcList)
 
-
-  
-  
-
-par(mfrow = c(2, 3))
+# Calculate Effective Sample Size
+effectiveSize(mcmcList)
 
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
-traceplot(mcmcList, varname = "mu_b")  # Replace "mu_a" with your actual parameter name
+par(mfrow = c(2, 3))
+traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
 
-# Trace plot for 'mu_a'
-traceplot(mcmcList[, 'mu_a'])
 
-# Autocorrelation plot for 'mu_a'
-autocorr.plot(mcmcList[, 'mu_a'])
+posterior <- do.call(rbind, mcmcResults)
 
-# Effective Sample Size
-ess <- effectiveSize(mcmcList)
-print(ess)
+ggplot(data = as.data.frame(posterior), aes(x = mu_b)) +
+  geom_density(fill = "blue", alpha = 0.5) +
+  xlab("b") +
+  ylab("Density")
 
-# Potential Scale Reduction Factor (R-hat)
-rhat <- gelman.diag(mcmcList)$psrf
-print(rhat)
+temporal <- posterior[, "mu_b"]
+
+ggplot() +
+  geom_density(data = data.frame(b = temporal), aes(x = b, fill = "Temporal"), color = "blue", alpha = 0.5) +
+  geom_density(data = data.frame(b = spatial), aes(x = b, fill = "Spatial"), color = "red", alpha = 0.5) +
+  xlab("Sensitivity (dDay/dT)") +
+  ylab("Density") +
+  scale_fill_manual(values = c("Temporal" = "blue", "Spatial" = "red"), 
+                    labels = c("Temporal", "Spatial"))
+

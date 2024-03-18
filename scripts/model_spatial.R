@@ -1,6 +1,6 @@
 data <- anomaly_data %>%
-  filter(common_name == "sugar maple") %>%
-  # filter(latin_name == "Acer rubrum") %>% 
+  # filter(common_name == "sugar maple") %>%
+  filter(latin_name == "Acer rubrum") %>%
   select(leaf, flower, spring_avg_temp) %>%
   mutate(tag = "training") %>%
   rename(springT = spring_avg_temp)

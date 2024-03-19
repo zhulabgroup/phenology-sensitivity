@@ -1,11 +1,12 @@
+spatial_model <- function(species_name){
+  
+
 data <- anomaly_data %>%
   # filter(common_name == "sugar maple") %>%
-  filter(latin_name == "Acer rubrum") %>%
+  filter(latin_name == species_name) %>%
   select(leaf, flower, spring_avg_temp) %>%
-  mutate(tag = "training") %>%
   rename(springT = spring_avg_temp)
 
-library(nimble)
 
 # Define the model code
 modelCode <- nimbleCode({
@@ -76,16 +77,17 @@ gelman.diag(mcmcList)
 effectiveSize(mcmcList)
 
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
-par(mfrow = c(1, 3))
-traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
+# par(mfrow = c(1, 3))
+# traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
 
 posterior <- do.call(rbind, mcmcResults)
 
-ggplot(data = as.data.frame(posterior), aes(x = b)) +
-  geom_density(fill = "blue", alpha = 0.5) +
-  xlab("b") +
-  ylab("Density")
+# ggplot(data = as.data.frame(posterior), aes(x = b)) +
+#   geom_density(fill = "blue", alpha = 0.5) +
+#   xlab("b") +
+#   ylab("Density")
 
 spatial <- posterior[, "b"]
 
-
+return(spatial)
+}

@@ -1,6 +1,9 @@
-library(nimble)
+temporal_model <- function(species_name){
+  
+
 data <- anomaly_data %>%
-  filter(common_name == "sugar maple") %>%
+  # filter(common_name == "sugar maple") %>%
+  filter(latin_name == "Acer pensylvanicum") %>%
   select(leaf, individual_id, spring_avg_temp) %>%
   mutate(tag = "training") %>%
   rename(springT = spring_avg_temp) %>%
@@ -100,24 +103,20 @@ gelman.diag(mcmcList)
 effectiveSize(mcmcList)
 
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
-par(mfrow = c(2, 3))
-traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
-
+# par(mfrow = c(2, 3))
+# traceplot(mcmcList)  # Replace "mu_a" with your actual parameter name
+# 
 
 posterior <- do.call(rbind, mcmcResults)
 
-ggplot(data = as.data.frame(posterior), aes(x = mu_b)) +
-  geom_density(fill = "blue", alpha = 0.5) +
-  xlab("b") +
-  ylab("Density")
+# ggplot(data = as.data.frame(posterior), aes(x = mu_b)) +
+#   geom_density(fill = "blue", alpha = 0.5) +
+#   xlab("b") +
+#   ylab("Density")
 
 temporal <- posterior[, "mu_b"]
 
-ggplot() +
-  geom_density(data = data.frame(b = temporal), aes(x = b, fill = "Temporal"), color = "blue", alpha = 0.5) +
-  geom_density(data = data.frame(b = spatial), aes(x = b, fill = "Spatial"), color = "red", alpha = 0.5) +
-  xlab("Sensitivity (dDay/dT)") +
-  ylab("Density") +
-  scale_fill_manual(values = c("Temporal" = "blue", "Spatial" = "red"), 
-                    labels = c("Temporal", "Spatial"))
+
+return(temporal)
+}
 

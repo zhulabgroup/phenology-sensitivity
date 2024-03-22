@@ -3,7 +3,7 @@ temporal_model <- function(species_name){
 
 data <- anomaly_data %>%
   # filter(common_name == "sugar maple") %>%
-  filter(latin_name == "Acer pensylvanicum") %>%
+  filter(latin_name == species_name) %>%
   select(leaf, individual_id, spring_avg_temp) %>%
   mutate(tag = "training") %>%
   rename(springT = spring_avg_temp) %>%
@@ -36,8 +36,8 @@ modelCode <- nimbleCode({
 
 # Hyperparameters for the hyperpriors
 hyperparams <- list(
-  mu_a0 = 0, sd_a0 = 100,
-  mu_b0 = 0, sd_b0 = 100,
+  mu_a0 = 105, sd_a0 = 1e6,
+  mu_b0 = 0, sd_b0 = 10,
   # sd_a = 10,
   # sd_b = 10,
   # sd = 10

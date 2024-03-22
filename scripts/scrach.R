@@ -4,7 +4,9 @@ posterior <- read_rds("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/
 
 
 # Iterate over indices from 5 to 23
-for (i in 6:23) {
+posterior <- list()
+
+for (i in 1:23) {
   # Extract species name
   species_name <- speciesoi$latin_name[i]
   # Print species name
@@ -30,15 +32,15 @@ write_rds(posterior, "/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/p
 
 
 ggplot() +
-  geom_density(data = data.frame(posterior[[species_name]]$Temporal), aes(x = temporal, fill = "Temporal"), color = "blue", alpha = 0.5) +
-  geom_density(data = data.frame(posterior[[species_name]]$Spatial), aes(x = spatial, fill = "Spatial"), color = "red", alpha = 0.5) +
+  geom_density(data = data.frame(species_data$Temporal), aes(x = temporal, fill = "Temporal"), color = "blue", alpha = 0.5) +
+  geom_density(data = data.frame(species_data$Spatial), aes(x = spatial, fill = "Spatial"), color = "red", alpha = 0.5) +
   xlab("Sensitivity (dDay/dT)") +
   ylab("Density") +
   scale_fill_manual(values = c("Temporal" = "blue", "Spatial" = "red"))
 
 
 
-pdf("all_plots_bayesian.pdf")
+pdf("vignette/all_plots_bayesian.pdf")
 # Loop through unique latin_names and create a plot for each
 for (ln in speciesoi$latin_name) {
   plot_data <- anomaly_data %>%

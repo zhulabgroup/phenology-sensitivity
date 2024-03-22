@@ -11,21 +11,17 @@ data <- anomaly_data %>%
 # Define the model code
 modelCode <- nimbleCode({
   # Priors
-  a ~ dnorm(mu_a, sd_a^-2)  # NIMBLE uses precision (the inverse of variance) for the normal distribution
-  b ~ dnorm(mu_b, sd_b^-2)  # Precision instead of variance
-  sigma2 ~ dinvgamma(alpha, beta)
+  a ~ dnorm(105, sd = 100) 
+  b ~ dnorm(0, sd = 10) 
+  sigma2 ~ dinvgamma(1, 1)
   
   # Likelihood
   for(i in 1:N) {
-    y[i] ~ dnorm(a + b * x[i], sigma2^-1)  # Using precision
+    y[i] ~ dnorm(a + b * x[i], sd = sqrt(sigma2))  
   }
 })
 
-# Corrected Hyperparameters for the priors
-hyperparams <- list(mu_a = 0, sd_a = 10, mu_b = 0, sd_b = 10, alpha = 2, beta = 1)
 
-# Assuming `data` is your dataset and it contains columns `springT` and `leaf`
-# Make sure `data` is correctly loaded and prepared before this step
 
 # Correctly passing data, constants, and initial values
 model <- nimbleModel(modelCode,
@@ -70,11 +66,11 @@ mcmcList <- mcmc.list(
   lapply(1:num_chains, function(i) as.mcmc(mcmcResults[[i]]))
 )
 
-# coverge
-gelman.diag(mcmcList)
-
-# Calculate Effective Sample Size
-effectiveSize(mcmcList)
+# # coverge
+# gelman.diag(mcmcList)
+# 
+# # Calculate Effective Sample Size
+# effectiveSize(mcmcList)
 
 # Convert NIMBLE MCMC output to 'mcmc.list' for 'coda' diagnostics
 # par(mfrow = c(1, 3))

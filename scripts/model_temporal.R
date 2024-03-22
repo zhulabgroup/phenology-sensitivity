@@ -9,81 +9,64 @@ data <- anomaly_data %>%
   rename(springT = spring_avg_temp) %>%
   mutate(group = as.integer(factor(individual_id))) # Remap to continuous integer IDs
 
-modelCode <- nimbleCode({
-  # Hyperpriors
-  mu_a ~ dnorm(mu_a0, sd_a0^-2)
-  tau_a2 ~ dinvgamma(nu_a, kappa_a)
-  # tau_a2 ~ T(dnorm(0, sd = sd_a), 0, )
   
-  mu_b ~ dnorm(mu_b0, sd_b0^-2)
-  tau_b2 ~ dinvgamma(nu_b, kappa_b)
-  # tau_b2 ~ T(dnorm(0, sd = sd_b), 0, )
+  modelCode <- nimbleCode({
+    # Hyperpriors
+    mu_a ~ dnorm(105, sd = 1e6)
+    tau_a2 ~ dinvgamma(1, 1)
+    # tau_a2 ~ T(dnorm(0, sd = sd_a), 0, )
+    
+    mu_b ~ dnorm(0, sd = 10)
+    tau_b2 ~ dinvgamma(1, 1)
+    # tau_b2 ~ T(dnorm(0, sd = sd_b), 0, )
+    
+    # sigma2 ~ T(dnorm(0, sd = sd), 0, )
+    sigma2 ~ dinvgamma(1, 1)
+    
+    # Priors for individual parameters
+    for(j in 1:J) {
+      a[j] ~ dnorm(mu_a, sd = sqrt(tau_a2))  # Using precision
+      b[j] ~ dnorm(mu_b, sd = sqrt(tau_b2))  # Using precision
+    }
+    
+    # Likelihood
+    for(i in 1:N) {
+      y[i] ~ dnorm(a[group[i]] + b[group[i]] * x[i], sd = sqrt(sigma2))  # Using precision
+    }
+  })
   
-  # sigma2 ~ T(dnorm(0, sd = sd), 0, )
-  sigma2 ~ dinvgamma(alpha, beta)
+
+  # Assuming `data` has columns `springT` and `leaf`
+  modelData <- list(
+    x = data$springT,
+    y = data$leaf,
+    group = data$group
+  )
   
-  # Priors for individual parameters
-  for(j in 1:J) {
-    a[j] ~ dnorm(mu_a, tau_a2^-1)  # Using precision
-    b[j] ~ dnorm(mu_b, tau_b2^-1)  # Using precision
-  }
+  # Correctly passing data, constants, and initial values
+  # Assuming data preparation is done as per your snippet
   
-  # Likelihood
-  for(i in 1:N) {
-    y[i] ~ dnorm(a[group[i]] + b[group[i]] * x[i], sigma2^-1)  # Using precision
-  }
-})
-
-# Hyperparameters for the hyperpriors
-hyperparams <- list(
-  mu_a0 = 105, sd_a0 = 1e6,
-  mu_b0 = 0, sd_b0 = 10,
-  # sd_a = 10,
-  # sd_b = 10,
-  # sd = 10
-  nu_a = 2, kappa_a = 1,
-  nu_b = 2, kappa_b = 1,
-  alpha = 2, beta = 1
-)
-
-# Assuming `data` has columns `springT` and `leaf`
-modelData <- list(
-  x = data$springT,
-  y = data$leaf,
-  group = data$group,
-  mu_a0 = hyperparams$mu_a0, sd_a0 = hyperparams$sd_a0,
-  mu_b0 = hyperparams$mu_b0, sd_b0 = hyperparams$sd_b0,
-  # sd_a = hyperparams$sd_a, sd_b = hyperparams$sd_b,
-  # sd = hyperparams$sd
-  nu_a = hyperparams$nu_a, kappa_a = hyperparams$kappa_a,
-  nu_b = hyperparams$nu_b, kappa_b = hyperparams$kappa_b,
-  alpha = hyperparams$alpha, beta = hyperparams$beta
-)
-
-# Correctly passing data, constants, and initial values
-# Assuming data preparation is done as per your snippet
-
-# Correctly passing data, constants, and initial values
-model <- nimbleModel(modelCode,
-                     data = modelData,
-                     constants = list(N = nrow(data),  # This dynamically assigns the total number of observations
-                                      J = length(unique(data$group)))  # This dynamically assigns the total number of unique groups
-)
-compiledModel <- compileNimble(model)
-
-# Configure MCMC
-mcmcConf <- configureMCMC(model)
-mcmc <- buildMCMC(mcmcConf)
-compiledMcmc <- compileNimble(mcmc, project = model)
-
-
-# Assuming compiledModel is your compiled NIMBLE model
-
-# MCMC settings
-nburnin <- 20000
-niter <- 50000  # Total iterations for each chain
-num_chains <- 2  # Number of chains to run
-
+  # Correctly passing data, constants, and initial values
+  model <- nimbleModel(modelCode,
+                       data = modelData,
+                       constants = list(N = nrow(data),  # This dynamically assigns the total number of observations
+                                        J = length(unique(data$group)))  # This dynamically assigns the total number of unique groups
+  )
+  compiledModel <- compileNimble(model)
+  
+  # Configure MCMC
+  mcmcConf <- configureMCMC(model)
+  mcmc <- buildMCMC(mcmcConf)
+  compiledMcmc <- compileNimble(mcmc, project = model)
+  
+  
+  # Assuming compiledModel is your compiled NIMBLE model
+  
+  # MCMC settings
+  nburnin <- 4000
+  niter <- 10000  # Total iterations for each chain
+  num_chains <- 2  # Number of chains to run
+  
 # Enable parallel processing in NIMBLE
 nimbleOptions(enableParallelProcessing = TRUE, setSeed = TRUE)
 

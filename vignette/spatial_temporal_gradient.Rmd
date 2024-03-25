@@ -268,6 +268,26 @@ geom_line(colour="red",aes(y=prepop)) +
 
 
 # spatial temporal compare
+## simple linear regression with stacked temporal and aggregated spatial
+```{r}
+source("plot_temporal_spatial_northredoak.R")
+temporal_spatial
+```
+
+```{r}
+source("plot_data_map.R")
+data_map
+```
+
+```{r}
+source("table_spatial_temporal_statistics.R")
+species_summary
+
+plotly::ggplotly(species_summary)
+
+```
+
+## mixed effect model
 ```{r}
 spa_tem_linear <- lm(leaf ~ spring_avg_temp + spring_avg_temp_anomaly, 
                                  data = anomaly_data)
@@ -434,3 +454,40 @@ for (threshold1 in 2:7) {
 wide_table <- results_table %>%
   pivot_wider(names_from = Threshold1, values_from = P_Value)
 ```
+
+## bayesian for spatial temporal comparasion
+```{r}
+source("function_bayesmodel_temporal.R")
+source("function_bayesmodel_spatial.R")
+source("pdf_spatem_posterior.R")
+source("pdf_neontem_posterior.R")
+
+source("table_spatial_temporal_statistics.R")
+
+```
+
+```{r}
+source("plot_summary_posteriors.R")
+
+```
+
+
+### check data source reliability
+
+```{r}
+path_npn <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/"
+npn <- read_rds(stringr::str_c(path_npn, "Quercus", ".rds"))
+
+npn %>%
+  group_by(dataset_id) %>% 
+  summarise(count = n())
+
+npn %>%
+  group_by(npn$partner_group) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+
+contingency_table <- as.data.frame(table(npn$partner_group, npn$dataset_id)) # 16 for neon data
+
+```
+

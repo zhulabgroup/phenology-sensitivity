@@ -1,8 +1,12 @@
 library(nimble)
 library(coda)
 
-posterior <- read_rds("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/posterior.rds")
+posterior <- read_rds("posterior.rds")
+write_rds(posterior, "/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/posterior.rds")
 
+posterior <- read_rds("posterior_neon.rds")
+write_rds(posterior, "/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/posterior_neon.rds")
+posterior <- read_rds("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/posterior_neon.rds")
 
 # Iterate over indices from 5 to 23
 posterior <- list()

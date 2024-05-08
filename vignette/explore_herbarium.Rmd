@@ -1,0 +1,130 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-05-07"
+---
+
+explore herbarium data
+```{r}
+library(dplyr)
+library(ggplot2)
+raw <- read.csv("/Users/yia/Downloads/Phenology_Acer_saccharum/LM2_output/combined_occ_img_downloaded.csv") %>% 
+  select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image)
+
+phenology <- read.csv("/Users/yia/Downloads/Phenology_Acer_saccharum/LM2_output/Phenology/phenology.csv") %>% 
+  mutate(filename_image = gsub(".txt", "", file_name))
+
+joint_data <- left_join(phenology,raw, by = "filename_image")
+```
+
+# how to decide first leafing day
+## method 1: logistic regression (find the classification boundary based on day of year between yes and no)
+```{r}
+joint_data <- joint_data %>%
+  mutate(decade = 10 * floor(year / 10))
+
+# Filter and group the data by decade
+joint_data %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = has_leaves), color = "green", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
+```
+```{r}
+joint_data %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = is_fertile), color = "red", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
+```
+
+
+## method 2: use flower only
+```{r}
+joint_data_flower <- joint_data %>% 
+  mutate(isflower = if_else(flower_one > 0 & flower_many > 0, 1, 0 ))
+
+joint_data_flower %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = isflower), color = "red", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  
+```
+
+
+# get climate data for herbarium 
+```{r}
+for_climate <- joint_data_flower %>% 
+  filter(isflower==1) %>%  # 254
+  filter(year>=1895) # 188
+
+coordinate <- unique(for_climate[, c("decimalLongitude", "decimalLatitude")])
+# time distribution
+hist(for_climate$year)
+
+plot(for_climate$decimalLongitude,for_climate$decimalLatitude)
+```
+
+## download prism
+```{r}
+library(prism)
+
+prism_set_dl_dir("data/prism")
+
+
+get_prism_monthlys(type = "tmean", year = 1895:2022, mon = 3:5, keepZip = FALSE)
+
+
+```
+
+```{r}
+library(raster)
+library(prism)
+prism_set_dl_dir("data/prism")
+
+results <- data.frame(year = integer(), longitude = numeric(), latitude = numeric(), spring_avg_temp = numeric())
+
+# Process each year
+for (focal_year in 2018:2019) {
+  # Load the raster files for March, April, and May
+  tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
+  tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
+  r_mean <- raster::calc(tmean_rast2_yr_mo, mean) # 1:4 mean for focal_yr
+  #raster::plot(r_mean)
+
+  tmean_data <- unlist(raster::extract(x = r_mean, 
+                                       y = coordinate)) 
+  
+  results <- rbind(results, data.frame(year = focal_year,
+                                     longitude = coordinate$decimalLongitude,
+                                     latitude = coordinate$decimalLatitude,
+                                     spring_avg_temp = tmean_data))
+
+
+}
+
+
+
+```
+
+# ```{r}
+# group by lon, lat, get mean as norm,then calculate anormally
+# 
+# join by the joint_data frame by "year", "decimalLongitude", "decimalLatitude"
+# 
+# data_to_model = select joint data doy norm, anormally,
+# ```
+# 
+# ```{r}
+# model = doy~norm, anormally, get confidence interval
+# ```
+# 
+# ```{r}
+# plot the model with interaction and without interaction
+# ```
+# 
+
+

@@ -1,0 +1,48 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-05-03"
+---
+
+explore planetscope
+
+# neon only has 2 years (for TREE station, but for other, there are more, why?)
+```{r}
+ps <- readRDS("/Volumes/seas-zhukai/phenology/PS/NEON/doy/doy_DCFS_all.rds")
+
+tree <- read.csv("/Volumes/seas-zhukai/phenology/PS/NEON/metadata.csv")
+
+TEAK_tree <- tree %>% 
+  filter(site == "TEAK" & ) %>% 
+```
+
+```{r}
+library(data.table)
+
+# List all files in the directory
+file_list <- list.files("/Volumes/seas-zhukai/phenology/PS/NEON/doy/", full.names = TRUE)
+
+# Read all files into a list
+data_list <- lapply(file_list, readRDS)
+
+# Combine all data frames into a single data table
+combined_data <- rbindlist(data_list, fill = TRUE)
+```
+
+# check urban
+```{r}
+ps_urban <- readRDS("/Volumes/seas-zhukai/phenology/PS/urban/doy/doy_AT_Acer.rds")
+
+```
+
+```{r}
+library(stringr)
+
+sugar_maple <- tree %>% 
+  filter(str_detect(species, "saccharum"))
+
+sugar_maple_data <- ps %>% 
+  filter(id %in% sugar_maple$id) %>% 
+  filter(direction == "up" & thres == 0.5 )
+```
+

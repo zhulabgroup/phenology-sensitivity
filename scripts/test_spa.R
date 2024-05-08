@@ -3,14 +3,14 @@
   data <- anomaly_data %>%
     # filter(common_name == "sugar maple") %>%
     filter(latin_name =="Acer rubrum") %>%
-    select(leaf, flower, spring_avg_temp) %>%
+    dplyr::select(leaf, flower, spring_avg_temp) %>%
     rename(springT = spring_avg_temp)
   
   
   modelCode <- nimbleCode({
     # Priors
     a ~ dnorm(105, sd = 1e6) # intercept prior
-    b ~ dnorm(0, sd = 10) # slope prior
+    b ~ dnorm(0, sd = 10) ##  slope prior
     sigma2 ~ dinvgamma(1, 1)
     
     # Likelihood

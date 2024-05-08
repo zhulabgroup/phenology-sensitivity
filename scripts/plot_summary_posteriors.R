@@ -29,4 +29,5 @@ to_plot$species <- factor(to_plot$species, levels = rev(unique(to_plot$species))
 
 ggplot(to_plot, aes(x = sample, y = species, height = after_stat(density), group = interaction(species, dim), fill = dim)) +
   geom_density_ridges(alpha = 0.5, scale = .5) +
-  scale_x_continuous(limits = c(-15, 5)) 
+  scale_x_continuous(limits = c(-15, 5)) +
+  theme_minimal()

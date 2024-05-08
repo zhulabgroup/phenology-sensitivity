@@ -49,3 +49,8 @@ for (ln in speciesoi$Var1) {
 # Close the PDF file
 dev.off()
 
+
+posterior_all <- read_rds("posterior.rds")
+posteriors <- readRDS("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/posterior.rds")
+
+

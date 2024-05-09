@@ -1,0 +1,207 @@
+---
+title: 'explore herbarium data'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+---
+
+# get herbarium data
+```{r}
+library(dplyr)
+library(ggplot2)
+raw <- read.csv("/Users/yia/Downloads/Phenology_Acer_saccharum/LM2_output/combined_occ_img_downloaded.csv") %>% 
+  select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image)
+
+phenology <- read.csv("/Users/yia/Downloads/Phenology_Acer_saccharum/LM2_output/Phenology/phenology.csv") %>% 
+  mutate(filename_image = gsub(".txt", "", file_name))
+
+joint_data <- left_join(phenology,raw, by = "filename_image")
+```
+
+# how to decide first leafing day
+## method 1: logistic regression (find the classification boundary based on day of year between yes and no)
+```{r}
+joint_data <- joint_data %>%
+  mutate(decade = 10 * floor(year / 10))
+
+# Filter and group the data by decade
+joint_data %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = has_leaves), color = "green", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
+```
+```{r}
+joint_data %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = is_fertile), color = "red", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
+```
+
+
+## method 2: use flower only
+```{r}
+joint_data_flower <- joint_data %>% 
+  mutate(isflower = if_else(flower_one > 0 & flower_many > 0, 1, 0 ))
+
+joint_data_flower %>%
+  filter(!is.na(startDayOfYear)) %>%
+  ggplot() +
+  geom_point(aes(x = startDayOfYear, y = isflower), color = "red", alpha = 0.1) +
+  facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
+  labs(x = "Start Day of Year", y = "Value")  
+```
+
+
+# get climate data for herbarium 
+
+## check spatial temporal coverage of the data
+```{r}
+for_climate <- joint_data_flower %>% 
+  filter(isflower==1) %>%  # 254
+  filter(year>=1895) # 188
+
+coordinate <- unique(for_climate[, c("decimalLongitude", "decimalLatitude")])
+# time distribution
+hist(for_climate$year)
+
+plot(for_climate$decimalLongitude,for_climate$decimalLatitude)
+```
+
+## download prism
+```{r}
+# library(prism)
+# 
+# prism_set_dl_dir("data/prism")
+# 
+# get_prism_monthlys(type = "tmean", year = 1895:2022, mon = 3:5, keepZip = FALSE)
+# 
+# library(raster)
+# library(prism)
+# prism_set_dl_dir("data/prism")
+# 
+# results <- data.frame(year = integer(), longitude = numeric(), latitude = numeric(), spring_avg_temp = numeric())
+# 
+# # this code can only be run in r script
+# # Process each year
+# for (focal_year in 1895:2022) {
+#   # Load the raster files for March, April, and May
+#   tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
+#   tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
+#   r_mean <- raster::calc(tmean_rast2_yr_mo, mean) # 1:4 mean for focal_yr
+#   #raster::plot(r_mean)
+# 
+#   tmean_data <- unlist(raster::extract(x = r_mean, 
+#                                        y = coordinate)) 
+#   
+#   results <- rbind(results, data.frame(year = focal_year,
+#                                      longitude = coordinate$decimalLongitude,
+#                                      latitude = coordinate$decimalLatitude,
+#                                      spring_avg_temp = tmean_data))
+# }
+# 
+# library(readr)
+# 
+# write_rds(results, file = "/Users/yia/Documents/phenology-npn-flower-leaf-lag/data/prism_site_allyear.rds")
+```
+
+## connect pheno with climate
+```{r}
+library(readr)
+results <- read_rds("data/prism_site_allyear.rds")
+norm_data <- results %>%
+  group_by(longitude, latitude) %>%
+  summarize(norm = mean(spring_avg_temp, na.rm = TRUE)) %>%    # Calculate group means
+  right_join(results, by = c("longitude", "latitude")) %>%    # Join summarized data back to original
+  mutate(anom = spring_avg_temp - norm)                       # Calculate anomalies
+
+pheno_with_climate <- for_climate %>%
+  rename(longitude = decimalLongitude, latitude = decimalLatitude, doy = startDayOfYear) %>%
+  left_join(norm_data, by = c("longitude", "latitude", "year")) %>% 
+  filter(!is.na(doy))
+```
+
+## visionally check the data
+```{r}
+# remove doy after 200, and out of us points
+pheno_with_climate <- pheno_with_climate %>%
+  filter(doy < 200) %>%
+  filter(!is.na(norm)) %>%
+  distinct(longitude, latitude, year, .keep_all = TRUE) # delete same year same location
+
+paired_data <- data.frame(
+  x_black = pheno_with_climate$spring_avg_temp,
+  y_black = pheno_with_climate$doy,
+  x_red = pheno_with_climate$norm,
+  y_red = pheno_with_climate$doy
+)
+
+# Plot the black points
+ggplot(paired_data) +
+  geom_point(aes(x = x_black, y = y_black, color = "black")) +
+  geom_point(aes(x = x_red, y = y_red, color = "red"), alpha = 0.2) +
+  geom_segment(aes(x = x_black, y = y_black, xend = x_red, yend = y_red, color = "red"), alpha = 0.2) +
+  xlab("spring_ave_temperature") +
+  ylab("doy") +
+  scale_color_manual(name = "Legend", 
+                     values = c("black" = "black", "red" = "red"),
+                     labels = c("Observation", "Normality"))
+```
+
+## fit the multiple regression
+```{r}
+model1 <- lm(doy~norm+anom,pheno_with_climate)
+summary(model1)
+confint(model1)
+
+# Creating a new data frame for predictions
+norm_range <- seq(min(pheno_with_climate$norm), max(pheno_with_climate$norm), length.out = 100)
+anom_range <- seq(min(pheno_with_climate$anom), max(pheno_with_climate$anom), length.out = 100)
+grid <- expand.grid(norm = norm_range, anom = anom_range)
+
+# Predicting 'doy' using the model
+grid$doy_pred <- predict(model1, newdata = grid)
+
+# Creating the base plot
+p <- ggplot() +
+  geom_tile(data = grid, aes(x = norm, y = anom, fill = doy_pred)) +
+  geom_contour(data = grid, aes(x = norm, y = anom, z = doy_pred), bins = 10, color = "white") +
+  labs(title = "Predicted Day of Year from norm and anom", x = "Norm", y = "Anom") +
+  theme_minimal()
+
+# Add actual data points using the original data, with colorful fill and white stroke
+p <- p + geom_point(data = pheno_with_climate, aes(x = norm, y = anom, fill = doy), color = "white", size = 2, shape = 21, stroke = 0.5)
+
+# Use the same color scale for both the predicted and actual doy
+low_color <- "blue"
+high_color <- "red"
+p <- p + scale_fill_gradient(name = "Day of Year", low = low_color, high = high_color)
+
+# Adjust the aspect ratio so that one unit on the x-axis is the same as one on the y-axis
+p <- p + coord_fixed(ratio = 1)
+
+# Combine the legends into one
+p <- p + guides(fill = guide_colorbar(title = "Day of Year"), color = "none")
+
+# Render the plot
+print(p)
+```
+
+
+
+
+

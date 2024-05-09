@@ -1,7 +1,19 @@
 ---
-title: "Untitled"
-output: html_document
-date: "2024-05-03"
+title: 'explore herbarium data'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
 ---
 
 explore planetscope

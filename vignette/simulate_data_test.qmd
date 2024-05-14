@@ -1,7 +1,19 @@
 ---
-title: "Untitled"
-output: html_document
-date: "2024-04-22"
+title: 'simulate data to test LM and mixed effect model'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
 ---
 
 try feak data and run Linear mixed model
@@ -255,3 +267,57 @@ sepp+pmix+pb
      geom_point(data = group_lines[1:10, ], aes(x = x, y = y),color = "black",alpha = 0.5)
 ```
 
+
+# fake data for herbarium
+when fake the data, we can decide whether to add noice, and how much noise to add
+```{r}
+# Load necessary package
+
+# Generate x and y coordinates for the 4 central dots
+x_center <- 1:9
+y_center <- 10 - x_center + rnorm(9,0,0.5)  # The equation for the line y = 5 - x
+
+# Create a data frame to hold the center dots
+center_dots <- data.frame(norm = x_center, y = y_center, anom = 0, label = "center")
+
+# Create data frame for additional dots
+additional_dots <- data.frame()
+
+# For each center dot, generate 5 additional dots along a line with slope -2
+for (i in 1:length(x_center)) {
+  anom_i <- rnorm(1, 0, 0.5)  # Randomize x-coordinates
+  y_i <- 10 - x_center[i]-2*anom_i +  rnorm(1,0,0.5)
+  dots <- data.frame(norm = x_center[i], y = y_i, anom = anom_i, label = paste("around_center", i, sep = "_"))
+  additional_dots <- rbind(additional_dots, dots)
+}
+for (i in 1:length(x_center)) {
+  anom_i <- rnorm(1, 0, 0.2)  # Randomize x-coordinates
+  y_i <- 10 - x_center[i]-2*anom_i +  rnorm(1,0,0.2)
+  dots <- data.frame(norm = x_center[i], y = y_i, anom = anom_i, label = paste("around_center", i, sep = "_"))
+  additional_dots <- rbind(additional_dots, dots)
+}
+
+  
+# Plot the results
+sepp <- ggplot(center_dots, aes(x = norm+anom, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  labs(title = "Dots Generated Around a Central Line",
+       x = "X-axis",
+       y = "Y-axis") +
+  theme_minimal() +
+  theme(legend.position = "none") + # Legend position
+  geom_point(data = additional_dots, aes(x = norm+anom, y = y), color = "red")
+print(sepp)
+```
+
+```{r}
+model <- lm(y~norm+anom,additional_dots)
+summary(model)
+confint(model)
+```
+looks like that the anom slope always has larger uncertainty than the norm one
+
+let's see adding more replicates to restrict temporal sensitivity can help: Yes
+
+I feels that simple linear model definitely help by utilizing cilmate norm to restrict spatial sensitivity

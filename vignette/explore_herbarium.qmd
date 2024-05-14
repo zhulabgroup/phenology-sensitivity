@@ -17,6 +17,7 @@ format:
 ---
 
 # get herbarium data
+
 ```{r}
 library(dplyr)
 library(ggplot2)
@@ -30,7 +31,9 @@ joint_data <- left_join(phenology,raw, by = "filename_image")
 ```
 
 # how to decide first leafing day
+
 ## method 1: logistic regression (find the classification boundary based on day of year between yes and no)
+
 ```{r}
 joint_data <- joint_data %>%
   mutate(decade = 10 * floor(year / 10))
@@ -43,6 +46,7 @@ joint_data %>%
   facet_wrap(~ decade, scales = "free_x") +  # Splitting the plot into panels based on decades
   labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
 ```
+
 ```{r}
 joint_data %>%
   filter(!is.na(startDayOfYear)) %>%
@@ -52,8 +56,8 @@ joint_data %>%
   labs(x = "Start Day of Year", y = "Value")  # Adding axis labels
 ```
 
-
 ## method 2: use flower only
+
 ```{r}
 joint_data_flower <- joint_data %>% 
   mutate(isflower = if_else(flower_one > 0 & flower_many > 0, 1, 0 ))
@@ -66,10 +70,10 @@ joint_data_flower %>%
   labs(x = "Start Day of Year", y = "Value")  
 ```
 
-
-# get climate data for herbarium 
+# get climate data for herbarium
 
 ## check spatial temporal coverage of the data
+
 ```{r}
 for_climate <- joint_data_flower %>% 
   filter(isflower==1) %>%  # 254
@@ -83,13 +87,14 @@ plot(for_climate$decimalLongitude,for_climate$decimalLatitude)
 ```
 
 ## download prism
+
 ```{r}
 # library(prism)
 # 
-# prism_set_dl_dir("data/prism")
+# prism_set_dl_dir("../data/prism")
 # 
-# get_prism_monthlys(type = "tmean", year = 1895:2022, mon = 3:5, keepZip = FALSE)
-# 
+# get_prism_monthlys(type = "tmean", year = 1895:2023, mon = 3:5, keepZip = FALSE)
+# # 
 # library(raster)
 # library(prism)
 # prism_set_dl_dir("data/prism")
@@ -120,6 +125,7 @@ plot(for_climate$decimalLongitude,for_climate$decimalLatitude)
 ```
 
 ## connect pheno with climate
+
 ```{r}
 library(readr)
 results <- read_rds("data/prism_site_allyear.rds")
@@ -136,6 +142,7 @@ pheno_with_climate <- for_climate %>%
 ```
 
 ## visionally check the data
+
 ```{r}
 # remove doy after 200, and out of us points
 pheno_with_climate <- pheno_with_climate %>%
@@ -163,6 +170,7 @@ ggplot(paired_data) +
 ```
 
 ## fit the multiple regression
+
 ```{r}
 model1 <- lm(doy~norm+anom,pheno_with_climate)
 summary(model1)
@@ -201,7 +209,197 @@ p <- p + guides(fill = guide_colorbar(title = "Day of Year"), color = "none")
 print(p)
 ```
 
+# check long term trend
+
+```{r}
+library(scales)
+
+ggplot(pheno_with_climate) +
+  # geom_point(aes(x = year, y = rescale(doy), color = "doy")) +
+  geom_smooth(aes(x = year, y = rescale(doy), color = "doy"), se = FALSE) +
+  # geom_point(aes(x = year, y = rescale(spring_avg_temp), color = "spring_avg_temp")) +
+  geom_smooth(aes(x = year, y = rescale(spring_avg_temp), color = "spring_avg_temp"), se = FALSE) +
+  # geom_point(aes(x = year, y = rescale(norm), color = "norm")) +
+  geom_smooth(aes(x = year, y = rescale(norm), color = "norm"), se = FALSE) +
+  # geom_point(aes(x = year, y = rescale(anom), color = "anom")) +
+  geom_smooth(aes(x = year, y = rescale(anom), color = "anom"), se = FALSE) +
+  ylab("Scaled Value") +
+  scale_color_manual(name = "Legend", 
+                     values = c("doy" = "blue", "spring_avg_temp" = "red", "norm" = "black", "anom" = "purple"),
+                     labels = c("doy", "spring_ave_temp", "norm", "anom"))
+
+#   geom_smooth(method = "lm", aes(x = year, y = rescale(norm), color = "norm"), se = TRUE) +
+
+```
+
+We can see that the sample do cause wrong trend (sample place norm temperature is changing with time). So the data need to be resampled to get the trend
+
+```{r}
+library(sampling)
+
+library(dplyr)
+
+# Add a 30-year period column to the dataframe
+pheno_with_climate <- pheno_with_climate %>%
+  mutate(period = floor((year - 1883) / 30) * 30 + 1890)  # Adjust 1900 based on your data range
+
+summary_decade <- pheno_with_climate %>% 
+  group_by(longitude, latitude) %>% 
+  summarise(count = n())
+
+pheno_with_climate %>% 
+  ggplot() +
+  
+
+pheno_with_climate %>%
+  group_by(period) %>%
+  summarize(mean_norm = mean(norm, na.rm = TRUE)) %>%
+  ggplot(aes(x = period, y = mean_norm)) +
+  geom_line() +
+  labs(title = "Decadal Mean of 'norm' Before Resampling", x = "Decade", y = "Mean Norm")
+
+```
+
+## five revisit individual
+```{r}
+summary_decade <- pheno_with_climate %>%
+    group_by(longitude, latitude) %>%
+    summarise(count = n()) %>%
+    filter(count > 1) %>% 
+    ungroup() %>% 
+    mutate(group_id = row_number()) %>% 
+    left_join(pheno_with_climate, by = c("longitude", "latitude"))
+
+p1 <- summary_decade %>% 
+  ggplot()+
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(group_id))) +
+  geom_smooth(method = lm, aes(x = spring_avg_temp, y = doy, color = as.factor(group_id)), se = FALSE) +
+  theme(legend.position = "none")
+
+p2 <- summary_decade %>% 
+  ggplot()+
+  geom_point(aes(x = year, y = doy, color = as.factor(group_id))) +
+  geom_smooth(method = lm, aes(x = year, y = doy, color = as.factor(group_id)), se = FALSE) + 
+  theme(legend.position = "none")
+p1+p2
+  
+```
+
+## site level revisit with 0.1 degree around 11km: there are some duplicates 
+```{r}
+summary_decade <- pheno_with_climate %>% 
+  mutate(longitude = round(longitude, 1),
+         latitude = round(latitude, 1)) %>% 
+    group_by(longitude, latitude) %>%
+    summarise(count = n()) %>%
+    filter(count > 1) %>% 
+    ungroup() %>% 
+    mutate(group_id = row_number()) %>% 
+    left_join(pheno_with_climate%>%
+  mutate(longitude = round(longitude, 1),
+         latitude = round(latitude, 1)), by = c("longitude", "latitude")) %>% 
+    distinct(group_id, doy, spring_avg_temp, year) %>%
+    group_by(group_id) %>%
+    filter(n() > 1) %>%
+    ungroup() 
+
+
+p1 <- summary_decade %>% 
+  ggplot()+
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(group_id))) +
+  geom_smooth(method = lm, aes(x = spring_avg_temp, y = doy, color = as.factor(group_id)), se = FALSE) +
+  theme(legend.position = "none")
+
+p2 <- summary_decade %>% 
+  ggplot()+
+  geom_point(aes(x = year, y = doy, color = as.factor(group_id))) +
+  geom_smooth(method = lm, aes(x = year, y = doy, color = as.factor(group_id)), se = FALSE) + 
+  theme(legend.position = "none")
+p1+p2
+```
+
+## spatial and temporal sensitivity change with time
+
+```{r}
+model2 <- lm(doy~norm+anom+decade*norm,pheno_with_climate)
+summary(model2)
+confint(model2)
+```
+# try this method for npn data
+```{r}
+
+maple_data <- readRDS("../data/different_species/Acer.rds") %>% 
+  filter(common_name == "sugar maple") %>% 
+  dplyr::select(year,longitude,latitude,flower) %>% 
+  rename(doy = flower)
+
+coordinate <- maple_data %>% 
+  distinct(longitude, latitude)
+
+
+results <- data.frame(year = integer(), longitude = numeric(), latitude = numeric(), spring_avg_temp = numeric())
+prism_set_dl_dir("../data/prism")
+
+for (focal_year in 2010:2022) {
+  # Load the raster files for March, April, and May
+  tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
+  tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
+  r_mean <- raster::calc(tmean_rast2_yr_mo, mean) # 1:4 mean for focal_yr
+  #raster::plot(r_mean)
+
+  tmean_data <- unlist(raster::extract(x = r_mean,
+                                       y = coordinate))
+
+  results <- rbind(results, data.frame(year = focal_year,
+                                     longitude = coordinate$longitude,
+                                     latitude = coordinate$latitude,
+                                     spring_avg_temp = tmean_data))
+}
+
+
+norm_data <- results %>%
+  group_by(longitude, latitude) %>%
+  summarize(norm = mean(spring_avg_temp, na.rm = TRUE), .groups = 'drop') %>%  # Calculate group means and ungroup
+  right_join(results, by = c("longitude", "latitude")) %>%  # Join summarized data back to original
+  mutate(anom = spring_avg_temp - norm)  # Calculate anomaly
+
+            
+
+pheno_with_climate <- maple_data %>%
+  left_join(norm_data, by = c("longitude", "latitude", "year"))
+```
+
+
+```{r}
+# remove doy after 200, and out of us points
+pheno_with_climate <- pheno_with_climate %>%
+  filter(doy < 200) 
+
+paired_data <- data.frame(
+  x_black = pheno_with_climate$spring_avg_temp,
+  y_black = pheno_with_climate$doy,
+  x_red = pheno_with_climate$norm,
+  y_red = pheno_with_climate$doy
+)
+
+# Plot the black points
+ggplot(paired_data) +
+  geom_point(aes(x = x_black, y = y_black, color = "black")) +
+  geom_point(aes(x = x_red, y = y_red, color = "red"), alpha = 0.2) +
+  geom_segment(aes(x = x_black, y = y_black, xend = x_red, yend = y_red, color = "red"), alpha = 0.2) +
+  xlab("spring_ave_temperature") +
+  ylab("doy") +
+  scale_color_manual(name = "Legend", 
+                     values = c("black" = "black", "red" = "red"),
+                     labels = c("Observation", "Normality"))
+```
 
 
 
+```{r}
+model2 <- lm(doy~norm+anom,pheno_with_climate)
+summary(model2)
+confint(model2)
+
+```
 

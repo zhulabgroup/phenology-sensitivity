@@ -19,13 +19,15 @@ format:
 explore planetscope
 
 # neon only has 2 years (for TREE station, but for other, there are more, why?)
+also, some file is empty should we delete them?
 ```{r}
-ps <- readRDS("/Volumes/seas-zhukai/phenology/PS/NEON/doy/doy_DCFS_all.rds")
+library(stringr)
+library(ggplot2)
+library(dplyr)
 
-tree <- read.csv("/Volumes/seas-zhukai/phenology/PS/NEON/metadata.csv")
+tree <- read.csv("/Volumes/seas-zhukai/phenology/PS/NEON/metadata.csv") %>% 
+  filter(str_detect(species, "saccharum"))
 
-TEAK_tree <- tree %>% 
-  filter(site == "TEAK" & ) %>% 
 ```
 
 ```{r}
@@ -35,26 +37,200 @@ library(data.table)
 file_list <- list.files("/Volumes/seas-zhukai/phenology/PS/NEON/doy/", full.names = TRUE)
 
 # Read all files into a list
-data_list <- lapply(file_list, readRDS)
+data_list <- lapply(file_list, function(file) {
+  data <- readRDS(file)
+  if (nrow(data) > 0) return(data)
+  else return(NULL)
+})
 
-# Combine all data frames into a single data table
-combined_data <- rbindlist(data_list, fill = TRUE)
+# Filter out NULL elements (empty files)
+data_list <- Filter(Negate(is.null), data_list)
+
+# Combine all non-empty data frames into a single data table
+combined_data_neon <- rbindlist(data_list, fill = TRUE)
+
+neon_maple <- combined_data_neon %>% 
+ inner_join(tree, by = "id") %>% 
+    filter(direction == "up" & thres == 0.5 )
+
 ```
+
+```{r}
+library(prism)
+
+neon_maple <- neon_maple %>% 
+  rename(longitude = lon, latitude = lat)
+
+coordinate <- neon_maple %>% 
+  distinct(longitude, latitude)
+
+
+results <- data.frame(year = integer(), longitude = numeric(), latitude = numeric(), spring_avg_temp = numeric())
+prism_set_dl_dir("../data/prism")
+
+for (focal_year in 2013:2023) {
+  # Load the raster files for March, April, and May
+  tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
+  tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
+  r_mean <- raster::calc(tmean_rast2_yr_mo, mean) # 1:4 mean for focal_yr
+  #raster::plot(r_mean)
+
+  tmean_data <- unlist(raster::extract(x = r_mean,
+                                       y = coordinate))
+
+  results <- rbind(results, data.frame(year = focal_year,
+                                     longitude = coordinate$longitude,
+                                     latitude = coordinate$latitude,
+                                     spring_avg_temp = tmean_data))
+}
+
+
+norm_data <- results %>%
+  group_by(longitude, latitude) %>%
+  summarize(norm = mean(spring_avg_temp, na.rm = TRUE), .groups = 'drop') %>%  # Calculate group means and ungroup
+  right_join(results, by = c("longitude", "latitude")) %>%  # Join summarized data back to original
+  mutate(anom = spring_avg_temp - norm)  # Calculate anomaly
+
+            
+
+pheno_with_climate_neon <- neon_maple %>%
+  left_join(norm_data, by = c("longitude", "latitude", "year"))
+```
+
+
+```{r}
+# remove doy after 200, and out of us points
+pheno_with_climate_neon <- pheno_with_climate_neon %>%
+  filter(doy < 200) 
+
+paired_data <- data.frame(
+  x_black = pheno_with_climate_neon$spring_avg_temp,
+  y_black = pheno_with_climate_neon$doy,
+  x_red = pheno_with_climate_neon$norm,
+  y_red = pheno_with_climate_neon$doy
+)
+
+ggplot(paired_data) +
+  geom_point(aes(x = x_black, y = y_black, color = "black")) +
+  geom_point(aes(x = x_red, y = y_red, color = "red"), alpha = 0.2) +
+  geom_segment(aes(x = x_black, y = y_black, xend = x_red, yend = y_red, color = "red"), alpha = 0.2) +
+  xlab("spring_ave_temperature") +
+  ylab("doy") +
+  scale_color_manual(name = "Legend", 
+                     values = c("black" = "black", "red" = "red"),
+                     labels = c("Observation", "Normality"))
+```
+
+```{r}
+model2 <- lm(doy~norm+anom,pheno_with_climate_neon)
+summary(model2)
+confint(model2)
+```
+
 
 # check urban
-```{r}
-ps_urban <- readRDS("/Volumes/seas-zhukai/phenology/PS/urban/doy/doy_AT_Acer.rds")
 
+```{r}
+combined_data <- read.csv("/Volumes/seas-zhukai/phenology/PS/urban/metadata.csv")
+directory_path <- "/Volumes/seas-zhukai/phenology/PS/urban/doy/"
+# Get the list of RDS files containing "Acer" in their names
+file_list <- list.files(directory_path, pattern = "Acer", full.names = TRUE)
+
+# Function to extract city code from file name
+extract_city <- function(file_path) {
+  # Extract the city code from the file name
+  city_code <- gsub("doy_(\\w+)_Acer\\.rds", "\\1", basename(file_path))
+  return(city_code)
+}
+
+# Read all RDS files and add city column
+ps_urban_list <- lapply(file_list, function(file_path) {
+  # Read RDS file
+  data <- readRDS(file_path)
+  # Add city column
+  data$site <- extract_city(file_path)
+  return(data)
+})
+
+# Combine all dataframes into one
+ps_urban <- bind_rows(ps_urban_list)
+
+
+
+urban_tree_maple <- ps_urban %>% 
+  left_join(combined_data, by = c("id","site")) %>% 
+  filter(taxa=="Acer saccharum", thres==0.5, direction == "up")
+
+```
+the id is unique for city, so join by both site and id
+
+```{r}
+urban_tree_maple <- urban_tree_maple %>% 
+  rename(longitude = lon, latitude = lat) 
+
+coordinate <- urban_tree_maple %>% 
+  distinct(longitude, latitude)
+
+
+results <- data.frame(year = integer(), longitude = numeric(), latitude = numeric(), spring_avg_temp = numeric())
+prism_set_dl_dir("../data/prism")
+
+for (focal_year in 2013:2023) {
+  # Load the raster files for March, April, and May
+  tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
+  tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
+  r_mean <- raster::calc(tmean_rast2_yr_mo, mean) # 1:4 mean for focal_yr
+  #raster::plot(r_mean)
+
+  tmean_data <- unlist(raster::extract(x = r_mean,
+                                       y = coordinate))
+
+  results <- rbind(results, data.frame(year = focal_year,
+                                     longitude = coordinate$longitude,
+                                     latitude = coordinate$latitude,
+                                     spring_avg_temp = tmean_data))
+}
+
+
+norm_data <- results %>%
+  group_by(longitude, latitude) %>%
+  summarize(norm = mean(spring_avg_temp, na.rm = TRUE), .groups = 'drop') %>%  # Calculate group means and ungroup
+  right_join(results, by = c("longitude", "latitude")) %>%  # Join summarized data back to original
+  mutate(anom = spring_avg_temp - norm)  # Calculate anomaly
+
+            
+
+pheno_with_climate <- urban_tree_maple %>%
+  left_join(norm_data, by = c("longitude", "latitude", "year"))
 ```
 
 ```{r}
-library(stringr)
+# remove doy after 200, and out of us points
+pheno_with_climate <- pheno_with_climate %>%
+  filter(doy < 200) 
 
-sugar_maple <- tree %>% 
-  filter(str_detect(species, "saccharum"))
+paired_data <- data.frame(
+  x_black = pheno_with_climate$spring_avg_temp,
+  y_black = pheno_with_climate$doy,
+  x_red = pheno_with_climate$norm,
+  y_red = pheno_with_climate$doy,
+  site = pheno_with_climate$site
+)
 
-sugar_maple_data <- ps %>% 
-  filter(id %in% sugar_maple$id) %>% 
-  filter(direction == "up" & thres == 0.5 )
+# Plot the black points
+ggplot(pheno_with_climate) +
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(year), alpha = 0.2)) +
+ 
+  facet_grid(site ~ ., scales = "free_y") 
+
+ggplot(pheno_with_climate) +
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(site), alpha = 0.2)) +
+ 
+  facet_grid(year ~ ., scales = "free_y") 
 ```
 
+```{r}
+model2 <- lm(doy~norm+anom,pheno_with_climate)
+summary(model2)
+confint(model2)
+```

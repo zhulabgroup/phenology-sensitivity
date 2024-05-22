@@ -120,6 +120,17 @@ ggplot(paired_data) +
                      values = c("black" = "black", "red" = "red"),
                      labels = c("Observation", "Normality"))
 ```
+```{r}
+ggplot(pheno_with_climate_neon) +
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(year), alpha = 0.2)) +
+ 
+  facet_grid(site ~ ., scales = "free_y") 
+
+ggplot(pheno_with_climate_neon) +
+  geom_point(aes(x = spring_avg_temp, y = doy, color = as.factor(site), alpha = 0.2)) +
+ 
+  facet_grid(year ~ ., scales = "free_y") 
+```
 
 ```{r}
 model2 <- lm(doy~norm+anom,pheno_with_climate_neon)
@@ -213,9 +224,18 @@ paired_data <- data.frame(
   x_black = pheno_with_climate$spring_avg_temp,
   y_black = pheno_with_climate$doy,
   x_red = pheno_with_climate$norm,
-  y_red = pheno_with_climate$doy,
-  site = pheno_with_climate$site
+  y_red = pheno_with_climate$doy
 )
+
+ggplot(paired_data) +
+  geom_point(aes(x = x_black, y = y_black, color = "black",alpha = 0.1)) +
+  geom_point(aes(x = x_red, y = y_red, color = "red"), alpha = 0.1) +
+  geom_segment(aes(x = x_black, y = y_black, xend = x_red, yend = y_red, color = "red"), alpha = 0.1) +
+  xlab("spring_ave_temperature") +
+  ylab("doy") +
+  scale_color_manual(name = "Legend", 
+                     values = c("black" = "black", "red" = "red"),
+                     labels = c("Observation", "Normality"))
 
 # Plot the black points
 ggplot(pheno_with_climate) +
@@ -233,4 +253,38 @@ ggplot(pheno_with_climate) +
 model2 <- lm(doy~norm+anom,pheno_with_climate)
 summary(model2)
 confint(model2)
+```
+
+# check evi for TP_acer
+```{r}
+tp <- readRDS("/Volumes/seas-zhukai/phenology/PS/urban/evi/evi_TP_Acer.rds")
+tp_doy <- readRDS("/Volumes/seas-zhukai/phenology/PS/urban/doy/doy_TP_Acer.rds") %>% 
+    filter(direction == "up" & thres == 0.5 ) 
+
+merged_data <- merge(tp, tp_doy, by = c("year", "id"), suffixes = c(".evi", ".doy"))
+
+# Randomly select 20 IDs
+set.seed(123) # for reproducibility
+selected_ids <- sample(unique(merged_data$id), 20)
+
+# Filter the merged data for the selected IDs
+filtered_data <- merged_data %>% filter(id %in% selected_ids)
+
+# Create the plot
+ggplot(data = filtered_data) +
+  geom_smooth(aes(x = doy.evi, y = evi, color = as.factor(year))) +
+  geom_line(aes(x = doy.doy, y = evi, color = as.factor(year)), data = filtered_data, inherit.aes = FALSE) +
+  facet_wrap(~id, scales = "free_y") +
+  theme_minimal() +
+  labs(x = "Day of Year (DOY)", y = "EVI", color = "Year")
+```
+
+```{r}
+ht <- readRDS("/Volumes/seas-zhukai/phenology/PS/urban/evi/evi_HT_Acer.rds")
+
+ht %>% 
+  filter(id == 103422) %>% 
+ggplot() +
+  geom_smooth(aes(x = doy, y = evi, color = as.factor(year))) +
+  theme_minimal()
 ```

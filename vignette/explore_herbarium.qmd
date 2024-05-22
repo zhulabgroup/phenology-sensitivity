@@ -19,6 +19,19 @@ format:
 # get herbarium data
 
 ```{r}
+pheno_all <- read.csv("/Users/yia/Downloads/phenology.csv")
+
+raw_all <- "/Users/yia/Downloads/0011964-240506114902167 (2)/verbatim.txt"
+
+# Read data from a tab-delimited file
+data <- read.csv("/Users/yia/Downloads/0011964-240506114902167 (2)/occurrence.csv") 
+data_test <- read.delim("/Users/yia/Downloads/0011964-240506114902167 (2)/verbatim.txt", header = TRUE)
+data_sm <- data%>% 
+  select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image)
+```
+
+
+```{r}
 library(dplyr)
 library(ggplot2)
 raw <- read.csv("/Users/yia/Downloads/Phenology_Acer_saccharum/LM2_output/combined_occ_img_downloaded.csv") %>% 

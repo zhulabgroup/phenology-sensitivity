@@ -1,0 +1,128 @@
+---
+title: 'explore herbarium data'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+---
+
+# get herbarium data
+
+```{r}
+library(dplyr)
+library(ggplot2)
+raw <- read.csv("/Users/yia/Downloads/combined_occ_img_downloaded.csv") %>% 
+  dplyr::select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image, species, genus,family)
+
+phenology <- read.csv("/Users/yia/Downloads/phenology.csv") %>% 
+  mutate(filename_image = gsub(".txt", "", file_name))
+
+joint_data <- left_join(phenology,raw, by = "filename_image")
+
+```
+
+## generate flowering time
+```{r}
+summary(joint_data)
+
+joint_data_flower <- joint_data %>% #116805
+  mutate(isflower = if_else(flower_one > 0 & flower_many > 0, 1, 0 )) %>% 
+  filter(!is.na(startDayOfYear)) %>% # 113253
+  filter(isflower==1) %>%  # 21100
+  filter(year>=1895) %>%  # 21100
+  group_by(species) %>%
+  filter(n()>29) %>% # 18849
+  group_by(family,genus) %>%
+  ungroup()
+  
+
+```
+# check data composition
+```{r}
+library(ggtree)
+
+# Aggregate data at species level
+species_data <- joint_data_flower %>%
+  group_by(species, genus, family) %>%
+  summarise(specimen_count = n())
+
+# Aggregate data at genus level
+genus_data <- species_data %>%
+  group_by(family, genus) %>%
+  summarise(specimen_count = sum(specimen_count))
+
+# Aggregate data at family level
+family_data <- species_data %>%
+  group_by(family) %>%
+  summarise(specimen_count = sum(specimen_count))
+
+hierarchical_data <- species_data %>%
+  mutate(level = "species") %>%
+  bind_rows(genus_data %>% mutate(species = genus, level = "genus")) %>%
+  bind_rows(family_data %>% mutate(genus = family, species = family, level = "family")) %>%
+  arrange(family, genus, species)
+
+# plot a tree for hierachical_data
+ggtree(hierarchical_data, layout = "dendrogram") +
+  geom_tiplab(aes(label = species, color = level), hjust = -0.3) +
+  geom_text(aes(label = paste0("(", specimen_count, ")")), vjust = -0.5, color = "blue") +
+  theme_tree2() +
+  theme(legend.position = "none") +
+  labs(title = "Hierarchical Composition of Data", x = "", y = "")
+
+
+```
+# extract the climate normality
+```{r}
+library(raster)
+complete_period_raster <- raster("../data/prism/complete_period_springmean.tif")
+
+# Function to load yearly raster
+load_yearly_raster <- function(year) {
+  raster_path <- paste0("../data/prism/", year, "_springmean.tif")
+  if (file.exists(raster_path)) {
+    raster(raster_path)
+  } else {
+    NULL
+  }
+}
+# Function to extract temperature values
+extract_temperatures <- function(lon, lat, year, complete_raster) {
+  yearly_raster <- load_yearly_raster(year)
+  yearly_temp <- if (!is.null(yearly_raster)) {
+    extract(yearly_raster, cbind(lon, lat))
+  } else {
+    NA
+  }
+  complete_period_temp <- extract(complete_raster, cbind(lon, lat))
+  data.frame(yearly_temp = yearly_temp, complete_period_temp = complete_period_temp)
+}
+
+temperature_data <- joint_data_flower %>%
+  dplyr::select(year, decimalLongitude, decimalLatitude) %>%
+  distinct() %>%
+  rename(lon = decimalLongitude, lat = decimalLatitude) %>%
+  slice(1:10) %>%
+  rowwise() %>%
+  mutate(temperature_info = extract_temperatures(lon, lat, year, complete_period_raster)) %>%
+  tidyr::unnest_wider(temperature_info)
+
+write.csv(temperature_data, "../data/herb_temperature_data.csv")
+
+
+
+
+
+
+# fit the model
+

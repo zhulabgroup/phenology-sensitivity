@@ -18,260 +18,14 @@ format:
 
 try feak data and run Linear mixed model
 
-# create data
 ```{r}
 library(dplyr)
 library(ggplot2)
 ```
 
+# simulate one observation per individual with fixed slope
+when fake the data, we can decide whether to add noise, and how much noise to add
 ```{r}
-# Load necessary package
-
-# Generate x and y coordinates for the 4 central dots
-x_center <- 1:9
-y_center <- 10 - x_center  # The equation for the line y = 5 - x
-
-# Create a data frame to hold the center dots
-center_dots <- data.frame(x = x_center, y = y_center, label = "center")
-
-# Function to compute y-coordinates for the dots around the center dots, given slope
-fun <- function(x_i, x_center, y_center) {
-  slope <- rnorm(1, -2, 1)
-  intercept <- y_center - slope * x_center
-  return(slope * x_i + intercept)
-}
-
-# Create data frame for additional dots
-additional_dots <- data.frame()
-
-# For each center dot, generate 5 additional dots along a line with slope -2
-for (i in 1:length(x_center)) {
-  x_i <- rnorm(10, x_center[i], 0.5)  # Randomize x-coordinates
-  y_i <- fun(x_i, x_center[i], y_center[i]) + rnorm(10, 0, 1)  # Randomize y-coordinates
-  dots <- data.frame(x = x_i, y = y_i, label = paste("around_center", i, sep = "_"))
-  additional_dots <- rbind(additional_dots, dots)
-}
-
-# Combine center dots and additional dots into a single data frame
-all_dots <- rbind(center_dots, additional_dots)
-
-all_dots_wc <- all_dots
-all_dots <- all_dots_wc %>% filter(label != "center")
-  
-# Plot the results
-sepp <- ggplot(all_dots_wc, aes(x = x, y = y, color = label)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, aes(color = label, fill = label)) +
-  labs(title = "Dots Generated Around a Central Line",
-       x = "X-axis",
-       y = "Y-axis") +
-  theme_minimal() +
-  theme(legend.position = "none")  # Legend position
-print(sepp)
-```
-
-
-# should add a section to see the recented model
-
-
-
-# lmer
-
-```{r}
-temporal_model <- lmerTest::lmer(y ~ x +  (x | label), data = all_dots) 
-summary(temporal_model)
-```
-
-
-```{r}
-mix1 <- all_dots %>% 
-  mutate(fit.m = predict(temporal_model, re.form = NA),
-         fit.c = predict(temporal_model, re.form = NULL))
-
-
-mix1 %>%
-  ggplot(aes(x = x, y = y, col = label)) +
-  geom_point(pch = 16) +
-  geom_line(aes(y = fit.c, col = label), size = 2, alpha = 0.2) +
-  theme_minimal() +
-  theme(legend.position = "none") 
-```
-# blme
-```{r}
-library(blme)
-
-temporal_model <- blmer(y ~ x + (1 + x | label), data = all_dots,
-                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
-
-temporal_model
-# Create a new dataset with predicted values
-mix1 <- all_dots %>% 
-  mutate(fit.m = predict(temporal_model, re.form = NA),
-         fit.c = predict(temporal_model, re.form = NULL))
-
-label <- paste("Slope: ", round(slope_tem_rmle, 2), "\n95% CI: [", round(CI_lower, 2), ", ", round(CI_upper, 2), "]", sep = "")
-
-# Generate the plot
-pmix <- mix1 %>%
-  ggplot(aes(x = x, y = y, color = label)) +
-  geom_point() +  # Plot data points
-  geom_line(aes(y = fit.c), size = 1) +  # Conditional predictions with random effects
-  geom_line(aes(y = fit.m), size = 1, linetype = "dashed", alpha = 0.5, color = "black") +  # Marginal predictions without random effects
-  theme_minimal() +  # Minimalist theme
-  theme(legend.position = "none")  # Legend position
-print(pmix)
-```
-
-# bayesian
-```{r}
-library(rstan)
-model_string <- "
-data {
-  int<lower=0> N;        
-  int<lower=0> J;      
-  int<lower=1, upper=J> group[N]; 
-  vector[N] y;            
-  vector[N] x;         
-}
-
-parameters {
-  real mu_a;              
-  real<lower=0> tau_a2;    
-  real mu_b;             
-  real<lower=0> tau_b2;    
-  real<lower=0> sigma2;   
-
-  vector[J] a;            
-  vector[J] b;            
-}
-
-model {
-  tau_a2 ~ inv_gamma(1, 50);
-  tau_b2 ~ inv_gamma(1, 50);
-
-  a ~ normal(mu_a, sqrt(tau_a2));
-  b ~ normal(mu_b, sqrt(tau_b2));
-  
-  for (i in 1:N) {
-    y[i] ~ normal(a[group[i]] + b[group[i]] * x[i], sqrt(sigma2));
-  }
-}
-
-"
-data_maple_tem <- list(N = length(all_dots$x), 
-                        J = length(unique(all_dots$label)), 
-                        group = as.numeric(as.factor(all_dots$label)), 
-                        y = all_dots$y, 
-                        x = all_dots$x)
-stan_samples_tem <- stan(model_code = model_string, data = data_maple_tem, iter = 1000, chains = 4)
-
-# Plotting and summarizing the posterior distribution
-stan_samples_tem
-```
-
-```{r bay_mix_extract}
-stan_summary <- summary(stan_samples_tem)
-# extract global para
-mu_a <- stan_summary$summary["mu_a", "mean"] 
-mu_b <- stan_summary$summary["mu_b", "mean"]  
-
-CI_mu_b <- quantile(extract(stan_samples_tem, "mu_b")[[1]], probs = c(0.025, 0.975))
-
-predict_function <- function(x, mu_a, mu_b) {
-  return(mu_a + mu_b * x)
-}
-
-data_with_predictions <- all_dots %>% 
-  mutate(fit.m = predict_function(x, mu_a, mu_b))
-
-# extract group specific para
-stan_samples <- extract(stan_samples_tem)
-
-intercepts <- apply(stan_samples$a, 2, mean)  
-slopes <- apply(stan_samples$b, 2, mean) 
-```
-
-
-```{r bay_mix_plot}
-# Function to get group-specific ranges
-get_group_ranges <- function(data, group_col, x_col) {
-  group_ranges <- data %>% 
-    group_by(!!sym(group_col)) %>% 
-    summarize(min_x = min(!!sym(x_col)), max_x = max(!!sym(x_col))) 
-  
-  return(group_ranges)
-}
-
-# Function to create predictions within group-specific ranges
-create_group_lines_with_ranges <- function(data, group_ranges, intercepts, slopes) {
-  group_lines <- data.frame()  
-  
-  # Loop through each group to create lines within their observed ranges
-  for (i in seq_along(intercepts)) {
-    group_id <- i  
-    intercept <- intercepts[i]  
-    slope <- slopes[i]  
-    
-    # Get the range for this group
-    group_range <- group_ranges %>% filter(!!sym(group_col) == group_id)
-    x_values <- seq(group_range$min_x, group_range$max_x, length.out = 10)  # Generate x values within the range
-    y_values <- intercept + slope * x_values  # Calculate y values for the line
-    
-    # Create a data frame for this group's line
-    group_data <- data.frame(
-      group = group_id,
-      x = x_values,
-      y = y_values
-    )
-    
-    # Append to the group lines data frame
-    group_lines <- rbind(group_lines, group_data)
-  }
-  
-  return(group_lines) 
-}
-
-# Get group-specific ranges
-all_dots <- all_dots %>% mutate(labeln = as.numeric(factor(label)))
-group_col <- "labeln"
-x_col <- "x"
-group_ranges <- get_group_ranges(all_dots, group_col, x_col)
-
-# Create group lines with the specific ranges
-group_lines <- create_group_lines_with_ranges(all_dots, group_ranges, intercepts, slopes)
-
-pb <- ggplot(all_dots, aes(x = x, y = y, color = as.factor(labeln))) +
-  geom_point() +  # Plot data points
-  geom_line(data = group_lines, aes(x = x, y = y, color = as.factor(group)), size = 1) +  # Group-specific lines within ranges
-  geom_line(data = data_with_predictions, aes(y = fit.m), linetype = "dashed", alpha = 0.5, color = "black") +  # Overall trend
-  labs(title = "Sugar maple temporal sensitivity Bayesian_mix",
-       x = "Spring temperature", y = "Leaf day")  +
-  theme(legend.position = "none") +
-  geom_text(x = max(data_with_predictions$x), y = max(data_with_predictions$y), 
-            label = paste("Slope: ", round(mu_b, 2), 
-                          "\n95% CI: [", round(CI_mu_b[1], 2), ", ", round(CI_mu_b[2], 2), "]"),
-            color = "black", hjust = 1, vjust = 1)  
-print(pb)
-
-```
-
-```{r}
-library(patchwork)
-sepp+pmix+pb
-```
-
-# compare group from RMLE and Bayesian
-```{r}
- ggplot() + 
-     geom_point(data = mix1[1:10, ], aes(x = x,y = fit.c),color = "red",alpha = 0.5) +
-     geom_point(data = group_lines[1:10, ], aes(x = x, y = y),color = "black",alpha = 0.5)
-```
-
-
-# fake data for herbarium
-when fake the data, we can decide whether to add noice, and how much noise to add
-```{r}
-# Load necessary package
 
 # Generate x and y coordinates for the 4 central dots
 x_center <- 1:9
@@ -287,32 +41,28 @@ additional_dots <- data.frame()
 for (i in 1:length(x_center)) {
   anom_i <- rnorm(1, 0, 0.5)  # Randomize x-coordinates
   y_i <- 10 - x_center[i]-2*anom_i +  rnorm(1,0,0.5)
-  dots <- data.frame(norm = x_center[i], y = y_i, anom = anom_i, label = paste("around_center", i, sep = "_"))
-  additional_dots <- rbind(additional_dots, dots)
-}
-for (i in 1:length(x_center)) {
-  anom_i <- rnorm(1, 0, 0.2)  # Randomize x-coordinates
-  y_i <- 10 - x_center[i]-2*anom_i +  rnorm(1,0,0.2)
-  dots <- data.frame(norm = x_center[i], y = y_i, anom = anom_i, label = paste("around_center", i, sep = "_"))
+  dots <- data.frame(norm = x_center[i], y_i = y_i, anom_i = anom_i, label = paste("around_center", i, sep = "_"))
   additional_dots <- rbind(additional_dots, dots)
 }
 
   
+combined_dots <- left_join(center_dots, additional_dots, by = "norm")
 # Plot the results
-sepp <- ggplot(center_dots, aes(x = norm+anom, y = y)) +
-  geom_point() +
+sepp <- ggplot(combined_dots, aes(x = norm+anom, y = y)) +
+  geom_point(aes(color = label.y)) +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
   labs(title = "Dots Generated Around a Central Line",
        x = "X-axis",
        y = "Y-axis") +
   theme_minimal() +
   theme(legend.position = "none") + # Legend position
-  geom_point(data = additional_dots, aes(x = norm+anom, y = y), color = "red")
+  geom_point(aes(x = norm+anom_i, y = y_i, color = label.y), shape = 1) 
+
 print(sepp)
 ```
 
 ```{r}
-model <- lm(y~norm+anom,additional_dots)
+model <- lm(y_i~norm+anom_i,additional_dots)
 summary(model)
 confint(model)
 ```
@@ -321,3 +71,152 @@ looks like that the anom slope always has larger uncertainty than the norm one
 let's see adding more replicates to restrict temporal sensitivity can help: Yes
 
 I feels that simple linear model definitely help by utilizing cilmate norm to restrict spatial sensitivity
+
+# simulate one observation per individual with random slope
+when fake the data, we can decide whether to add noise, and how much noise to add
+```{r}
+
+# Generate x and y coordinates for the 4 central dots
+x_center <- 1:9
+y_center <- 10 - x_center + rnorm(9,0,0.5)  # The equation for the line y = 5 - x
+
+# Create a data frame to hold the center dots
+center_dots <- data.frame(norm = x_center, y = y_center, anom = 0, label = "center")
+
+# Create data frame for additional dots
+additional_dots <- data.frame()
+
+# For each center dot, generate 5 additional dots along a line with slope -2
+for (i in 1:length(x_center)) {
+  anom_i <- rnorm(1, 0, 0.5)  # Randomize x-coordinates
+  temporal <- rnorm(1, -2, 0.1)
+  y_i <- 10 - x_center[i]+temporal*anom_i +  rnorm(1,0,0.5)
+  dots <- data.frame(norm = x_center[i], y_i = y_i, anom_i = anom_i, label = paste("around_center", i, sep = "_"))
+  additional_dots <- rbind(additional_dots, dots)
+}
+
+  
+  
+combined_dots <- left_join(center_dots, additional_dots, by = "norm")
+# Plot the results
+sepp <- ggplot(combined_dots, aes(x = norm+anom, y = y)) +
+  geom_point(aes(color = label.y)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  labs(title = "Dots Generated Around a Central Line",
+       x = "X-axis",
+       y = "Y-axis") +
+  theme_minimal() +
+  theme(legend.position = "none") + # Legend position
+  geom_point(aes(x = norm+anom_i, y = y_i, color = label.y), shape = 1) 
+
+print(sepp)
+```
+
+```{r}
+model <- lm(y_i~norm+anom_i,additional_dots)
+summary(model)
+confint(model)
+```
+# simulate multiple observation per individual with fixed slope
+
+```{r}
+
+# Generate x and y coordinates for the 4 central dots
+x_center <- 1:9
+y_center <- 10 - x_center + rnorm(9,0,0.5)  # The equation for the line y = 5 - x
+
+# Create a data frame to hold the center dots
+center_dots <- data.frame(norm = x_center, y = y_center, anom = 0, label = "center")
+
+# Create data frame for additional dots
+additional_dots <- data.frame()
+
+# For each center dot, generate 5 additional dots along a line with slope -2
+for (i in 1:length(x_center)) {
+  anom_i <- rnorm(5, 0, 0.5)  # Randomize x-coordinates
+  y_i <- 10 - x_center[i]-2*anom_i +  rnorm(5,0,0.5)
+  dots <- data.frame(norm = x_center[i], y_i = y_i, anom_i = anom_i, label = paste("around_center", i, sep = "_"))
+  additional_dots <- rbind(additional_dots, dots)
+}
+
+  
+combined_dots <- left_join(center_dots, additional_dots, by = "norm")
+# Plot the results
+sepp <- ggplot(combined_dots, aes(x = norm+anom, y = y)) +
+  geom_point(aes(color = label.y)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  labs(title = "Dots Generated Around a Central Line",
+       x = "X-axis",
+       y = "Y-axis") +
+  theme_minimal() +
+  theme(legend.position = "none") + # Legend position
+  geom_point(aes(x = norm+anom_i, y = y_i, color = label.y), shape = 1) 
+
+print(sepp)
+```
+```{r}
+model <- lm(y_i~norm+anom_i,additional_dots)
+summary(model)
+confint(model)
+```
+adding more dots for each individual narrow the temporal uncertainty
+
+```{r}
+library(blme)
+temporal_model <- blmer(y_i ~ norm + anom_i + (anom_i | label), data = additional_dots,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
+
+temporal_model
+```
+
+# simulate multiple observation per individual with random slope
+
+```{r}
+
+# Generate x and y coordinates for the 4 central dots
+x_center <- 1:9
+y_center <- 10 - x_center + rnorm(9,0,0.5)  # The equation for the line y = 5 - x
+
+# Create a data frame to hold the center dots
+center_dots <- data.frame(norm = x_center, y = y_center, anom = 0, label = "center")
+
+# Create data frame for additional dots
+additional_dots <- data.frame()
+
+# For each center dot, generate 5 additional dots along a line with slope -2
+for (i in 1:length(x_center)) {
+  anom_i <- rnorm(5, 0, 0.5)  # Randomize x-coordinates
+  temporal <- rnorm(1, -2, 1)
+  y_i <- 10 - x_center[i]+ temporal*anom_i +  rnorm(5,0,0.5)
+  dots <- data.frame(norm = x_center[i], y_i = y_i, anom_i = anom_i, label = paste("around_center", i, sep = "_"))
+  additional_dots <- rbind(additional_dots, dots)
+}
+
+  
+combined_dots <- left_join(center_dots, additional_dots, by = "norm")
+# Plot the results
+sepp <- ggplot(combined_dots, aes(x = norm+anom, y = y)) +
+  geom_point(aes(color = label.y)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  labs(title = "Dots Generated Around a Central Line",
+       x = "X-axis",
+       y = "Y-axis") +
+  theme_minimal() +
+  theme(legend.position = "none") + # Legend position
+  geom_point(aes(x = norm+anom_i, y = y_i, color = label.y), shape = 1) 
+
+print(sepp)
+```
+
+```{r}
+model <- lm(y_i~norm+anom_i,additional_dots)
+summary(model)
+confint(model)
+```
+```{r}
+library(blme)
+temporal_model <- blmer(y_i ~ norm + anom_i + (anom_i | label), data = additional_dots,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
+
+temporal_model
+```

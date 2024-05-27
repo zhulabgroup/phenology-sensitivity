@@ -10,7 +10,11 @@ analyze_species <- function(data, species_name) {
   species_data <- data %>% filter(species == species_name)
   
   # Identify and remove outliers using aq.plot
-  result <- aq.plot(species_data %>% dplyr::select(yeart, doy) %>% as.matrix())
+  tryCatch({
+    result <- aq.plot(species_data %>% dplyr::select(yeart, doy) %>% as.matrix())
+  }, error = function(warning) {
+    result <- list(outliers = rep(FALSE, nrow(species_data)))
+  })
   data_clean <- species_data[!result$outliers, ]
   
   # Fit the linear model
@@ -76,10 +80,10 @@ summary_results <- bind_rows(lapply(results, function(res) res$summary))
 print(summary_results)
 
 # Save all plots to a single PDF file
-pdf("species_plots.pdf", width = 8, height = 6)
+pdf("species_plots_npn.pdf", width = 8, height = 6)
 for (species_name in unique_species) {
   print(results[[species_name]]$plot)
 }
 dev.off()
 
-write.csv(summary_results, "species_summary.csv", row.names = FALSE)
+write.csv(summary_results, "species_summary_npn.csv", row.names = FALSE)

@@ -1,7 +1,7 @@
 # data pre process for npn first day data
 # 1. delete conflict and repeated observations
 # 2. using normal distribution to delete outliers 
-# 3. pair lead with flower and only keep >30 observatino species
+# 3. pair leaf with flower and only keep >30 observatino species
 
 get_clean_npn_first <- function(taxadata){
   

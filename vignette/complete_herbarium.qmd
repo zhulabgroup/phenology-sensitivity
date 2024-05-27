@@ -1,5 +1,5 @@
 ---
-title: 'explore herbarium data'
+title: 'complete herbarium data'
 embed-resources: true
 author: "Yi Liu"
 date: "`r format(Sys.Date(), '%m/%d/%Y')`"
@@ -21,10 +21,10 @@ format:
 ```{r}
 library(dplyr)
 library(ggplot2)
-raw <- read.csv("/Users/yia/Downloads/combined_occ_img_downloaded.csv") %>% 
+raw <- read.csv("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/Herbarim_flower/combined_occ_img_downloaded.csv") %>% 
   dplyr::select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image, species, genus,family)
 
-phenology <- read.csv("/Users/yia/Downloads/phenology.csv") %>% 
+phenology <- read.csv("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/Herbarim_flower/phenology.csv") %>% 
   mutate(filename_image = gsub(".txt", "", file_name))
 
 joint_data <- left_join(phenology,raw, by = "filename_image")
@@ -164,8 +164,8 @@ ggplot(temperature_data %>% filter(genus=="Quercus"), aes(x = yeart, y = doy)) +
 
 ```
 
-### test on one species: 
-#### try to remove outlier using multi-normal distribution
+## test on one species: 
+### try to remove outlier using multi-normal distribution
 ```{r}
 library(mvoutlier)
 
@@ -177,7 +177,7 @@ result <- aq.plot(species_data%>%
   as.matrix())
 data_clean <- species_data[!result$outliers, ]
 ```
-#### fit and plot the model
+### fit and plot the model
 ```{r}
 model <- lm(doy ~ anom+norm,  data_clean)
 summary(model)
@@ -236,7 +236,7 @@ ggplot(paired_data) +
   geom_abline(intercept = coef(model)[1], slope = coef(model)["norm"], color = "red") 
 ```
 
-### apply this to all species
+## apply this to all species
 ```{r}
 # Define a function to clean the data for each species
 clean_species_data <- function(df) {
@@ -267,7 +267,7 @@ ggplot() +
 ```
 
 
-### fit the model by species and generate a table conclude the confidence interval of the two slpoe for each species
+# fit the model by species and generate a table conclude the confidence interval of the two slpoe for each species
 ```{r}
 source("function_visionalize_summmary_MLmodel.R")
 ```
@@ -324,10 +324,36 @@ summary_results_clean %>%
   filter(anom_conf_low > norm_conf_high | anom_conf_high < norm_conf_low) %>%
   arrange(desc(r_squared))
 ```
-
+# roughly check whether year/decade has impact on the data
+## year: 
 ```{r}
+results <- temperature_data %>%
+  group_by(species) %>%
+  do(tidy(lm(doy ~ anom + norm + year, data = .))) %>%
+  ungroup()
+
+results_table <- results %>%
+  select(species, term, estimate, p.value)
+
+# Reshape the data to have species as rows and terms as columns
+results_table_wide <- results_table %>%
+  pivot_wider(names_from = term, values_from = c(estimate, p.value)) %>% 
+  filter(p.value_year < 0.05) 
 ```
 
 ```{r}
+results <- temperature_data %>%
+  mutate(decade = floor(year / 10) * 10) %>%
+  group_by(species) %>%
+  do(tidy(lm(doy ~ anom + norm + decade, data = .))) %>%
+  ungroup()
+
+results_table <- results %>%
+  select(species, term, estimate, p.value)
+
+# Reshape the data to have species as rows and terms as columns
+results_table_wide <- results_table %>%
+  pivot_wider(names_from = term, values_from = c(estimate, p.value)) %>% 
+  filter(p.value_decade < 0.05) 
 ```
 

@@ -1,0 +1,289 @@
+---
+title: 'complete npn data'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+---
+
+# get npn data
+```{r}
+library(readr)
+folder_path <- "/Volumes/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/" 
+#folder_path <- "E:/phenology/NPN/leaf_flower/climate/" 
+
+# Get list of RDS files in the folder
+rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)
+
+#rds_files delete these with name include "Ambrosia" or "Poaceae
+rds_files <- rds_files[!grepl("Ambrosia", rds_files)]
+rds_files <- rds_files[!grepl("Poaceae", rds_files)]
+
+complete_npn_data <- data.frame()
+for (i in seq_along(rds_files) ) {
+  # Read the RDS file
+  data <- read_rds(rds_files[i]) %>% 
+     filter(observed_status_conflict_flag == "-9999") %>% # Removing Status Conflicts
+      group_by(individual_id, first_yes_year, pheno_class_id) %>%
+      arrange(first_yes_doy) %>%
+      slice(1)%>%
+      mutate(numdays_since_prior_no = as.numeric(numdays_since_prior_no)) %>%
+      filter(numdays_since_prior_no < 20 & numdays_since_prior_no > 0) %>% # Filtering Data by Prior No
+      dplyr::select(individual_id, first_yes_year, first_yes_doy, species, genus, dataset_id, pheno_class_id, longitude, latitude) %>%
+      ungroup() %>% 
+  # extrend to a wide table by pheno_class_id
+  spread(key = pheno_class_id, value = first_yes_doy) 
+  
+  flower_data <- data %>% 
+    # average the flowering date
+    mutate(doy = rowMeans(dplyr::select(., c("6", "7", "8")), na.rm = TRUE)) %>%
+    filter(!is.na(doy)) %>%
+  select(-one_of(c("1", "2", "3", "6", "7", "8"))) %>%
+    rename(lat = latitude, lon = longitude, year = first_yes_year) %>%
+    mutate(species = paste(genus, species, sep = " ")) 
+    
+  complete_npn_data <- rbind(complete_npn_data, flower_data)
+}
+    # add family to the data
+    
+```
+
+decide metrics
+```{r}
+cor(data[,10:12], use = "complete.obs")
+```
+# extract climate data
+```{r}
+library(raster)
+
+
+# extract the climate normality
+complete_period_raster <- raster("../data/prism/complete_period_springmean.tif")
+
+joint_data_flower_normality <- complete_npn_data %>%
+  dplyr::select(lat, lon) %>%
+  distinct() %>%
+  mutate(complete_period_temp = raster::extract(complete_period_raster, cbind(lon, lat)))
+
+# extract the climate anormality
+# Initialize an empty data frame to store the results
+joint_data_flower_anormality <- data.frame()
+
+# Loop through the specified years
+for (fo_year in 2007:2023) {
+  # Load the yearly raster file
+  yearly_raster <- raster(paste0("../data/prism/", fo_year, "_springmean.tif"))
+  
+  # Process the joint_data_flower for the current year
+  yearly_data <- complete_npn_data %>%
+    dplyr::select(year, lat, lon) %>%
+    distinct() %>%
+    filter(year == fo_year) %>%
+    mutate(yearly_temp = raster::extract(yearly_raster, cbind(lon, lat)))
+  
+  # Append the yearly data to the cumulative data frame
+  joint_data_flower_anormality <- rbind(joint_data_flower_anormality, yearly_data)
+}
+
+# Combine the normality and anormality data
+temperature_data <- joint_data_flower_normality %>%
+  right_join(joint_data_flower_anormality, by = c("lat", "lon")) %>%
+  rename(norm = complete_period_temp, yeart = yearly_temp) %>%
+  mutate(anom = yeart - norm) %>%
+  right_join(complete_npn_data, by = c("lat", "lon", "year")) %>%
+  filter(!is.na(anom)) %>% #17587->17490
+  group_by(species) %>%
+  filter(n()>29) %>%   #  enough for linear model 17490->17213
+  ungroup()
+
+write.csv(temperature_data, "../data/npn_temperature_data.csv")
+```
+
+```{r}
+temperature_data <- read.csv("../data/npn_temperature_data.csv") 
+```
+
+# data composition
+```{r}
+# summarize for each genus, species, indiviudal, how many data points, summarize in each level
+data_summary_species <- temperature_data %>%
+  group_by(genus, species, individual_id) %>%
+  summarise(n = n()) %>%
+  group_by(genus, species) %>%
+  summarise(n = sum(n), n_individual = n_distinct(individual_id)) 
+
+data_summary_genus <- temperature_data %>%
+  group_by(genus, individual_id) %>%
+  summarise(n = n()) %>%
+  group_by(genus) %>%
+  summarise(n = sum(n), n_individual = n_distinct(individual_id)) 
+```
+# simple linear regression
+if the data is too few, we can't fit a multinorm, then we just keep the raw data
+also, one speceis with only two location can't calculate the speaital sensitivity
+```{r}
+source("function_visionalize_summmary_MLmodel.R")
+```
+
+```{r}
+summary_results <- read.csv("../species_summary_npn.csv")
+```
+kick the outlier
+```{r}
+summary_results <- summary_results %>%
+  # Delete rows with NaN values
+  filter(!is.na(anom_estimate) & !is.na(norm_estimate))
+
+  result <- aq.plot(summary_results %>%
+  # Delete rows with NaN values
+  dplyr::select(anom_estimate, norm_estimate) %>%
+  as.matrix())
+  summary_results_clean <- summary_results[!result$outliers, ]
+  
+  ggplot(summary_results_clean, aes(x = norm_estimate, y = anom_estimate )) +
+  geom_errorbarh(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = r_squared), width = 0) +
+  geom_errorbar(aes(ymin = anom_conf_low, ymax = anom_conf_high, alpha = r_squared), height = 0) +
+  geom_point(aes(alpha = r_squared), size = 3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Add 1:1 line
+  scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
+  labs(
+    # title = "Slope Estimates for Anom and Norm by Species",
+    x = "Temporal sensitivity",
+    y = "Spatial sensitivity",
+    alpha = "R^2"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+  
+```
+```{r}
+summary_results_clean %>% 
+#filter for the species that the anom slope and norm slope confidence interval do not overlap
+  mutate(anom_conf_low = as.numeric(anom_conf_low),
+         anom_conf_high = as.numeric(anom_conf_high),
+         norm_conf_low = as.numeric(norm_conf_low),
+         norm_conf_high = as.numeric(norm_conf_high)) %>%
+  filter(anom_conf_low > norm_conf_high | anom_conf_high < norm_conf_low) %>%
+  arrange(desc(r_squared))
+```
+
+# mixed effect model
+do i really need the random effect? do we believe each individual has its own temporal sensitivity?
+
+```{r}
+library(blme)
+temporal_model <- blmer(doy ~ norm + anom + (anom | individual_id), data = species_data,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
+
+temporal_model
+```
+
+# check colinearity
+this happen because all the data is collected in the same place (with the same norm)
+```{r}
+cor(data_clean[,c("norm","anom")], use = "complete.obs")
+
+```
+
+# compare herbarium and npn result
+```{r}
+herbarium_data <- read.csv("../data/herb_species_summary.csv")
+npn_data <- read.csv("../data/npn_species_summary.csv") %>% 
+    filter(!is.na(anom_estimate) & !is.na(norm_estimate))
+
+
+  herb_result <- aq.plot(herbarium_data %>%
+  # Delete rows with NaN values
+  dplyr::select(anom_estimate, norm_estimate) %>%
+  as.matrix())
+  herbarium_data_clean <- herbarium_data[!herb_result$outliers, ]
+
+  npn_result <- aq.plot(npn_data %>%
+  # Delete rows with NaN values
+  dplyr::select(anom_estimate, norm_estimate) %>%
+  as.matrix())
+  npn_data_clean <- npn_data[!npn_result$outliers, ]
+  
+  joint_data <- inner_join(herbarium_data_clean, npn_data_clean, by = "species") 
+  
+  joint_data%>%
+  ggplot(aes(x = anom_estimate.x, y = anom_estimate.y)) +  
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  geom_errorbar(aes(ymin = anom_conf_low.y, ymax = anom_conf_high.y, alpha = r_squared.y), height = 0) +
+  geom_errorbarh(aes(xmin = anom_conf_low.x, xmax = anom_conf_high.x, alpha = r_squared.x), height = 0) +
+  scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
+  labs(
+    # title = "Slope Estimates for Anom and Norm by Species",
+    x = "herb tem sensitivity",
+    y = "npn tem sensitivity",
+    alpha = "R^2"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right") +
+        coord_fixed(ratio = 1)
+  
+  inner_join(herbarium_data_clean, npn_data_clean, by = "species") %>%
+  ggplot(aes(x = anom_estimate.x, y = anom_estimate.y)) +
+  geom_point() +
+    geom_smooth() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "Herbarium Temporal Sensitivity",
+    y = "NPN Temporal Sensitivity")+
+      theme_minimal() +
+    coord_fixed(ratio = 1)
+```
+
+```{r}
+  joint_data %>%
+#filter for the species that the anom slope and norm slope confidence interval do not overlap
+  filter(anom_conf_low.x > anom_conf_high.y | anom_conf_low.y > anom_conf_high.x) 
+```
+
+```{r}
+  joint_data%>%
+  ggplot(aes(x = norm_estimate.x, y = norm_estimate.y)) +  
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  geom_errorbar(aes(ymin = norm_conf_low.y, ymax = norm_conf_high.y, alpha = r_squared.y), height = 0) +
+  geom_errorbarh(aes(xmin = norm_conf_low.x, xmax = norm_conf_high.x, alpha = r_squared.x), height = 0) +
+  scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
+  labs(
+    # title = "Slope Estimates for Anom and Norm by Species",
+    x = "herb spa sensitivity",
+    y = "npn spa sensitivity",
+    alpha = "R^2"
+  ) +
+  theme_minimal() +
+    coord_fixed(ratio = 1)+
+  theme(legend.position = "right")
+  
+  inner_join(herbarium_data_clean, npn_data_clean, by = "species") %>%
+  ggplot(aes(x = norm_estimate.x, y = norm_estimate.y)) +
+  geom_point() +
+    geom_smooth() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "Herbarium Temporal Sensitivity",
+    y = "NPN Temporal Sensitivity") +      
+    theme_minimal() +
+    coord_fixed(ratio = 1)
+```
+
+```{r}
+  joint_data %>%
+#filter for the species that the anom slope and norm slope confidence interval do not overlap
+  filter(norm_conf_low.x > norm_conf_high.y | norm_conf_low.y > norm_conf_high.x) %>% 
+  select(species,norm_estimate.x, norm_estimate.y, norm_conf_low.x, norm_conf_high.x, norm_conf_low.y, norm_conf_high.y)
+```

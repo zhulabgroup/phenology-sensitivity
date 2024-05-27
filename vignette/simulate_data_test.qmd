@@ -72,6 +72,20 @@ let's see adding more replicates to restrict temporal sensitivity can help: Yes
 
 I feels that simple linear model definitely help by utilizing cilmate norm to restrict spatial sensitivity
 
+
+## check whether blme works for group with 1 observation only
+```{r}
+# blme doesn'r work if each group only has 1 observatin, lets add one more to one of the group
+additional_dots <- additional_dots %>% 
+  bind_rows(data.frame(norm = 1, y_i = 8.513217, anom_i = 0, label = "around_center_1"))
+library(blme)
+temporal_model <- blmer(y_i ~ norm + anom_i + (anom_i | label), data = additional_dots,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
+
+```
+
+
+
 # simulate one observation per individual with random slope
 when fake the data, we can decide whether to add noise, and how much noise to add
 ```{r}

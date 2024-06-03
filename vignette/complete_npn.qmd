@@ -176,7 +176,82 @@ summary_results_clean %>%
   filter(anom_conf_low > norm_conf_high | anom_conf_high < norm_conf_low) %>%
   arrange(desc(r_squared))
 ```
+# apply Bonferroni correction
+```{r}
+temperature_data <- read_csv("../data/npn_temperature_data.csv")
 
+temperature_data_with_ids <- temperature_data %>%
+  mutate(row_id = row_number())
+
+# Identify outliers for each species
+outliers <- temperature_data_with_ids %>%
+  group_by(species) %>%
+  do({
+    data_matrix <- dplyr::select(., yeart, doy) %>% as.matrix()
+    outlier_result <- tryCatch({
+      aq.plot(data_matrix)
+    }, error = function(warning) {
+      list(outliers = rep(FALSE, nrow(data_matrix))) # If aq.plot fails, mark no outliers
+    })
+    data.frame(outliers = outlier_result$outliers, row_id = .$row_id)
+  }) %>%
+  ungroup()
+
+# Join the outlier results with the original data
+data_with_outliers <- temperature_data_with_ids %>%
+  left_join(outliers, by = "row_id","species")
+
+# Filter out the outliers, if any
+data_clean <- data_with_outliers %>%
+  filter(is.na(outliers) | !outliers) %>%
+  select(-outliers, -row_id)
+
+  
+results <- data_clean %>%
+  group_by(species) %>%
+  do(tidy(lm(doy ~ anom + norm, data = .), conf.int = TRUE)) %>%
+  ungroup()
+
+# Count the number of unique species
+num_tests <- temperature_data %>% 
+  pull(species) %>% 
+  unique() %>% 
+  length()
+
+# Bonferroni-adjusted alpha
+alpha <- 0.05
+adjusted_alpha <- alpha / num_tests
+
+# Calculate the Bonferroni-adjusted critical value for the t-distribution
+# Assuming degrees of freedom is the same for each model; you can adjust this part if needed
+df <- temperature_data %>% 
+  group_by(species) %>% 
+  summarize(df = lm(doy ~ anom + norm, data = .)$df.residual) %>%
+  pull(df) %>%
+  unique() %>%
+  mean()
+
+# Get the critical t-value
+critical_value <- qt(1 - adjusted_alpha / 2, df)
+
+# Adjust the confidence intervals
+results <- results %>%
+  mutate(
+    conf.low.adjusted = estimate - critical_value * std.error,
+    conf.high.adjusted = estimate + critical_value * std.error
+  ) %>% 
+  dplyr::select(species, term, estimate, conf.low.adjusted, conf.high.adjusted) %>%
+  filter(term %in% c("anom", "norm")) %>% 
+  tidyr::pivot_wider(names_from = term, values_from = c(estimate, conf.low.adjusted, conf.high.adjusted))
+  
+results_clean <- results %>%
+  filter(p.value_anom < adjusted_alpha | p.value_norm < adjusted_alpha)
+
+result <- aq.plot(results %>% dplyr::select(estimate_anom, estimate_norm) %>% as.matrix())
+  results_clean <- results[!result$outliers, ]
+
+results_clean %>% filter(conf.low.adjusted_anom > conf.high.adjusted_norm | conf.low.adjusted_norm > conf.high.adjusted_anom) 
+```
 # mixed effect model
 do i really need the random effect? do we believe each individual has its own temporal sensitivity?
 
@@ -275,7 +350,7 @@ npn_data <- read.csv("../data/npn_species_summary.csv") %>%
     geom_smooth() +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
   labs(
-    x = "Herbarium Temporal Sensitivity",
+    x = "Herbarium spa Sensitivity",
     y = "NPN Temporal Sensitivity") +      
     theme_minimal() +
     coord_fixed(ratio = 1)

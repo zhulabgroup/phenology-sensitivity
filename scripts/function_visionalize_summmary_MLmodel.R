@@ -1,24 +1,10 @@
-# Load necessary libraries
-library(dplyr)
-library(ggplot2)
-library(broom)
-library(mvoutlier)
-
 # Define the function
 analyze_species <- function(data, species_name) {
   # Filter data for the specified species
   species_data <- data %>% filter(species == species_name)
   
-  # Identify and remove outliers using aq.plot
-  tryCatch({
-    result <- aq.plot(species_data %>% dplyr::select(yeart, doy) %>% as.matrix())
-  }, error = function(warning) {
-    result <- list(outliers = rep(FALSE, nrow(species_data)))
-  })
-  data_clean <- species_data[!result$outliers, ]
-  
   # Fit the linear model
-  model <- lm(doy ~ anom + norm, data = data_clean)
+  model <- lm(doy ~ anom + norm, data = species_data)
   
   # Calculate model summary with confidence intervals
   model_summary <- broom::tidy(model, conf.int = TRUE)
@@ -31,19 +17,19 @@ analyze_species <- function(data, species_name) {
   r_squared <- summary(model)$r.squared
   
   # Calculate means of anom, norm, and doy
-  mean_yeart <- mean(data_clean$yeart, na.rm = TRUE)
-  mean_doy <- mean(data_clean$doy, na.rm = TRUE)
+  mean_yeart <- mean(species_data$yeart, na.rm = TRUE)
+  mean_doy <- mean(species_data$doy, na.rm = TRUE)
   
   # Calculate the adjusted intercepts for the center of the figure
   intercept_anom <- mean_doy - coef(model)["anom"] * mean_yeart
   
   # Generate the plot
-  plot <- ggplot(data_clean, aes(x = yeart, y = doy)) +
+  plot <- ggplot(species_data, aes(x = yeart, y = doy)) +
     geom_point(alpha = 0.5) +
     geom_abline(aes(intercept = intercept_anom, slope = coef(model)["anom"], color = "Temporal")) +
     geom_abline(aes(intercept = coef(model)[1], slope = coef(model)["norm"], color = "Spatial")) +
     labs(title = species_name, x = "Spring temperature", y = "Day of Year") +
-    annotate("text", x = min(data_clean$yeart), y = min(data_clean$doy), 
+    annotate("text", x = min(species_data$yeart), y = min(species_data$doy), 
              label = sprintf("Temporal CI: [%0.2f, %0.2f]\nSpatial CI: [%0.2f, %0.2f]\nR² = %0.2f", 
                              coef_anom$conf.low, coef_anom$conf.high, 
                              coef_norm$conf.low, coef_norm$conf.high, 
@@ -65,25 +51,4 @@ analyze_species <- function(data, species_name) {
   return(list(plot = plot, summary = summary_row))
 }
 
-# Apply the function to each species and store the results
-results <- list()
-unique_species <- unique(temperature_data$species)
 
-for (species_name in unique_species) {
-  results[[species_name]] <- analyze_species(temperature_data, species_name)
-}
-
-# Combine all summary rows into a single data frame
-summary_results <- bind_rows(lapply(results, function(res) res$summary))
-
-# Print the summary results
-print(summary_results)
-
-# Save all plots to a single PDF file
-pdf("species_plots_npn.pdf", width = 8, height = 6)
-for (species_name in unique_species) {
-  print(results[[species_name]]$plot)
-}
-dev.off()
-
-write.csv(summary_results, "species_summary_npn.csv", row.names = FALSE)

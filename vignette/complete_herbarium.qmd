@@ -16,11 +16,14 @@ format:
       smooth-scroll: true
 ---
 
-# get herbarium data
-
 ```{r}
 library(dplyr)
 library(ggplot2)
+```
+
+# get herbarium data
+
+```{r eval=FALSE}
 raw <- read.csv("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/Herbarim_flower/combined_occ_img_downloaded.csv") %>% 
   dplyr::select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image, species, genus,family)
 
@@ -31,27 +34,17 @@ joint_data <- left_join(phenology,raw, by = "filename_image")
 
 ```
 
-## generate flowering time
-```{r}
-summary(joint_data)
-
+## fillter flowering time
+```{r eval=FALSE}
 joint_data_flower <- joint_data %>% #116805
-  mutate(isflower = if_else(flower_one > 0 & flower_many > 0, 1, 0 )) %>% 
-  filter(!is.na(startDayOfYear)) %>% # 113253
-  filter(isflower==1) %>%  # 21100
-  filter(year>=1895) %>%  # 21100
-  group_by(species) %>%
-  filter(n()>29) %>% # 18849 enough for linear model
-  group_by(family,genus) %>%
-  ungroup()
-
-```
-## clear herbarium data for repeat file and repeat file with different phenology
-```{r}
-for_climate <- joint_data_flower %>%
+  filter(flower_one > 0 & flower_many > 0) %>% 
+  filter(!is.na(startDayOfYear)) %>% 
+  filter(year>=1895) %>% 
   dplyr::select(decimalLongitude, decimalLatitude, startDayOfYear, year, species, genus, family) %>%
+  # delete family Pinaceae and Cupressaceae
+  filter(family!="Pinaceae" & family!="Cupressaceae") %>%
   rename(lon = decimalLongitude, lat = decimalLatitude, doy = startDayOfYear) %>% 
-  distinct()
+  distinct()  # clear herbarium data for repeat file and repeat file with different phenology
 
 # two repeated component:
 # 1. completely the same ~300
@@ -59,11 +52,121 @@ for_climate <- joint_data_flower %>%
 
 ```
 
-# check data composition
+# extract the climate normality
+
+```{r eval=FALSE}
+library(raster)
+
+# extract the climate normality
+complete_period_raster <- raster("../data/prism/complete_period_springmean.tif")
+
+joint_data_flower_normality <- joint_data_flower %>%
+  dplyr::select(lat, lon) %>%
+  distinct() %>%
+  mutate(complete_period_temp = extract(complete_period_raster, cbind(lon, lat)))
+
+# extract the climate anormality
+# Initialize an empty data frame to store the results
+joint_data_flower_anormality <- data.frame()
+
+# Loop through the specified years
+for (fo_year in 1895:2023) {
+  # Load the yearly raster file
+  yearly_raster <- raster(paste0("../data/prism/", fo_year, "_springmean.tif"))
+  
+  # Process the joint_data_flower for the current year
+  yearly_data <- joint_data_flower %>%
+    dplyr::select(year, lat, lon) %>%
+    distinct() %>%
+    filter(year == fo_year) %>%
+    mutate(yearly_temp = extract(yearly_raster, cbind(lon, lat)))
+  
+  # Append the yearly data to the cumulative data frame
+  joint_data_flower_anormality <- rbind(joint_data_flower_anormality, yearly_data)
+}
+
+# Combine the normality and anormality data
+temperature_data <- joint_data_flower_normality %>%
+  right_join(joint_data_flower_anormality, by = c("lat", "lon")) %>%
+  rename(norm = complete_period_temp, yeart = yearly_temp) %>%
+  mutate(anom = yeart - norm) %>%
+  right_join(joint_data_flower, by = c("lat", "lon", "year")) %>%
+  filter(!is.na(anom)) 
+
+write.csv(temperature_data, "../data/herb_temperature_data.csv")
+```
+
+# fit the model
+## remove outlier
+```{r}
+library(mvoutlier)
+
+temperature_data <- read.csv("../data/herb_temperature_data.csv")
+
+temperature_data_clean <- temperature_data %>%
+  group_by(species) %>%
+  filter(n() > 30) %>%
+  group_modify(~ {
+    data_matrix <- dplyr::select(.x, yeart, doy) %>% as.matrix()
+    outlier_result <- aq.plot(data_matrix)
+    .x %>% mutate(outliers = outlier_result$outliers)
+  }) %>%
+  ungroup()
+```
+
+## keep record of number of observation deleted and left
+
+```{r}
+temperature_data_clean %>% 
+  group_by(species) %>%
+  summarise(total = n(),
+            num_outliers = sum(outliers),
+            delete_p = num_outliers/total) %>%
+  arrange(desc(delete_p))
+
+```
+## get data for model by requiring 10 observations for each parameter
+```{r}
+temperature_data_model <- temperature_data_clean %>%
+  filter(!outliers) %>%  # Correctly referencing the outliers column
+  group_by(species) %>%
+  filter(n_distinct(doy, anom, norm) > 30) %>%  # Use n_distinct() for distinct counting
+  ungroup()
+```
+
+## fit and plot the model
+
+```{r eval=FALSE}
+source("../scripts/function_visionalize_summmary_MLmodel.R")
+
+# Apply the function to each species and store the results
+results <- list()
+unique_species <- unique(temperature_data_model$species)
+
+for (species_name in unique_species) {
+  results[[species_name]] <- analyze_species(temperature_data_model, species_name)
+}
+
+# Combine all summary rows into a single data frame
+summary_results <- bind_rows(lapply(results, function(res) res$summary))
+
+# Save all plots to a single PDF file
+pdf("../data/species_plots_herb.pdf", width = 8, height = 6)
+for (species_name in unique_species) {
+  print(results[[species_name]]$plot)
+}
+dev.off()
+
+write.csv(summary_results, "../species_summary_herb.csv", row.names = FALSE)
+```
+
+
+# get spices composition
+
 ```{r}
 library(data.tree)
 # Example data
-species_data <- for_climate %>%
+species_data <- temperature_data_model %>%
   group_by(species, genus, family) %>%
   summarise(specimen_count = n())
 
@@ -91,269 +194,126 @@ hierarchical_data <- species_data %>%
 # Create a data tree structure
 tree_data <- hierarchical_data %>%
   mutate(pathString = paste("Total", family, genus, species, sep = "/")) %>%
-  select(pathString, specimen_count)
+  dplyr::select(pathString, specimen_count)
 
 tree <- as.Node(tree_data)
 tree$specimen_count <- total_specimen_count
 
 # Print the tree structure to console
 print(tree, "specimen_count")
-
-tree_text <- capture.output(print(tree, "specimen_count", pruneMethod = NULL))
-writeLines(tree_text, "tree_structure.txt")
 ```
 
 
-# extract the climate normality
+# compare spatial and temporal sensitivity
 
 ```{r}
-# this part should be able to be speed up by using parellel computing by group them by year and extract all loaction in that year by just reading in the raster file once, and we can assign different cores to work on different years.
+summary_results <- read.csv("../species_summary_herb.csv")
 
-library(raster)
-
-
-# extract the climate normality
-complete_period_raster <- raster("../data/prism/complete_period_springmean.tif")
-
-joint_data_flower_normality <- for_climate %>%
-  dplyr::select(lat, lon) %>%
-  distinct() %>%
-  mutate(complete_period_temp = extract(complete_period_raster, cbind(lon, lat)))
-
-# extract the climate anormality
-# Initialize an empty data frame to store the results
-joint_data_flower_anormality <- data.frame()
-
-# Loop through the specified years
-for (fo_year in 1895:2023) {
-  # Load the yearly raster file
-  yearly_raster <- raster(paste0("../data/prism/", fo_year, "_springmean.tif"))
-  
-  # Process the joint_data_flower for the current year
-  yearly_data <- for_climate %>%
-    dplyr::select(year, lat, lon) %>%
-    distinct() %>%
-    filter(year == fo_year) %>%
-    mutate(yearly_temp = extract(yearly_raster, cbind(lon, lat)))
-  
-  # Append the yearly data to the cumulative data frame
-  joint_data_flower_anormality <- rbind(joint_data_flower_anormality, yearly_data)
-}
-
-# Combine the normality and anormality data
-temperature_data <- joint_data_flower_normality %>%
-  right_join(joint_data_flower_anormality, by = c("lat", "lon")) %>%
-  rename(norm = complete_period_temp, yeart = yearly_temp) %>%
-  mutate(anom = yeart - norm) %>%
-  right_join(for_climate, by = c("lat", "lon", "year")) %>%
-  filter(!is.na(anom)) %>% #17587->17490
-  group_by(species) %>%
-  filter(n()>29) %>%   #  enough for linear model 17490->17213
-  ungroup()
-
-write.csv(temperature_data, "../data/herb_temperature_data.csv")
-```
-
-# visionally check the data
-## quercus as an example
-```{r}
-ggplot(temperature_data %>% filter(genus=="Quercus"), aes(x = yeart, y = doy)) +
-  geom_point(alpha = 0.5) +
-  facet_wrap(~species) +
-  theme(legend.position = "none") 
-
-```
-
-## test on one species: 
-### try to remove outlier using multi-normal distribution
-```{r}
-library(mvoutlier)
-
-species_data <- temperature_data %>% 
-  filter(species=="Quercus wislizeni") 
-  
-result <- aq.plot(species_data%>% 
-  dplyr::select(yeart, doy) %>% 
-  as.matrix())
-data_clean <- species_data[!result$outliers, ]
-```
-### fit and plot the model
-```{r}
-model <- lm(doy ~ anom+norm,  data_clean)
-summary(model)
-
-# calculate condidence interval
-model_summary <- broom::tidy(model, conf.int = TRUE)
-
-# Extract coefficients and confidence intervals for anom and norm
-coef_anom <- model_summary %>% filter(term == "anom")
-coef_norm <- model_summary %>% filter(term == "norm")
-
-# Calculate R-squared
-r_squared <- summary(model)$r.squared
-
-# plot the model
-# Calculate means of anom, norm, and doy
-mean_yeart <- mean(data_clean$yeart, na.rm = TRUE)
-mean_doy <- mean(data_clean$doy, na.rm = TRUE)
-
-# Calculate the adjusted intercepts for the center of the figure
-intercept_anom <- mean_doy - coef(model)["anom"] * mean_yeart
-
-ggplot(data_clean, aes(x = yeart, y = doy)) +
-  geom_point(alpha = 0.5) +
-  geom_abline(aes(intercept = intercept_anom, slope = coef(model)["anom"], color = "Temporal")) +
-  geom_abline(aes(intercept = coef(model)[1], slope = coef(model)["norm"], color = "Spatial")) +
-  labs(title = "Linear Model for Quercus wislizeni", x = "Year", y = "Day of Year") +
-  annotate("text", x = min(data_clean$yeart), y = min(data_clean$doy), 
-           label = sprintf("Temporal CI: [%0.2f, %0.2f]\nSpatial CI: [%0.2f, %0.2f]\nR² = %0.2f", 
-                           coef_anom$conf.low, coef_anom$conf.high, 
-                           coef_norm$conf.low, coef_norm$conf.high, 
-                           r_squared),
-           hjust = 0, vjust = 0, size = 5, color = "black")
-```
-
-
-```{r}
-paired_data <- data.frame(
-  x_black = data_clean$yeart,
-  y_black = data_clean$doy,
-  x_red = data_clean$norm,
-  y_red = data_clean$doy
-)
-
-# Plot the black points
-ggplot(paired_data) +
-  geom_point(aes(x = x_black, y = y_black, color = "black")) +
-  geom_point(aes(x = x_red, y = y_red, color = "red"), alpha = 0.2) +
-  geom_segment(aes(x = x_black, y = y_black, xend = x_red, yend = y_red, color = "red"), alpha = 0.2) +
-  xlab("spring_ave_temperature") +
-  ylab("doy") +
-  scale_color_manual(name = "Legend", 
-                     values = c("black" = "black", "red" = "red"),
-                     labels = c("Observation", "Normality")) +
-  geom_abline(intercept = intercept_anom, slope = coef(model)["anom"], color = "blue") +
-  geom_abline(intercept = coef(model)[1], slope = coef(model)["norm"], color = "red") 
-```
-
-## apply this to all species
-```{r}
-# Define a function to clean the data for each species
-clean_species_data <- function(df) {
-  data <- df %>%
-    dplyr::select(yeart, doy) %>%
-    as.matrix()
-  
-  result <- aq.plot(data)
-  
-  # Filter out the outliers
-  data_clean <- df[!result$outliers, ]
-  return(data_clean)
-}
-
-# Apply the cleaning function to each species and bind the results
-quercus_clean <- temperature_data %>%
-  filter(genus == "Quercus") %>%
-  group_by(species) %>%
-  group_split() %>%
-  purrr::map_dfr(clean_species_data) %>% 
-  ungroup()
-
-# Plot the cleaned data
-ggplot() +
-  geom_point(data = quercus_clean, aes(x = yeart, y = doy), alpha = 0.5) +
-  facet_wrap(~species) +
-  labs(title = "Cleaned Data for Quercus Species")
-```
-
-
-# fit the model by species and generate a table conclude the confidence interval of the two slpoe for each species
-```{r}
-source("function_visionalize_summmary_MLmodel.R")
-```
-
-```{r}
+summary_results_wtaxa <- temperature_data_model %>%
+  distinct(species, genus, family) %>% 
+  right_join(summary_results, by = "species") 
 # plot a figure to show the comparasion of anom slope and norm lope with confidence interval and model fitting
-ggplot(summary_results, aes(x = anom_estimate, y = norm_estimate)) +
+ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = genus)) +
   geom_errorbar(aes(ymin = norm_conf_low, ymax = norm_conf_high, alpha = r_squared), width = 0) +
   geom_errorbarh(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = r_squared), height = 0) +
   geom_point(aes(alpha = r_squared), size = 3) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Add 1:1 line
   scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
   labs(
-    title = "Slope Estimates for Anom and Norm by Species",
-    x = "Anom Slope Estimate",
-    y = "Norm Slope Estimate",
-    alpha = "R^2"
+    title = "",
+    x = "Temporal sensitivity (days/celsius degree)",
+    y = "Spatial sensiticity (days/celsius degree)",
+    alpha = "R^2",
+    color = "Genus"
   ) +
   theme_minimal() +
   theme(legend.position = "right")
 
-
 ```
 
-kick the outlier
+## propotion of spatial stronger than temporal
 ```{r}
-  result <- aq.plot(summary_results %>% dplyr::select(anom_estimate, norm_estimate) %>% as.matrix())
-  summary_results_clean <- summary_results[!result$outliers, ]
-  
-  ggplot(summary_results_clean, aes(x = norm_estimate, y = anom_estimate )) +
-  geom_errorbarh(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = r_squared), width = 0) +
-  geom_errorbar(aes(ymin = anom_conf_low, ymax = anom_conf_high, alpha = r_squared), height = 0) +
+summary_results_wtaxa %>%
+  mutate(spatial_stronger = ifelse(anom_estimate > norm_estimate, TRUE, FALSE)) %>%
+  group_by(genus) %>%
+  summarise(prop_spatial_stronger = mean(spatial_stronger, na.rm = TRUE)) %>%
+  arrange(desc(prop_spatial_stronger))
+```
+
+
+## kick the r^2 less than 0.2
+```{r}
+ggplot(summary_results_wtaxa %>% filter(r_squared>0.3), aes(x = anom_estimate, y = norm_estimate, color = genus)) +
+  geom_errorbar(aes(ymin = norm_conf_low, ymax = norm_conf_high, alpha = r_squared), width = 0) +
+  geom_errorbarh(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = r_squared), height = 0) +
   geom_point(aes(alpha = r_squared), size = 3) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Add 1:1 line
   scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
   labs(
-    # title = "Slope Estimates for Anom and Norm by Species",
-    x = "Temporal sensitivity",
-    y = "Spatial sensitivity",
-    alpha = "R^2"
+    title = "",
+    x = "Temporal sensitivity (days/celsius degree)",
+    y = "Spatial sensiticity (days/celsius degree)",
+    alpha = "R^2",
+    color = "Genus"
   ) +
   theme_minimal() +
   theme(legend.position = "right")
   
 ```
 
+## check the not overlap species
 ```{r}
-summary_results_clean %>% 
+to_check <- summary_results %>% 
 #filter for the species that the anom slope and norm slope confidence interval do not overlap
-  mutate(anom_conf_low = as.numeric(anom_conf_low),
-         anom_conf_high = as.numeric(anom_conf_high),
-         norm_conf_low = as.numeric(norm_conf_low),
-         norm_conf_high = as.numeric(norm_conf_high)) %>%
   filter(anom_conf_low > norm_conf_high | anom_conf_high < norm_conf_low) %>%
   arrange(desc(r_squared))
-```
-# roughly check whether year/decade has impact on the data
-## year: 
-```{r}
-results <- temperature_data %>%
-  group_by(species) %>%
-  do(tidy(lm(doy ~ anom + norm + year, data = .))) %>%
-  ungroup()
 
-results_table <- results %>%
-  select(species, term, estimate, p.value)
-
-# Reshape the data to have species as rows and terms as columns
-results_table_wide <- results_table %>%
-  pivot_wider(names_from = term, values_from = c(estimate, p.value)) %>% 
-  filter(p.value_year < 0.05) 
+print(to_check)
 ```
 
+## whether they are false positive: apply Bonferroni correction
 ```{r}
-results <- temperature_data %>%
-  mutate(decade = floor(year / 10) * 10) %>%
+to_check_species <- temperature_data %>%
+  filter(species %in% to_check$species)
+
+result <- to_check_species %>%
   group_by(species) %>%
-  do(tidy(lm(doy ~ anom + norm + decade, data = .))) %>%
+  do(broom::tidy(lm(doy ~ anom + norm, data = .), conf.int = TRUE)) %>%
   ungroup()
 
-results_table <- results %>%
-  select(species, term, estimate, p.value)
+# Count the number of unique species
+num_tests <- temperature_data %>% 
+  pull(species) %>% 
+  unique() %>% 
+  length()
 
-# Reshape the data to have species as rows and terms as columns
-results_table_wide <- results_table %>%
-  pivot_wider(names_from = term, values_from = c(estimate, p.value)) %>% 
-  filter(p.value_decade < 0.05) 
+# Bonferroni-adjusted alpha
+alpha <- 0.05
+adjusted_alpha <- alpha / num_tests
+
+# Calculate the Bonferroni-adjusted critical value for the t-distribution
+# Assuming degrees of freedom is the same for each model; you can adjust this part if needed
+df <- to_check_species %>% 
+  group_by(species) %>% 
+  summarize(df = lm(doy ~ anom + norm, data = .)$df.residual) %>%
+  pull(df) %>%
+  unique() %>%
+  mean()
+
+# Get the critical t-value
+critical_value <- qt(1 - adjusted_alpha / 2, df)
+
+# Adjust the confidence intervals
+result <- result %>%
+  mutate(
+    conf.low.adjusted = estimate - critical_value * std.error,
+    conf.high.adjusted = estimate + critical_value * std.error
+  ) %>% 
+  dplyr::select(species, term, estimate, conf.low.adjusted, conf.high.adjusted) %>%
+  filter(term %in% c("anom", "norm")) %>% 
+  tidyr::pivot_wider(names_from = term, values_from = c(estimate, conf.low.adjusted, conf.high.adjusted))
+  
+result %>%
+    filter(conf.low.adjusted_anom > conf.high.adjusted_norm | conf.high.adjusted_anom < conf.low.adjusted_norm) 
 ```
 

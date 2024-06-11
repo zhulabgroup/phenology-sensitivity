@@ -15,10 +15,22 @@ format:
       collapsed: false
       smooth-scroll: true
 ---
+```{r}
+library(dplyr)
+library(ggplot2)
+library(readr)
+```
 
 # get npn data
+
+## download npn
+
+```{r eval = FALSE}
+source("function_download_npn.R")
+```
+
+## quality control
 ```{r}
-library(readr)
 folder_path <- "/Volumes/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/" 
 #folder_path <- "E:/phenology/NPN/leaf_flower/climate/" 
 
@@ -29,48 +41,91 @@ rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TR
 rds_files <- rds_files[!grepl("Ambrosia", rds_files)]
 rds_files <- rds_files[!grepl("Poaceae", rds_files)]
 
-complete_npn_data <- data.frame()
-for (i in seq_along(rds_files) ) {
-  # Read the RDS file
-  data <- read_rds(rds_files[i]) %>% 
-     filter(observed_status_conflict_flag == "-9999") %>% # Removing Status Conflicts
-      group_by(individual_id, first_yes_year, pheno_class_id) %>%
-      arrange(first_yes_doy) %>%
-      slice(1)%>%
-      mutate(numdays_since_prior_no = as.numeric(numdays_since_prior_no)) %>%
-      filter(numdays_since_prior_no < 20 & numdays_since_prior_no > 0) %>% # Filtering Data by Prior No
-      dplyr::select(individual_id, first_yes_year, first_yes_doy, species, genus, dataset_id, pheno_class_id, longitude, latitude) %>%
-      ungroup() %>% 
-  # extrend to a wide table by pheno_class_id
-  spread(key = pheno_class_id, value = first_yes_doy) 
-  
-  flower_data <- data %>% 
-    # average the flowering date
-    mutate(doy = rowMeans(dplyr::select(., c("6", "7", "8")), na.rm = TRUE)) %>%
-    filter(!is.na(doy)) %>%
-  select(-one_of(c("1", "2", "3", "6", "7", "8"))) %>%
-    rename(lat = latitude, lon = longitude, year = first_yes_year) %>%
-    mutate(species = paste(genus, species, sep = " ")) 
-    
-  complete_npn_data <- rbind(complete_npn_data, flower_data)
+# Initialize an empty data frame to store the combined data
+combined_data <- data.frame()
+
+# Loop through each RDS file and combine the data
+for (i in seq_along(rds_files)) {
+  # Read the RDS file and append to the combined_data
+  data <- read_rds(rds_files[i])
+  combined_data <- rbind(combined_data, data)
 }
-    # add family to the data
-    
+
+# Now, perform the filtering and processing steps on the combined data
+complete_npn_data <- combined_data %>%
+  filter(pheno_class_id %in% c(6, 7, 8)) %>%
+  # Remove rows with status conflicts
+  filter(observed_status_conflict_flag == "-9999") %>%
+  # Group by individual_id, first_yes_year, and pheno_class_id
+  group_by(individual_id, first_yes_year, pheno_class_id) %>%
+  # Keep only rows with unique combinations
+  filter(n() == 1) %>%
+  ungroup() %>%
+  # Convert numdays_since_prior_no to numeric
+  mutate(numdays_since_prior_no = as.numeric(numdays_since_prior_no)) %>%
+  # Filter rows where numdays_since_prior_no is between 0 and 20
+  filter(numdays_since_prior_no < 20 & numdays_since_prior_no > 0) %>%
+  # Select relevant columns
+  dplyr::select(individual_id, first_yes_year, first_yes_doy, species, genus, dataset_id, pheno_class_id, longitude, latitude) %>%
+  ungroup() %>% # 50000->20000
+  # Extend to a wide table by pheno_class_id
+  tidyr::spread(key = pheno_class_id, value = first_yes_doy) 
+```   
+## check the relationship among differetn phenophases
+
+```{r}
+cor(complete_npn_data[,8:10], use = "complete.obs")
+cor(complete_npn_data[,9:10], use = "complete.obs")
+cor(complete_npn_data[,8:9], use = "complete.obs")
+cor(complete_npn_data[,c(8,10)], use = "complete.obs")
+
+summary(complete_npn_data)
+
+complete_npn_data[,8:10] %>% 
+  sample_frac(0.01) %>% 
+  as.matrix() %>%
+  reshape2::melt() %>%
+  ggplot(aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() 
+  # plot heatmap
+  
 ```
 
-decide metrics
-```{r}
-cor(data[,10:12], use = "complete.obs")
+## generate flower day column 
+
+```{r eval = FALSE}
+# Process the data for flowering dates
+flower_data <- complete_npn_data %>% 
+  # Extend to a wide table by pheno_class_id
+  # Calculate the average flowering date
+  mutate(doy = rowMeans(dplyr::select(., c("6", "7", "8")), na.rm = TRUE)) %>%
+  # Filter out rows with NA in doy
+  filter(!is.na(doy)) %>%
+  # Select relevant columns and rename them
+  dplyr::select(-one_of(c("6", "7", "8"))) %>%
+  rename(lat = latitude, lon = longitude, year = first_yes_year) %>%
+  mutate(species = paste(genus, species, sep = " "))
+
 ```
+## reshape doy to number of days since 11.1
+```{r}
+flower_data <- flower_data %>%
+  mutate(doy = doy + 61) %>%
+  mutate(year = ifelse(doy > 365, year+1, year),
+         doy = ifelse(doy > 365, doy - 365, doy)) 
+```
+
+
 # extract climate data
-```{r}
+```{r eval = FALSE}
 library(raster)
-
 
 # extract the climate normality
 complete_period_raster <- raster("../data/prism/complete_period_springmean.tif")
 
-joint_data_flower_normality <- complete_npn_data %>%
+joint_data_flower_normality <- flower_data %>%
   dplyr::select(lat, lon) %>%
   distinct() %>%
   mutate(complete_period_temp = raster::extract(complete_period_raster, cbind(lon, lat)))
@@ -85,7 +140,7 @@ for (fo_year in 2007:2023) {
   yearly_raster <- raster(paste0("../data/prism/", fo_year, "_springmean.tif"))
   
   # Process the joint_data_flower for the current year
-  yearly_data <- complete_npn_data %>%
+  yearly_data <- flower_data %>%
     dplyr::select(year, lat, lon) %>%
     distinct() %>%
     filter(year == fo_year) %>%
@@ -100,7 +155,7 @@ temperature_data <- joint_data_flower_normality %>%
   right_join(joint_data_flower_anormality, by = c("lat", "lon")) %>%
   rename(norm = complete_period_temp, yeart = yearly_temp) %>%
   mutate(anom = yeart - norm) %>%
-  right_join(complete_npn_data, by = c("lat", "lon", "year")) %>%
+  right_join(flower_data, by = c("lat", "lon", "year")) %>%
   filter(!is.na(anom)) %>% #17587->17490
   group_by(species) %>%
   filter(n()>29) %>%   #  enough for linear model 17490->17213
@@ -109,12 +164,36 @@ temperature_data <- joint_data_flower_normality %>%
 write.csv(temperature_data, "../data/npn_temperature_data.csv")
 ```
 
+# fit the model
+
+## remove outlier
 ```{r}
+library(mvoutlier)
+
 temperature_data <- read.csv("../data/npn_temperature_data.csv") 
+
+temperature_data_clean <- temperature_data %>%
+  group_by(species) %>%
+  filter(n_distinct(yeart, doy) > 30) %>%
+  group_modify(~ {
+    data_matrix <- dplyr::select(.x, yeart, doy) %>% as.matrix()
+    outlier_result <- aq.plot(data_matrix)
+    .x %>% mutate(outliers = outlier_result$outliers)
+  }) %>%
+  ungroup()
 ```
 
 # data composition
-```{r}
+## get the family
+```{r eval = FALSE}
+genus_family <- read.csv("../data/genus_family.csv")
+temperature_data <- temperature_data %>%
+  left_join(genus_family, by = c("gen
+  
+```
+
+
+```{r eval = FALSE}
 # summarize for each genus, species, indiviudal, how many data points, summarize in each level
 data_summary_species <- temperature_data %>%
   group_by(genus, species, individual_id) %>%
@@ -131,15 +210,15 @@ data_summary_genus <- temperature_data %>%
 # simple linear regression
 if the data is too few, we can't fit a multinorm, then we just keep the raw data
 also, one speceis with only two location can't calculate the speaital sensitivity
-```{r}
+```{r eval = FALSE}
 source("function_visionalize_summmary_MLmodel.R")
 ```
 
-```{r}
+```{r eval = FALSE}
 summary_results <- read.csv("../species_summary_npn.csv")
 ```
 kick the outlier
-```{r}
+```{r eval = FALSE}
 summary_results <- summary_results %>%
   # Delete rows with NaN values
   filter(!is.na(anom_estimate) & !is.na(norm_estimate))
@@ -166,7 +245,7 @@ summary_results <- summary_results %>%
   theme(legend.position = "right")
   
 ```
-```{r}
+```{r eval = FALSE}
 summary_results_clean %>% 
 #filter for the species that the anom slope and norm slope confidence interval do not overlap
   mutate(anom_conf_low = as.numeric(anom_conf_low),
@@ -177,7 +256,7 @@ summary_results_clean %>%
   arrange(desc(r_squared))
 ```
 # apply Bonferroni correction
-```{r}
+```{r eval = FALSE}
 temperature_data <- read_csv("../data/npn_temperature_data.csv")
 
 temperature_data_with_ids <- temperature_data %>%
@@ -252,26 +331,10 @@ result <- aq.plot(results %>% dplyr::select(estimate_anom, estimate_norm) %>% as
 
 results_clean %>% filter(conf.low.adjusted_anom > conf.high.adjusted_norm | conf.low.adjusted_norm > conf.high.adjusted_anom) 
 ```
-# mixed effect model
-do i really need the random effect? do we believe each individual has its own temporal sensitivity?
 
-```{r}
-library(blme)
-temporal_model <- blmer(doy ~ norm + anom + (anom | individual_id), data = species_data,
-                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50), 2)))
-
-temporal_model
-```
-
-# check colinearity
-this happen because all the data is collected in the same place (with the same norm)
-```{r}
-cor(data_clean[,c("norm","anom")], use = "complete.obs")
-
-```
 
 # compare herbarium and npn result
-```{r}
+```{r eval = FALSE}
 herbarium_data <- read.csv("../data/herb_species_summary.csv")
 npn_data <- read.csv("../data/npn_species_summary.csv") %>% 
     filter(!is.na(anom_estimate) & !is.na(norm_estimate))
@@ -320,13 +383,13 @@ npn_data <- read.csv("../data/npn_species_summary.csv") %>%
     coord_fixed(ratio = 1)
 ```
 
-```{r}
+```{r eval = FALSE}
   joint_data %>%
 #filter for the species that the anom slope and norm slope confidence interval do not overlap
   filter(anom_conf_low.x > anom_conf_high.y | anom_conf_low.y > anom_conf_high.x) 
 ```
 
-```{r}
+```{r eval = FALSE}
   joint_data%>%
   ggplot(aes(x = norm_estimate.x, y = norm_estimate.y)) +  
   geom_point() +
@@ -356,7 +419,7 @@ npn_data <- read.csv("../data/npn_species_summary.csv") %>%
     coord_fixed(ratio = 1)
 ```
 
-```{r}
+```{r eval = FALSE}
   joint_data %>%
 #filter for the species that the anom slope and norm slope confidence interval do not overlap
   filter(norm_conf_low.x > norm_conf_high.y | norm_conf_low.y > norm_conf_high.x) %>% 

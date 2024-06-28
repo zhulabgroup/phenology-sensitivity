@@ -1,0 +1,198 @@
+---
+title: 'npn_herbarium together'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+---
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+# compare species composition
+
+## by species and genus
+```{r cache=TRUE}
+species_composition <- read_rds("../data/us_species_composition.rds")
+
+by_speceis <- species_composition %>%
+  group_by(COMMON_NAME) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+by_genus <- species_composition %>%
+  group_by(GENUS) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) 
+```
+
+## get family
+```{r eval=FALSE}
+library(taxize)
+
+family_list <- vector("list", length(by_genus$GENUS))
+
+# Loop through each genus and get the family name
+for (i in 1:length(by_genus$GENUS)) {
+  genus_name <- by_genus$GENUS[i]
+  
+  # Use tryCatch to handle errors
+  tryCatch({
+    # Query the taxonomic information for the given genus
+    tax_info <- tax_name(query = genus_name, get = "family", db = "ncbi")
+    
+    # Check if the query returned a result
+    if (!is.null(tax_info) && nrow(tax_info) > 0) {
+      family_list[[i]] <- tax_info$family[1]
+    } else {
+      family_list[[i]] <- NA
+    }
+  }, error = function(e) {
+    family_list[[i]] <- NA
+  })
+}
+
+# Add the family names to the by_genus data frame
+by_genus$FAMILY <- family_list
+
+write.csv(by_genus, "../data/genus_family.csv")
+
+# then do some manual check to fill the missing family name
+```
+
+## by family
+```{r}
+genus_family <- read.csv("../data/genus_family.csv")
+
+by_family <- species_composition %>%
+  left_join(genus_family, by = c("GENUS" = "GENUS")) %>%
+  group_by(FAMILY) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+```
+
+## compare three composition
+
+```{r}
+# Define the data
+taxas <- c("Quercus", "Cupressaceae", "Morus", "Pinaceae", "Ulmus", "Fraxinus", "Betula", "Acer", "Populus")
+
+herb_genus <- read.csv("../data/herb_temperature_data.csv") %>%
+  group_by(genus) %>%
+  summarise(n = n()) %>%
+  mutate(dataset = "Herbarium") %>%
+  rename(taxa = genus)
+
+# Read and process the NPN data
+npn_genus <- read.csv("../data/npn_temperature_data.csv") %>%
+  group_by(taxa) %>%
+  summarise(n = n()) %>%
+  mutate(dataset = "NPN")
+
+# Assuming 'by_genus' and 'by_family' are already defined
+# Read and process the FIA data
+FIA_genus <- rbind(by_genus %>% rename(taxa = GENUS), by_family %>% rename(taxa = FAMILY)) %>%
+  filter(taxa %in% taxas) %>%
+  mutate(dataset = "FIA")
+
+# Combine the datasets
+combined_data <- bind_rows(
+  herb_genus,
+  npn_genus,
+  FIA_genus 
+) %>%
+  tidyr::pivot_wider(names_from = dataset, values_from = c(n), values_fill = 0)
+
+# Calculate the percentage for each column
+data_percentage <- combined_data %>%
+  mutate(npn_perc = NPN / sum(NPN) * 100,
+         Herbarium_perc = Herbarium / sum(Herbarium) * 100,
+         FIA_perc = FIA / sum(FIA) * 100)
+
+# Melt the data frame for easier plotting
+data_melted <- data_percentage %>%
+  dplyr::select(taxa, npn_perc, Herbarium_perc, FIA_perc) %>%
+  tidyr::gather(key = "Source", value = "Percentage", -taxa)
+
+
+# Plot the percentages
+ggplot(data_melted, aes(x = taxa, y = Percentage, fill = Source)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "",
+       x = "Taxa",
+       y = "Percentage",
+       fill = "Dataset") +
+  theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+chisq.test(data_percentage[, c("NPN", "FIA")])
+chisq.test(data_percentage[, c("Herbarium", "FIA")])
+
+data_percentage_herb_fia <- data_percentage %>%
+  filter(taxa %in% c("Quercus", "Morus", "Ulmus", "Fraxinus", "Betula", "Acer", "Populus"))
+chisq.test(data_percentage_herb_fia[, c("NPN", "FIA")])
+chisq.test(data_percentage_herb_fia[, c("Herbarium", "FIA")])
+chisq.test(data_percentage_herb_fia[, c("Herbarium", "NPN")])
+
+
+```
+
+
+# compare spatial and temporal sensitivity
+```{r}
+herbarium_data <- read.csv("../data/species_summary_herb.csv") %>% 
+  mutate(dataset = "Herbarium")
+npn_data <- read.csv("../data/species_summary_npn.csv") %>% 
+  mutate(dataset = "NPN") 
+species_list <- inner_join(herbarium_data, npn_data, by = "species") %>%
+  select(species) %>%
+  distinct()
+
+temperature_data <- read.csv("../data/npn_temperature_data.csv")
+
+joint_data <- temperature_data %>% distinct(species, taxa) %>%
+  right_join(rbind(herbarium_data, npn_data), by = "species") %>% 
+  filter(species %in% species_list$species) 
+  
+ggplot(joint_data, aes(x = norm_estimate, y = species, color = taxa, alpha = -residual, shape = dataset)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = -residual), width = 0) +
+  labs(
+    title = "",
+    x = "Spatial sensitivity (days/°C)",
+    y = "Species",
+    alpha = "-Residual",
+    color = "Genus",
+    shape = "Dataset"
+  )+
+  theme_minimal()
+```
+```{r}
+ggplot(joint_data, aes(x = anom_estimate, y = species, color = taxa, alpha = -residual, shape = dataset)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = -residual), width = 0) +
+  labs(
+    title = "",
+    x = "Temporal sensitivity (days/°C)",
+    y = "Species",
+    alpha = "-Residual",
+    color = "Genus",
+    shape = "Dataset"
+  )+
+  theme_minimal()
+```
+

@@ -19,6 +19,8 @@ format:
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(patchwork)
+library(ggtext)
 ```
 
 # get herbarium data
@@ -51,6 +53,14 @@ joint_data_flower <- joint_data %>% #116805
 # 2. same specimen (different name) with different phenology (as long as the flower is consistent, we will keep them) ~2000
 
 ```
+## reshape doy to number of days since 11.1
+```{r eval = FALSE}
+joint_data_flower <- joint_data_flower %>%
+  mutate(doy = doy + 61) %>%
+  mutate(year = ifelse(doy > 365, year+1, year),
+         doy = ifelse(doy > 365, doy - 365, doy)) 
+```
+
 
 # extract the climate normality
 
@@ -97,48 +107,13 @@ write.csv(temperature_data, "../data/herb_temperature_data.csv")
 ```
 
 # fit the model
-
-## remove outlier
 ```{r}
-library(mvoutlier)
-
 temperature_data <- read.csv("../data/herb_temperature_data.csv")
-
-temperature_data_clean <- temperature_data %>%
-  group_by(species) %>%
-  filter(n() > 30) %>%
-  group_modify(~ {
-    data_matrix <- dplyr::select(.x, yeart, doy) %>% as.matrix()
-    outlier_result <- aq.plot(data_matrix)
-    .x %>% mutate(outliers = outlier_result$outliers)
-  }) %>%
-  ungroup()
 ```
 
-```{r}
-temperature_data_outlier <- temperature_data_clean %>%
-  filter(outliers) %>% 
-  dplyr::select(file_name) 
-
-write.csv(temperature_data_outlier, "../data/herb_temperature_data_outlier.csv")
-```
-
-
-## keep record of number of observation deleted and left
-
-```{r}
-temperature_data_clean %>% 
-  group_by(species) %>%
-  summarise(total = n(),
-            num_outliers = sum(outliers),
-            delete_p = num_outliers/total) %>%
-  arrange(desc(delete_p))
-
-```
 ## get data for model by requiring 10 observations for each parameter
 ```{r}
-temperature_data_model <- temperature_data_clean %>%
-  filter(!outliers) %>%  # Correctly referencing the outliers column
+temperature_data_model <- temperature_data %>%
   group_by(species) %>%
   filter(n_distinct(doy) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
@@ -186,7 +161,218 @@ for (species_name in unique_species) {
 }
 dev.off()
 
-write.csv(summary_results, "../species_summary_herb.csv", row.names = FALSE)
+write.csv(summary_results, "../data/species_summary_herb.csv", row.names = FALSE)
+```
+# compare spatial and temporal sensitivity
+```{r}
+summary_results <- read.csv("../data/species_summary_herb.csv")
+
+summary_results_wtaxa <- temperature_data_model %>%
+  distinct(species, genus, family) %>% 
+  right_join(summary_results, by = "species") %>%
+  mutate(anom_large = (anom_estimate > norm_estimate)) %>%
+  mutate(model_fit = case_when(
+    residual <= 20 ~ "Good",
+    residual <= 40 ~ "Moderate",
+    TRUE ~ "Poor"
+  )) %>% # variance of difference
+  mutate(alpha_level = case_when(
+    diff_var <= 5 ~ "Low",
+    diff_var <= 10 ~ "Medium",
+    TRUE ~ "High"
+  ))
+
+```
+
+## summary figure
+
+### marginal comparason
+
+```{r fig.width=6, fig.height=9}
+
+# Create the density plot
+p_density <- ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+
+# Combine the datasets for the scatter/errorbar plot
+summary_results_wtaxa_combined <- summary_results_wtaxa %>%
+  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
+  bind_rows(
+    summary_results_wtaxa %>%
+      mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
+  )
+
+
+
+# Create the combined scatter/errorbar plot
+p_combined <- summary_results_wtaxa_combined %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model_fit, shape = sensitivity_type)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  xlim(-30, 10) +
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "Genus",
+    shape = "Sensitivity type"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
+
+# Stack the plots vertically using patchwork
+combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
+print(combined_plot)
+```
+
+
+### joint comparason
+```{r}
+# Ensure alpha_level is a factor with the correct level order
+summary_results_wtaxa$alpha_level <- factor(summary_results_wtaxa$alpha_level, levels = c("Low", "Medium", "High"))
+# this is weird but happened a lot
+
+ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = genus, alpha = factor(alpha_level), shape = as.factor(equal + 3))) +
+  geom_point(size = 3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+    scale_alpha_manual(values = c("Low" = 1, "Medium" = 0.5, "High" = 0.2), labels = c("Low", "Medium", "High")) +
+  scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "False", "4" = "True")) +
+  labs(
+    title = "",
+    x = "Temporal sensitivity (days/°C)",
+    y = "Spatial sensitivity (days/°C)",
+    shape = "Significant difference",
+    alpha = "Variance",
+    color = "Genus"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+### check the range VS sensitivity
+generate range data
+```{r}
+rang_data <- temperature_data_model %>% 
+  group_by(species) %>%
+  summarise(low_norm = quantile(norm, 0.25), high_norm = quantile(norm, 0.75), low_anom = quantile(anom, 0.25), high_anom = quantile(anom, 0.75), mean_norm = mean(norm)) %>%
+  left_join(summary_results_wtaxa, by = "species") %>% 
+  mutate(range_norm = high_norm - low_norm) 
+
+rang_data_long <- rang_data%>% 
+  tidyr::pivot_longer(cols = c("mean_norm", "range_norm"), names_to = "variable", values_to = "value") 
+  
+```
+
+#### spatial range vs spatial sensitivity
+```{r}
+rang_data %>% 
+  ggplot()+
+  geom_errorbar(aes(xmin = low_norm, xmax = high_norm, y = norm_estimate, color = genus, alpha = model_fit), width = 0)  + scale_alpha_manual(values =  c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), name = "Model fit", labels =  c("Good", "Moderate", "Poor")) +
+  labs(
+    title = "",
+    x = "90% quantile range of T_norm",
+    y = "Spatial sensitivity (days/°C)",
+    color = "Genus"
+  )+
+  theme_minimal()+
+  ylim(-10, 0) 
+```
+
+#### temporal range vs temporal sensitivity
+```{r}
+rang_data %>% 
+  ggplot()+
+  geom_errorbar(aes(xmin = low_anom, xmax = high_anom, y = anom_estimate, color = genus, alpha = model_fit), width = 0)  + scale_alpha_manual(values =  c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), name = "Model fit", labels =  c("Good", "Moderate", "Poor")) +
+  labs(
+    title = "",
+    x = "90% quantile range of T_anom",
+    y = "Temporal sensitivity (days/°C)",
+    color = "Genus"
+  )+
+  theme_minimal()
+
+```
+
+#### focus on spatial range
+
+
+whether species growing in **warmer places** also has **wider range**: no
+```{r}
+rang_data %>% 
+  ggplot()+
+  geom_point(aes(x = range_norm, y = mean_norm, color = genus), size = 2) +
+  geom_smooth(aes(x = range_norm, y = mean_norm), method = "lm", se = TRUE) 
+```
+
+species has **wider range** has **weaker sensitivity**
+
+species in **warmer places** has **stronger sensitivity**
+
+```{r}
+# Create a named vector for renaming panels
+panel_names <- c("mean_norm" = "Temperature normality mean (°C)", "range_norm" = "Temperature normality range (°C)")
+
+# Plot with renamed panels
+rang_data_long %>%
+  ggplot() +
+  geom_point(aes(x = value, y = norm_estimate, color = genus, alpha = model_fit), size = 2) +
+  geom_smooth(aes(x = value, y = norm_estimate), method = "lm", se = TRUE) +
+  facet_wrap(~variable, scales = "free_x", labeller = labeller(variable = panel_names)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), name = "Model fit", labels = c("Good", "Moderate", "Poor")) +
+  labs(
+    title = "",
+    x = "",
+    y = "Spatial sensitivity (days/°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()
+```
+
+
+## summary statistics
+```{r}
+summary(summary_results_wtaxa)
+sum(summary_results_wtaxa$equal)
+
+```
+
+```{r}
+summary_results_wtaxa %>%   
+  group_by(genus) %>%
+  summarise(n = n(), n_equal = sum(equal), p = n_equal/n, n_larger = sum(anom_large), p_anom_large = n_larger/n) %>% 
+  arrange(desc(p))
+```
+  
+```{r}
+# summary number with anom estimate larger than norm
+summary_results_wtaxa %>% 
+  mutate(anom_large = (anom_estimate > norm_estimate)) %>% 
+  group_by(genus) %>%
+  summarise(n = n(), n_larger = sum(anom_large), p = n_larger/n) %>% 
+  arrange(desc(p))
 ```
 
 
@@ -232,185 +418,4 @@ tree$specimen_count <- total_specimen_count
 print(tree, "specimen_count")
 ```
 
-
-# compare spatial and temporal sensitivity
-```{r}
-summary_results <- read.csv("../species_summary_herb.csv")
-
-summary_results_wtaxa <- temperature_data_model %>%
-  distinct(species, genus, family) %>% 
-  right_join(summary_results, by = "species") 
-```
-
-## all species
-### all species plot
-```{r}
-
-# plot a figure to show the comparasion of anom slope and norm lope with confidence interval and model fitting
-ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = genus)) +
-  geom_errorbar(aes(ymin = norm_conf_low, ymax = norm_conf_high, alpha = r_squared), width = 0) +
-  geom_errorbarh(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = r_squared), height = 0) +
-  geom_point(aes(alpha = r_squared), size = 3) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Add 1:1 line
-  scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
-  labs(
-    title = "",
-    x = "Temporal sensitivity (days/celsius degree)",
-    y = "Spatial sensiticity (days/celsius degree)",
-    alpha = "R^2",
-    color = "Genus"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-
-```
-
-### propotion of spatial stronger than temporal
-```{r}
-summary_results_wtaxa %>%
-  mutate(spatial_stronger = ifelse(anom_estimate > norm_estimate, TRUE, FALSE)) %>%
-  group_by(genus) %>%
-  summarise(prop_spatial_stronger = mean(spatial_stronger, na.rm = TRUE)) %>%
-  arrange(desc(prop_spatial_stronger))
-```
-
-
-## kick the r^2 less than 0.2
-### plot
-```{r}
-summary_results_wtaxa <- summary_results_wtaxa %>% filter(r_squared>0.3)
-ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = genus)) +
-  geom_errorbar(aes(ymin = norm_conf_low, ymax = norm_conf_high, alpha = r_squared), width = 0) +
-  geom_errorbarh(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = r_squared), height = 0) +
-  geom_point(aes(alpha = r_squared), size = 3) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Add 1:1 line
-  scale_alpha_continuous(range = c(0.2, 1)) +  # Adjust alpha range for better visualization
-  labs(
-    title = "",
-    x = "Temporal sensitivity (days/celsius degree)",
-    y = "Spatial sensiticity (days/celsius degree)",
-    alpha = "R^2",
-    color = "Genus"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-  
-```
-
-### propotion of spatial stronger than temporal
-```{r}
-summary_results_wtaxa %>%
-  mutate(spatial_stronger = ifelse(anom_estimate > norm_estimate, TRUE, FALSE)) %>%
-  group_by(genus) %>%
-  summarise(prop_spatial_stronger = mean(spatial_stronger, na.rm = TRUE)) %>%
-  arrange(desc(prop_spatial_stronger))
-
-length(unique(summary_results_wtaxa$species))
-
-```
-### check the not overlap species
-```{r}
-to_check <- summary_results_wtaxa %>% 
-#filter for the species that the anom slope and norm slope confidence interval do not overlap
-  filter(anom_conf_low > norm_conf_high | anom_conf_high < norm_conf_low) %>%
-  arrange(desc(r_squared))
-
-print(to_check)
-```
-
-# check us species composition
-
-## by species and genus
-```{r}
-library(readr)
-species_composition <- read_rds("../data/us_species_composition.rds")
-
-by_speceis <- species_composition %>%
-  group_by(COMMON_NAME) %>%
-  summarise(total = n()) %>%
-  arrange(desc(total))
-
-by_genus <- species_composition %>%
-  group_by(GENUS) %>%
-  summarise(total = n()) %>%
-  arrange(desc(total)) 
-```
-
-## get family
-```{r eval=FALSE}
-library(taxize)
-
-family_list <- vector("list", length(by_genus$GENUS))
-
-# Loop through each genus and get the family name
-for (i in 1:length(by_genus$GENUS)) {
-  genus_name <- by_genus$GENUS[i]
-  
-  # Use tryCatch to handle errors
-  tryCatch({
-    # Query the taxonomic information for the given genus
-    tax_info <- tax_name(query = genus_name, get = "family", db = "ncbi")
-    
-    # Check if the query returned a result
-    if (!is.null(tax_info) && nrow(tax_info) > 0) {
-      family_list[[i]] <- tax_info$family[1]
-    } else {
-      family_list[[i]] <- NA
-    }
-  }, error = function(e) {
-    family_list[[i]] <- NA
-  })
-}
-
-# Add the family names to the by_genus data frame
-by_genus$FAMILY <- family_list
-
-write.csv(by_genus, "../data/genus_family.csv")
-
-# then do some manual check to fill the missing family name
-```
-
-## by family
-```{r}
-genus_family <- read.csv("../data/genus_family.csv")
-
-by_family <- species_composition %>%
-  left_join(genus_family, by = c("GENUS" = "GENUS")) %>%
-  group_by(FAMILY) %>%
-  summarise(total = n()) %>%
-  arrange(desc(total))
-```
-
-## compare three composition
-
-```{r}
-# Define the data
-taxa <- c("Quercus", "Cupressaceae", "Morus", "Pinaceae", "Ulmus", "Fraxinus", "Betula", "Acer", "Populus")
-npn <- c(4044, 644, 0, 1890, 618, 270, 1067, 5696, 912)
-Herbarium <- c(2314, 5165, 289, 3507, 164, 929, 1314, 2499, 952)
-FIA <- c(493859, 335469, 5685, 2143326, 80362, 104135, 104714, 388776, 196312)
-
-# Create a data frame
-data <- data.frame(taxa, npn, Herbarium, FIA)
-
-# Calculate the percentage for each column
-data_percentage <- data %>%
-  mutate(npn_perc = npn / sum(npn) * 100,
-         Herbarium_perc = Herbarium / sum(Herbarium) * 100,
-         FIA_perc = FIA / sum(FIA) * 100)
-
-# Melt the data frame for easier plotting
-data_melted <- data_percentage %>%
-  select(taxa, npn_perc, Herbarium_perc, FIA_perc) %>%
-  tidyr::gather(key = "Source", value = "Percentage", -taxa)
-
-# Plot the percentages
-ggplot(data_melted, aes(x = taxa, y = Percentage, fill = Source)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Percentage of Each Taxa for Each Data Source",
-       x = "Taxa",
-       y = "Percentage",
-       fill = "Source") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 

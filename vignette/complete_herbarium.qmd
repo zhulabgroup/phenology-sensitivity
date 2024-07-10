@@ -16,20 +16,21 @@ format:
       smooth-scroll: true
 ---
 
-```{r}
+```{r setup, include=FALSE}
 library(dplyr)
 library(ggplot2)
 library(patchwork)
 library(ggtext)
+
 ```
 
 # get herbarium data
 
 ```{r eval=FALSE}
-raw <- read.csv("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/Herbarim_flower/combined_occ_img_downloaded.csv") %>% 
+raw <- read.csv("../data/Herbarim_flower/combined_occ_img_downloaded.csv") %>% 
   dplyr::select(day, month, year, startDayOfYear, coordinateUncertaintyInMeters, decimalLongitude, decimalLatitude, filename_image, species, genus,family)
 
-phenology <- read.csv("/Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag/Herbarim_flower/phenology.csv") %>% 
+phenology <- read.csv("../data/Herbarim_flower/phenology.csv") %>% 
   mutate(filename_image = gsub(".txt", "", file_name))
 
 joint_data <- left_join(phenology,raw, by = "filename_image")
@@ -115,7 +116,7 @@ temperature_data <- read.csv("../data/herb_temperature_data.csv")
 ```{r}
 temperature_data_model <- temperature_data %>%
   group_by(species) %>%
-  filter(n_distinct(doy) > 10) %>%  # Use n_distinct() for distinct counting
+  # filter(n_distinct(doy) > 10) %>%  # hard to justify
   filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(norm) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(doy, norm, anom) > 30) %>%  # Use n_distinct() for distinct counting
@@ -222,7 +223,7 @@ p_combined <- summary_results_wtaxa_combined %>%
     mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
 ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model_fit, shape = sensitivity_type)) +
   geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
-  xlim(-30, 10) +
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
   geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
   scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
   scale_color_discrete(
@@ -260,6 +261,11 @@ ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = 
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
     scale_alpha_manual(values = c("Low" = 1, "Medium" = 0.5, "High" = 0.2), labels = c("Low", "Medium", "High")) +
   scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "False", "4" = "True")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
   labs(
     title = "",
     x = "Temporal sensitivity (days/°C)",
@@ -269,7 +275,8 @@ ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = 
     color = "Genus"
   ) +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right",
+        legend.text = element_markdown()) # Italicize legend text
 ```
 
 ### check the range VS sensitivity
@@ -351,6 +358,80 @@ rang_data_long %>%
   theme_minimal()
 ```
 
+whether species growing in a larger area has weaker sensitivity 
+```{r}
+library(sf)
+library(readr)
+
+```
+
+```{r}
+
+atlas_list <- read_csv("/Volumes/seas-zhukai/phenology/USTreeAtlas/Little_datatable.csv") %>%
+  rename(latin_name = `Latin Name`)
+
+area_data <- data.frame(latin_name = character(), area = numeric(), area_raw = numeric())
+# target_latin_name <- "Acer negundo"
+for (target_latin_name in unique(summary_results_wtaxa$species)) {
+    shp_name <- atlas_list %>% 
+      filter(latin_name == target_latin_name) %>% 
+      pull(`SHP/*`)
+    
+#if sho_name is not empty
+if (length(shp_name) > 0 ) {
+    shp_path <- paste0("/Volumes/seas-zhukai/phenology/USTreeAtlas/shp/", shp_name, "/", shp_name, ".shp")
+    shp_data <- st_read(shp_path)
+    
+    ggplot() +
+  geom_sf(data = shp_data) +
+  theme_minimal() +
+  ggtitle("Shapefile Plot")
+    
+      if (is.na(st_crs(shp_data))) {
+    st_crs(shp_data) <- st_crs(4326) # Set to 4326 WGS84 or appropriate CRS; 4269 (doesn't matter here)
+  }
+  
+  shp_data <- st_transform(shp_data, crs = st_crs(5070))
+  
+  # Calculate the area of each feature
+
+# Calculate the area of each feature in the shapefile
+area_spe <- st_area(shp_data)
+# add area to summary_results_wtaxa
+area_data <- rbind(area_data, data.frame(latin_name = target_latin_name, area = sum(as.numeric(area_spe)), area_raw = sum(shp_data$AREA)))
+    }
+}
+
+
+
+summary_results_wtaxa_area <- summary_results_wtaxa %>%
+  left_join(area_data, by = c("species" = "latin_name")) %>% 
+  mutate(area = area/1e6, area_raw = area_raw*1e4) # convert to km^2
+
+
+summary_results_wtaxa_area %>%   ggplot() +
+  geom_point(aes(x = area, y = area_raw)) +
+  theme_minimal() # almost on the same line, so the are units should be 10^8 km^2 or 1.27*10^8 km^2
+summary(lm(area_raw ~ area, data = summary_results_wtaxa_area))
+
+```
+
+```{r}
+
+summary_results_wtaxa_area %>%
+  ggplot() +
+  geom_point(aes(x = area, y = norm_estimate, color = genus, alpha = model_fit), size = 2) +
+  geom_smooth(aes(x = area, y = norm_estimate), method = "lm", se = TRUE) +
+  labs(
+    title = "",
+    x = "Area (km²)",
+    y = "Spatial sensitivity (days/°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()
+
+```
+
 
 ## summary statistics
 ```{r}
@@ -418,4 +499,226 @@ tree$specimen_count <- total_specimen_count
 print(tree, "specimen_count")
 ```
 
+# check the assumptions for the model
+
+
+
+
+## total observation and composition (species) change over year
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = year)) +
+  geom_histogram(aes(fill = genus), binwidth = 1, position = "stack") +
+  labs(
+    title = "Total Observations and Species Composition Over Years",
+    x = "Year",
+    y = "Count",
+    fill = "Genus"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = year)) +
+  geom_histogram() +
+  facet_wrap(~ genus, scales = "free_y") +
+  labs(
+    title = "Total Observations and Species Composition Over Years",
+    x = "Year",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+## check how the sample anomaly change over time
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = year, y = anom)) +
+  geom_point(aes(color = genus), alpha = 0.5) +
+  geom_smooth() +
+  labs(
+    title = "Sample Anomaly Over Time",
+    x = "Year",
+    y = "Anomaly (°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = year, y = anom)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() +
+  facet_wrap(~ genus, scales = "free_y") +
+  labs(
+    title = "Sample Anomaly Over Time",
+    x = "Year",
+    y = "Anomaly (°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()  
+
+```
+
+The anomaly is increasing over time because the temperature is increasing over time while the normality doesn't change.
+
+Let's check the distribution
+
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = anom)) +
+  geom_histogram() +
+  facet_wrap(~ genus,scales = "free_y") +
+  labs(
+    title = "Sample Anomaly by genus"
+  ) +
+  theme_minimal()  
+```
+We have more sample in recent years (warmer years) which may result the anomaly to be out of 0 but looks like we are fine. Let's check whether the anomaly is significantly different from 0 for each species.
+
+```{r}
+temperature_data_model %>%
+  group_by(species) %>%
+  summarise(t_test = list(t.test(anom))) %>%
+  mutate(p_value = purrr::map_dbl(t_test, "p.value")) %>% 
+  filter(p_value > 0.01)
+
+# 63/74 species have p-value > 0.01, which means the anomaly is not significantly different from 0 for most species
+```
+
+
+## check how the sample normality change over time
+
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = year, y = norm)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() +
+  facet_wrap(~ genus, scales = "free_y") +
+  labs(
+    title = "Sample Normality Over Time",
+    x = "Year",
+    y = "Normality (°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()  
+
+```
+
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = norm)) +
+  geom_histogram() +
+  facet_wrap(~ genus,scales = "free_y") +
+  labs(
+    title = "Sample Normality by genus"
+  ) +
+  theme_minimal()  
+```
+
+## Whether trees growing in warmer places have larger anomaly (mean)
+```{r}
+temperature_data_model %>%
+  ggplot(aes(x = norm, y = abs(anom))) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() +
+  facet_wrap(~ genus) +
+  labs(
+    title = "Sample Absolute Anomaly Over Normality",
+    x = "Normality (°C)",
+    y = "Anomaly (°C)",
+    color = "Genus"
+  ) +
+  theme_minimal()  
+
+```
+the slightly down trend shows that warmer places have smaller interannual temperature variation. This make since because we are calculating the average temperature in certain time window. Colder place has a steeper slope when changing from winter to summer therefore has more variation in temperature.
+
+Since the anomaly is centered at 0, so the anomaly mean is the square root of anomaly variance
+
+# check whether we need random temporal slope:
+the residual has the relationship with anomaly
+```{r eval=FALSE}
+unique_species <- unique(temperature_data_model$species)
+
+pdf("../data/species_checkrandomslope_herb.pdf", width = 8, height = 6)
+
+for (species_name in unique_species) {
+  model <- temperature_data_model %>%
+    filter(species == species_name) %>%
+    MASS::rlm(doy ~ norm + anom, data = ., maxit = 30)
+
+  ##############  
+  # residuals <- residuals(model)
+  # 
+  # # Create a data frame for plotting
+  # plot_data <- temperature_data_model %>%
+  #   filter(species == species_name) %>%
+  #   mutate(residual = residuals)
+  # 
+  # # Plot
+  # plot <- ggplot(plot_data, aes(x = anom^2, y = residual^2)) +
+  #   geom_point() +
+  #   geom_smooth() +
+  #   labs(
+  #     title = species_name,
+  #     x = "Anomaly^2 (°C)",
+  #     y = "Residual^2"
+  #   ) +
+  #   theme_minimal()
+  ##############
+  
+  ########
+  
+  ###########
+  
+  print(plot)
+}
+
+dev.off()
+```
+
+## plot the dignose figure
+library(patchwork)
+
+```{r}
+unique_species <- unique(temperature_data_model$species)
+
+pdf("../data/species_model_check.pdf", width = 8, height = 6)
+
+for (species_name in unique_species) {
+  species_data <- temperature_data_model %>%
+    filter(species == species_name)
+  
+  model <- species_data %>%
+    MASS::rlm(doy ~ norm + anom, data = ., maxit = 30)
+  
+species_data_residual <- species_data %>%
+  mutate(residual = residuals(model), fitted = fitted(model))  
+
+p0 <- species_data_residual %>% 
+  dplyr::select(norm, anom, doy, year, residual, fitted) %>%
+  GGally::ggpairs(title = paste0(species_name, "- Pairwise Correlation Plot")) +
+  theme_minimal()
+
+print(p0)
+}
+dev.off()
+```
+
+## check whether we can rewrite the regression
+```{r}
+cor(species_data$anom, species_data$norm)
+model1 <- lm(doy ~ norm+anom, data = species_data)
+summary(model1)
+```
+
+
+```{r}
+cor(species_data$yeart, species_data$norm)
+model2 <- lm(doy ~ norm+yeart, data = species_data)
+summary(model2)
+```
 

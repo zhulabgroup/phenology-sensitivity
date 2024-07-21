@@ -1,0 +1,344 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+```{r}
+library(tidyverse)
+
+```
+
+#
+```{r}
+
+# Combined data frame
+black <- data.frame(x = c(0, 1), y = c(1, 0), color = "black")
+purple_center <- data.frame(x = seq(0.2, 0.8, by = 0.2), y = 1 - seq(0.2, 0.8, by = 0.2))
+
+# Function to calculate line segments
+calculate_segments <- function(center, slope, length) {
+  start_x <- center$x - length / 2 * cos(atan(slope))
+  start_y <- center$y - length / 2 * sin(atan(slope))
+  end_x <- center$x + length / 2 * cos(atan(slope))
+  end_y <- center$y + length / 2 * sin(atan(slope))
+  
+  tibble(start_x = start_x, start_y = start_y, end_x = end_x, end_y = end_y)
+}
+
+# Apply the function to all centers
+segments_1 <- bind_rows(lapply(1:nrow(purple_center), function(i) 
+  calculate_segments(purple_center[i, ], -1.5, 0.18)))
+segments_2 <- bind_rows(lapply(1:nrow(purple_center), function(i) 
+  calculate_segments(purple_center[i, ], -1, 0.18)))
+segments_3 <- bind_rows(lapply(1:nrow(purple_center), function(i) 
+  calculate_segments(purple_center[i, ], -0.5, 0.18)))
+# Plot
+ggplot(mapping = aes(x = x, y = y)) + 
+  geom_line(data = black, aes(group = 1), color = "red") +
+  geom_point(data = purple_center, color = "purple", size = 3) +
+  geom_segment(data = segments_2, aes(x = start_x, y = start_y, xend = end_x, yend = end_y), color = "purple", size = 2) +  
+  # geom_hline(yintercept = 0.4, linetype = "dashed") +
+  # geom_vline(xintercept = 0.6, linetype = "dashed") +
+  labs(x = expression(t[observe]), y = expression(d[observe])) + 
+  theme_classic() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18))
+```
+```{r}
+library(ggtext)
+ggplot(data = black) + 
+  # geom_point(aes(x = x, y = y)) +
+  geom_line(mapping = aes(x = x, y = y), color = "red") +
+  theme_classic() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_line(color = "black")) +
+  xlim(-0.3, 1) +
+  ylim(-0.1, 1) +
+labs(x = expression("Temperature normality" ~ t[norm]), y = expression("Flowering day normality" ~ d[norm])) +
+  theme(axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18)) +
+  annotate("text", x = -0.12 , y = 0.02,, label = "Early flowering", size = 6, hjust = 0.7) +
+  annotate("text",  x = -0.12 , y = 1, label = "Late flowering", size = 6, hjust = 0.7) +
+  annotate("text", x = 0.1 , y = -0.1, label = "Cold place", size = 6, vjust = 0.2) +
+  annotate("text", x = 0.9 , y = -0.1, label = "Hot place", size = 6,  vjust = 0.2)  
+```
+```{r}
+
+ggplot(data = black) + 
+  # geom_point(aes(x = x, y = y)) +
+  geom_line(mapping = aes(x = x, y = y), color = "purple", size = 2) +
+  theme_classic() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_line(color = "black")) +
+  xlim(-0.3, 1) +
+  ylim(-0.1, 1) +
+labs(x = expression("Temperature anomaly" ~ t[anom]), y = expression("Flowering day anomaly" ~ d[anom])) +
+  theme(axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18)) +
+  annotate("text", x = -0.12 , y = 0.02,, label = "Early flowering", size = 6, hjust = 0.7) +
+  annotate("text",  x = -0.12 , y = 1, label = "Late flowering", size = 6, hjust = 0.7) +
+  annotate("text", x = 0.1 , y = -0.1, label = "Cold year", size = 6, vjust = 0.2) +
+  annotate("text", x = 0.9 , y = -0.1, label = "Hot year", size = 6,  vjust = 0.2)  +
+  # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
+  geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  annotate("text", x = 0.55, y = 0.55, label = "(0, 0)", size = 5)
+ # annotate("text", x = 0.62, y = 0.55, label = "(t[norm]*', '*d[norm])", parse = TRUE, size = 5) 
+```
+
+
+
+
+### marginal comparason
+```{r}
+summary_results_wtaxa %>% 
+  filter(genus == "Acer") %>%
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = norm_estimate, y = species_name, color = genus, alpha = model_fit, shape = "16")) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "genus",
+    shape = "Sensitivity type",
+    alpha = "Model fit"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
+
+```
+
+```{r}
+ ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "Spatial sensitivity (days/°C)",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c( "red")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        panel.grid = element_blank(), legend.position = "none")
+```
+
+```{r}
+ ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = anom_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "Temporal sensitivity (days/°C)",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c( "purple")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        panel.grid = element_blank(), legend.position = "none")
+```
+
+```{r fig.width=6, fig.height=6}
+
+# Create the density plot
+p_density <- ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c( "red")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+
+# Combine the datasets for the scatter/errorbar plot
+summary_results_wtaxa_combined <- summary_results_wtaxa %>%
+  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) 
+
+
+# Create the combined scatter/errorbar plot
+p_combined <- summary_results_wtaxa_combined %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_fit, shape = sensitivity_type)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "Taxa",
+    shape = "Sensitivity type",
+    alpha = "Model fit"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
+
+# Stack the plots vertically using patchwork
+combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
+print(combined_plot)
+```
+
+```{r fig.width=6, fig.height=6}
+
+# Create the density plot
+p_density <- ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c( "purple")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+
+# Combine the datasets for the scatter/errorbar plot
+summary_results_wtaxa_combined <- summary_results_wtaxa %>%
+  mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high) 
+
+
+# Create the combined scatter/errorbar plot
+p_combined <- summary_results_wtaxa_combined %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_fit)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 17) + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "Taxa",
+    shape = "Sensitivity type",
+    alpha = "Model fit"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
+
+# Stack the plots vertically using patchwork
+combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
+print(combined_plot)
+```
+
+```{r }
+# Create the density plot
+ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c("red", "purple")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        panel.grid = element_blank(), legend.position = "none")
+```
+
+```{r fig.width=6, fig.height=6}
+
+# Create the density plot
+p_density <- ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = "black") +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c( "purple")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+
+# Combine the datasets for the scatter/errorbar plot
+summary_results_wtaxa_combined <- summary_results_wtaxa %>%
+  mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high) 
+
+
+# Create the combined scatter/errorbar plot
+p_combined <- summary_results_wtaxa_combined %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, fill = taxa, alpha = model_fit)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 24, color = "black") + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit, color = taxa), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    fill = NULL,
+    shape = "Sensitivity type",
+    alpha = "Model fit",
+    color = "Taxa"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  ) +
+  guides(fill = "none")
+
+# Stack the plots vertically using patchwork
+combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
+print(combined_plot)
+```

@@ -16,13 +16,14 @@ library(see)
 library(purrr)
 library(tibble)
 library(lubridate)
+
 library(patchwork)
 library(shiny)
 library(stringr)
 library(lme4)
 
 # ln -s /nfs/turbo/seas-zhukai/phenology/phenology_leaf_flower_lag  data
-# ln -s /Volumes/seas-zhukai/phenology/phenology_leaf_flower_lag  data
+# ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity data
 
 ```
 

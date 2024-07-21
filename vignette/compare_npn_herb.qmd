@@ -19,6 +19,8 @@ format:
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(patchwork)
+library(ggtext)
 ```
 
 # compare species composition
@@ -157,42 +159,58 @@ chisq.test(data_percentage_herb_fia[, c("Herbarium", "NPN")])
 herbarium_data <- read.csv("../data/species_summary_herb.csv") %>% 
   mutate(dataset = "Herbarium")
 npn_data <- read.csv("../data/species_summary_npn.csv") %>% 
-  mutate(dataset = "NPN") 
+  mutate(dataset = "Field observation") 
 species_list <- inner_join(herbarium_data, npn_data, by = "species") %>%
   select(species) %>%
   distinct()
+
+
 
 temperature_data <- read.csv("../data/npn_temperature_data.csv")
 
 joint_data <- temperature_data %>% distinct(species, taxa) %>%
   right_join(rbind(herbarium_data, npn_data), by = "species") %>% 
   filter(species %in% species_list$species) 
-  
-ggplot(joint_data, aes(x = norm_estimate, y = species, color = taxa, alpha = -residual, shape = dataset)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = -residual), width = 0) +
+
+joint_data_long <- joint_data %>%
+  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
+  bind_rows(
+    joint_data %>%
+      mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
+  ) %>% 
+  dplyr::select(species, taxa, dataset, sensitivity_type, estimate_combined, conf_low_combined, conf_high_combined, residual) %>%     
+    mutate(model_fit = case_when(
+    residual <= 20 ~ "Good",
+    residual <= 40 ~ "Moderate",
+    TRUE ~ "Poor"
+  )) 
+
+
+joint_data_long %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_fit, shape = dataset)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
   labs(
     title = "",
-    x = "Spatial sensitivity (days/°C)",
+    x = "Sensitivity (days/°C)",
     y = "Species",
-    alpha = "-Residual",
-    color = "Genus",
-    shape = "Dataset"
-  )+
-  theme_minimal()
-```
-```{r}
-ggplot(joint_data, aes(x = anom_estimate, y = species, color = taxa, alpha = -residual, shape = dataset)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = -residual), width = 0) +
-  labs(
-    title = "",
-    x = "Temporal sensitivity (days/°C)",
-    y = "Species",
-    alpha = "-Residual",
-    color = "Genus",
-    shape = "Dataset"
-  )+
-  theme_minimal()
+    color = "Taxa",
+    shape = "Dataset",
+    alpha = "Model fit"
+  ) +
+  facet_wrap(~sensitivity_type) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
 ```
 

@@ -181,7 +181,8 @@ summary_results_wtaxa <- temperature_data_model %>%
     diff_var <= 5 ~ "Low",
     diff_var <= 10 ~ "Medium",
     TRUE ~ "High"
-  ))
+  )) %>% 
+  mutate(taxa = genus)
 
 ```
 
@@ -202,7 +203,7 @@ p_density <- ggplot(summary_results_wtaxa) +
     y = "",
     fill = "Sensitivity type"
   ) +
-  scale_fill_manual(values = c("blue", "red")) +
+  scale_fill_manual(values = c("red", "purple")) +
   theme_minimal() +
   theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
         axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
@@ -235,8 +236,9 @@ ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model
     title = "",
     x = "Sensitivity (days/°C)",
     y = "Species",
-    color = "Genus",
-    shape = "Sensitivity type"
+    color = "Taxa",
+    shape = "Sensitivity type",
+    alpha = "Model fit"
   ) +
   theme_minimal() +
   theme(
@@ -260,7 +262,7 @@ ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = 
   geom_point(size = 3) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
     scale_alpha_manual(values = c("Low" = 1, "Medium" = 0.5, "High" = 0.2), labels = c("Low", "Medium", "High")) +
-  scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "False", "4" = "True")) +
+  scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "Yes", "4" = "No 80% (59/74)")) +
   scale_color_discrete(
     labels = function(x) {
       sapply(x, function(label) paste0("*", label, "*"))
@@ -272,7 +274,7 @@ ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = 
     y = "Spatial sensitivity (days/°C)",
     shape = "Significant difference",
     alpha = "Variance",
-    color = "Genus"
+    color = "Taxa"
   ) +
   theme_minimal() +
   theme(legend.position = "right",
@@ -710,15 +712,22 @@ dev.off()
 
 ## check whether we can rewrite the regression
 ```{r}
+species_data <- temperature_data_model %>%
+    filter(species == "Acer saccharum") %>%
+  slice_sample(n = 100)
+
 cor(species_data$anom, species_data$norm)
 model1 <- lm(doy ~ norm+anom, data = species_data)
+car::vif(model1)
 summary(model1)
 ```
 
 
 ```{r}
+
 cor(species_data$yeart, species_data$norm)
 model2 <- lm(doy ~ norm+yeart, data = species_data)
+car::vif(model2)
 summary(model2)
 ```
 

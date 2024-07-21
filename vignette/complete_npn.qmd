@@ -20,6 +20,8 @@ format:
 library(dplyr)
 library(ggplot2)
 library(readr)
+library(patchwork)
+library(ggtext)
 ```
 
 # get npn data
@@ -148,49 +150,10 @@ write.csv(temperature_data, "../data/npn_temperature_data.csv")
 temperature_data <- read.csv("../data/npn_temperature_data.csv")
 ```
 
-## using one species as an example
-### fit a linear model and dignose
-```{r}
-# Select a species to use as an example
-species_name <- "Tsuga canadensis"
-species_data <- temperature_data %>%
-  filter(species == species_name)
-
-# plot raw data
-ggplot(species_data, aes(x = yeart, y = doy)) +
-  geom_point() +
-  labs(x = "Spring temperature", y = "Days since Nov 1st") +
-  theme_minimal()
-
-# Fit a linear model
-model <- lm(doy ~ anom + norm, data = species_data)
-
-# Get the model summary
-summary(model)
-
-# Plot the residuals
-par(mfrow = c(2,2), oma = c(0, 0, 1.1, 0))
-plot(model, las = 1)
-```
-### fit a robust linear regression and visionalize the weight
-```{r}
-# Fit a robust linear model
-model_robust <- MASS::rlm(doy ~ anom + norm, data = species_data,  maxit = 30)
-
-summary(model_robust)
-
-ggplot(species_data, aes(x = yeart, y = doy)) +
-  geom_point(aes(alpha = model_robust$w)) +
-  geom_abline(intercept = coef(model_robust)[1], slope = coef(model_robust)[3], color = "blue") +
-  labs(x = "Spring temperature", y = "Days since Nov 1st", alpha = "Weight") +
-  theme_minimal()
-
-```
 ## get data for model by requiring 10 observations for each parameter
 ```{r}
 temperature_data_model <- temperature_data %>%
   group_by(species) %>%
-  filter(n_distinct(doy) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(norm) > 10) %>%  # Use n_distinct() for distinct counting
   filter(n_distinct(doy, norm, anom) > 30) %>%  # Use n_distinct() for distinct counting
@@ -246,8 +209,109 @@ summary_results <- read.csv("../data/species_summary_npn.csv")
 summary_results_wtaxa <- temperature_data_model %>%
   distinct(species, taxa) %>% 
   right_join(summary_results, by = "species")  %>%  
-  mutate(anom_large = (anom_estimate > norm_estimate)) 
+  mutate(anom_large = (anom_estimate > norm_estimate)) %>%
+  mutate(model_fit = case_when(
+    residual <= 20 ~ "Good",
+    residual <= 40 ~ "Moderate",
+    TRUE ~ "Poor"
+  )) %>% # variance of difference
+  mutate(alpha_level = case_when(
+    diff_var <= 5 ~ "Low",
+    diff_var <= 10 ~ "Medium",
+    TRUE ~ "High"
+  ))
+```
+## summary figure
 
+### marginal comparason
+
+```{r fig.width=6, fig.height=6}
+# Create the density plot
+p_density <- ggplot(summary_results_wtaxa) +
+  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
+  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = NA) +
+  xlim(-30, 10) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Sensitivity type"
+  ) +
+  scale_fill_manual(values = c("red", "purple")) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+
+# Combine the datasets for the scatter/errorbar plot
+summary_results_wtaxa_combined <- summary_results_wtaxa %>%
+  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
+  bind_rows(
+    summary_results_wtaxa %>%
+      mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
+  )
+
+
+
+# Create the combined scatter/errorbar plot
+p_combined <- summary_results_wtaxa_combined %>% 
+    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
+ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_fit, shape = sensitivity_type)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
+  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "Taxa",
+    shape = "Sensitivity type",
+    alpha = "Model fit"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )
+
+# Stack the plots vertically using patchwork
+combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
+print(combined_plot)
+```
+
+### joint comparason
+```{r}
+# Ensure alpha_level is a factor with the correct level order
+summary_results_wtaxa$alpha_level <- factor(summary_results_wtaxa$alpha_level, levels = c("Low", "Medium", "High"))
+# this is weird but happened a lot
+
+ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = taxa, alpha = factor(alpha_level), shape = as.factor(equal + 3))) +
+  geom_point(size = 3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+    scale_alpha_manual(values = c("Low" = 1, "Medium" = 0.5, "High" = 0.2), labels = c("Low", "Medium", "High")) +
+  scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "Yes", "4" = "No 69% (22/32)")) +
+  scale_color_discrete(
+    labels = function(x) {
+      sapply(x, function(label) paste0("*", label, "*"))
+    }
+  ) +
+  labs(
+    title = "",
+    x = "Temporal sensitivity (days/°C)",
+    y = "Spatial sensitivity (days/°C)",
+    shape = "Significant difference",
+    alpha = "Variance",
+    color = "Taxa"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right",
+        legend.text = element_markdown()) # Italicize legend text
 ```
 
 ## summary statistics
@@ -263,68 +327,6 @@ summary_results_wtaxa %>%
 ```
 
 
-## summary figure
-```{r}
-ggplot(summary_results_wtaxa, aes(x = norm_estimate, y = species, color = taxa, alpha = -residual)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = norm_conf_low, xmax = norm_conf_high, alpha = -residual), width = 0) +
-  labs(
-    title = "",
-    x = "Spatial sensitivity (days/°C)",
-    y = "Species",
-    alpha = "-Residual",
-    color = "Taxa"
-  )+
-  theme_minimal()
-```
-
-```{r}
-ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = species, color = taxa, alpha = -residual)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = anom_conf_low, xmax = anom_conf_high, alpha = -residual), width = 0) +
-    labs(
-    title = "",
-    x = "Temporal sensitivity (days/°C)",
-    y = "Species",
-    alpha = "-Residual",
-    color = "Taxa"
-  )+
-  theme_minimal()
-```
-```{r}
-# use ggplot
-ggplot(summary_results_wtaxa) +
-  # Use geom_density to get a density plot
-  geom_density(aes(x = norm_estimate, fill = "Spatial"), alpha = 0.5, color = NA) +
-  geom_density(aes(x = anom_estimate, fill = "Temporal"), alpha = 0.5, color = NA) +
-  xlim(-10, 5) +
-  labs(
-    title = "",
-    x = "Sensitivity (days/°C)",
-    y = "Density",
-    fill = "Type"
-  ) +
-  scale_fill_manual(values = c("blue", "red"))+
-  theme_minimal()
-```
-
-```{r}
-ggplot(summary_results_wtaxa, aes(x = anom_estimate, y = norm_estimate, color = taxa, alpha = -residual, shape = as.factor(equal + 3), text = species)) +
-  geom_point(size = 3) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
-  scale_alpha_continuous(range = c(0.2, 1)) +
-  scale_shape_manual(values = c("3" = 16, "4" = 17), labels = c("3" = "False", "4" = "True")) +
-  labs(
-    title = "",
-    x = "Temporal sensitivity (days/°C)",
-    y = "Spatial sensitivity (days/°C)",
-    shape = "Equal",
-    alpha = "-Residual",
-    color = "Taxa"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-```
 
 ## data composition
 

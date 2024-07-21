@@ -22,7 +22,7 @@ analyze_species <- function(data, species_name) {
   p_value <- lh_test$`Pr(>F)`[2]
   
   # Determine the conclusion based on the p-value
-  equal <- ifelse(p_value < 0.05, 0, 1)
+  equal <- ifelse(p_value < 0.05, 0, 1) # 0 = reject null, this is a significant differences, 1 = fail to reject null
   
   # Calculate model summary with confidence intervals
   model_summary <- broom::tidy(model, conf.int = TRUE)

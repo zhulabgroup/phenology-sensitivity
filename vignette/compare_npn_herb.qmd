@@ -214,3 +214,34 @@ ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_
   )
 ```
 
+```{r}
+data_summary_species_npn <- data_summary_species %>% 
+  select(species, sig_diff) %>% 
+  rename(sig_diff_npn = sig_diff)
+```
+
+```{r}
+data_summary_species_herb <- data_summary_species %>% 
+  select(species, sig_diff) %>% 
+  rename(sig_diff_herb = sig_diff)
+```
+
+```{r}
+data_summary_species_combined <- inner_join(data_summary_species_npn, data_summary_species_herb, by = "species") 
+# make a tangent table summarizing number both report 0, both report 1, one report 0 and the other report 1
+data_summary_species_combined %>%
+  summarise(
+    both_0 = sum(sig_diff_npn == 0 & sig_diff_herb == 0),
+    both_1 = sum(sig_diff_npn == 1 & sig_diff_herb == 1),
+    npn_0_herb_1 = sum(sig_diff_npn == 0 & sig_diff_herb == 1),
+    npn_1_herb_0 = sum(sig_diff_npn == 1 & sig_diff_herb == 0)
+  )
+```
+
+```{r}
+
+```
+
+```{r}
+```
+

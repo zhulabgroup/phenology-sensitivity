@@ -3,12 +3,14 @@ title: "Untitled"
 format: html
 editor: visual
 ---
+
 ```{r}
 library(tidyverse)
 
 ```
 
-#
+# concept figures
+
 ```{r}
 
 # Combined data frame
@@ -47,6 +49,7 @@ ggplot(mapping = aes(x = x, y = y)) +
         axis.line = element_line(color = "black"),
         axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18))
 ```
+
 ```{r}
 library(ggtext)
 ggplot(data = black) + 
@@ -66,6 +69,7 @@ labs(x = expression("Temperature normality" ~ t[norm]), y = expression("Flowerin
   annotate("text", x = 0.1 , y = -0.1, label = "Cold place", size = 6, vjust = 0.2) +
   annotate("text", x = 0.9 , y = -0.1, label = "Hot place", size = 6,  vjust = 0.2)  
 ```
+
 ```{r}
 
 ggplot(data = black) + 
@@ -92,10 +96,63 @@ labs(x = expression("Temperature anomaly" ~ t[anom]), y = expression("Flowering 
  # annotate("text", x = 0.62, y = 0.55, label = "(t[norm]*', '*d[norm])", parse = TRUE, size = 5) 
 ```
 
+### demonstrate the bell curve
+```{r}
+# Load necessary libraries
 
+# Define means and standard deviations for two normal distributions
+mean1 <- 0
+sd1 <- 1
+mean2 <- 4.5
+sd2 <- 1.5
+
+# Create a sequence of x values for the plot
+x_values <- seq(min(mean1 - 4 * sd1, mean2 - 4 * sd2), max(mean1 + 4 * sd1, mean2 + 4 * sd2), length.out = 1000)
+
+# Calculate the density values for both distributions
+y_values1 <- dnorm(x_values, mean = mean1, sd = sd1)
+y_values2 <- dnorm(x_values, mean = mean2, sd = sd2)
+
+# Create a data frame for plotting
+data <- data.frame(x = x_values, y1 = y_values1, y2 = y_values2)
+
+# Calculate the 95% confidence intervals
+ci1_lower <- mean1 - 1.96 * sd1
+ci1_upper <- mean1 + 1.96 * sd1
+ci2_lower <- mean2 - 1.96 * sd2
+ci2_upper <- mean2 + 1.96 * sd2
+
+# Create the plot
+p <- ggplot(data, aes(x = x)) +
+  # Plot the two bell curves
+  geom_line(aes(y = y1), color = "blue", size = 1) +
+  geom_line(aes(y = y2), color = "red", size = 1) +
+  
+  # Add the 95% confidence interval for the first distribution
+  geom_vline(xintercept = ci1_lower, color = "blue", linetype = "dashed") +
+  geom_vline(xintercept = ci1_upper, color = "blue", linetype = "dashed") +
+  
+  # Add the 95% confidence interval for the second distribution
+  geom_vline(xintercept = ci2_lower, color = "red", linetype = "dashed") +
+  geom_vline(xintercept = ci2_upper, color = "red", linetype = "dashed") +
+  
+  # Shade the overlapping area
+  geom_ribbon(data = subset(data, y1 > 0 & y2 > 0), aes(ymin = 0, ymax = pmin(y1, y2), fill = "Overlap"), alpha = 0.3) +
+  
+  
+  # Customize the plot
+  labs(title = "",
+       x = "x", y = "Density") +
+  theme_minimal() +
+  scale_fill_manual(name = "Overlap", values = c("Overlap" = "purple"))
+
+# Display the plot
+print(p)
+```
 
 
 ### marginal comparason
+
 ```{r}
 summary_results_wtaxa %>% 
   filter(genus == "Acer") %>%
@@ -342,3 +399,111 @@ ggplot(aes(x = estimate_combined, y = species_name, fill = taxa, alpha = model_f
 combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = c(1, -2, 30))
 print(combined_plot)
 ```
+
+# figure to show the data spatial and temporal coverage of the three datasets
+```{r}
+nab <- read.csv("/Volumes/seas-zhukai/datasets/vegetation/NAB/clean/2023-04-25/renew_station_info.csv") %>%
+  select(lat, lon) %>%
+  filter(!is.na(lat)) %>%
+  mutate(dataset = "NAB")
+```
+
+```{r}
+npn <- read.csv("../data/npn_temperature_data.csv") %>%
+  select(lat, lon) %>%
+  distinct() %>%
+  mutate(dataset = "NPN")
+```
+
+```{r}
+herb <- read.csv("../data/herb_temperature_data.csv") %>%
+  select(lat, lon) %>%
+  distinct() %>%
+  mutate(dataset = "HERB")
+```
+
+```{r}
+library(sf)
+library(ggplot2)
+library(dplyr)
+
+# Load US states from a built-in shapefile dataset
+us_states <- st_read(system.file("shape/nc.shp", package = "sf")) %>%
+  st_transform(crs = 4326)  # Ensure the coordinate system matches your points
+
+# Alternatively, use a package like 'maps' for a quick boundary plot
+us_states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
+```
+
+```{r}
+# show the spatial coverage of the three datasets in the us map
+
+# Plot
+p1 <- ggplot() +
+  
+  # Add HERB data with colored pixels to show density
+  geom_bin2d(data = herb, aes(x = lon, y = lat), bins = 80) + 
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", name = "Herbarium",) +
+  
+  # Add NAB data with larger dots
+  geom_point(data = nab, aes(x = lon, y = lat, color = "NAB"), size = 1) +
+  
+  # Add NPN data as regular dots
+  geom_point(data = npn, aes(x = lon, y = lat, color = "NPN"), size = 0.1) +
+  xlim(-130, -60) + ylim(24, 50) +  # Adjust the limits as needed
+  # Customize colors
+  scale_color_manual(values = c("NAB" = "red", "NPN" = "darkblue")) +
+    geom_sf(data = us_states, fill = NA, color = "black") +
+
+  theme_minimal() +
+  theme(legend.position = "right") +
+  labs(color = " ", fill = "Herbarium", x = "Longitude", y = "Latitude")
+```
+
+```{r}
+herb_tem <- read.csv("../data/herb_temperature_data.csv") %>%
+  group_by(year) %>%
+  summarise(count = n()) %>%
+  mutate(dataset = "HERB")
+
+npn_tem <- read.csv("../data/npn_temperature_data.csv") %>%
+  group_by(year) %>%
+  summarise(count = n()) %>%
+  mutate(dataset = "NPN")
+
+# histogram the herb and npn data number year change
+p2 <- ggplot() +
+  geom_histogram(data = npn_tem, aes(x = year, y = count, fill = "NPN"), alpha = 0.5, stat = "identity", position = "dodge") +
+    geom_histogram(data = herb_tem, aes(x = year, y = count, fill = "Herbarium"), alpha = 0.5, stat = "identity", position = "dodge") +
+
+  scale_fill_manual(values = c("Herbarium" = "lightgreen", "NPN" = "lightblue")) +
+  # vertical line to show the NAB starts to observe
+geom_vline(xintercept = 2000, linetype = "dashed", color = "red") +    # label the line: NAB starts to observe
+  annotate("text", x = 1965, y = 900, label = "NAB starts to observe", hjust = 0, vjust = 0, size = 3, color = "red") +
+  theme_minimal() +
+  labs(x = "Year", y = "Number of records", fill = "") 
+
+```
+
+```{r}
+library(patchwork)
+
+```
+
+```{r}
+
+# Combine p1 and p2 with labels "a" and "b"
+p1 / p2 + 
+  plot_layout(heights = c(2, 1)) +
+  plot_annotation(tag_levels = "a")
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+

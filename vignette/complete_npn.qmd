@@ -348,5 +348,341 @@ print(data_summary_species)
 data_summary_genus
 ```
 
+# fit the model with differences directly
 
+```{r}
+speceis_data <- temperature_data_model %>% filter(species == "Abies balsamea")
+model <- MASS::rlm(doy ~ norm + yeart, data = speceis_data,  maxit = 30)
+
+  model_summary <- broom::tidy(model, conf.int = TRUE)
+  
+  # Extract coefficients and confidence intervals for anom and norm
+model_summary %>% filter(term == "yeart") %>% select(estimate, conf.low, conf.high)
+model_summary %>% filter(term == "norm") %>% select(estimate, conf.low, conf.high)
+  
+  # Calculate R-squared
+summary(model)$sigma
+
+```
+
+
+```{r}
+unique_species <- unique(temperature_data_model$species)
+data_summary_species <- data.frame()
+
+for (speciesname in unique_species) {
+  # Filter the data for the specific species
+  species_data <- temperature_data_model %>% filter(species == speciesname)
+  
+  # Fit the robust linear model
+  model <- MASS::rlm(doy ~ norm + yeart, data = species_data, maxit = 30)
+  
+  # Get a tidy summary of the model with confidence intervals
+  model_summary <- broom::tidy(model, conf.int = TRUE)
+  
+  # Extract the estimates and confidence intervals for 'yeart' and 'norm'
+  yeart_summary <- model_summary %>% filter(term == "yeart") %>% select(estimate, conf.low, conf.high)
+  norm_summary <- model_summary %>% filter(term == "norm") %>% select(estimate, conf.low, conf.high)
+  
+  # Append the results to the summary data frame
+  data_summary_species <- rbind(
+    data_summary_species,
+    data.frame(
+      taxa = species_data$taxa[1],
+      species = speciesname,
+      norm_estimate = norm_summary$estimate,
+      norm_conf_low = norm_summary$conf.low,
+      norm_conf_high = norm_summary$conf.high,
+      yeart_estimate = yeart_summary$estimate,
+      yeart_conf_low = yeart_summary$conf.low,
+      yeart_conf_high = yeart_summary$conf.high,
+      sig_diff = ifelse(norm_summary$conf.low*norm_summary$conf.high > 0, 0, 1)# same sign: yes, sig diff 0
+    )
+  )
+}
+
+# only 3/32 species show there is significant difference
+different <- data_summary_species %>% 
+filter(sig_diff == 0) %>% 
+  arrange(species)
+
+different
+```
+
+```{r}
+```
+
+
+
+```{r}
+library(ggExtra)
+p <- data_summary_species %>%
+  ggplot(aes(x = yeart_estimate, y = norm_estimate, color = taxa)) +
+  geom_point() +
+  labs(x = "Temporal sensitivity (days/°C)", y = "Difference (Spatial - Temporal, days/°C) ", color = "Taxa") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  coord_cartesian(xlim = c(-20, 10), ylim = c(-15, 20)) +
+  geom_errorbar(aes(ymin = norm_conf_low, ymax = norm_conf_high), width = 0.1, alpha = 0.5) +
+  geom_errorbarh(aes(xmin = yeart_conf_low, xmax = yeart_conf_high), height = 0.1, alpha = 0.5) 
+
+
+
+  
+
+ggMarginal(p, type = "density")
+
+```
+
+
+# fit mixed effect model
+
+## RMLE
+```{r RLME_mix_fit_3}
+library(lme4)
+library(ggplot2)
+library(ggExtra)
+library(dplyr)
+library(tibble)
+
+# Fit the model (as you already did)
+temporal_model <- blmer(doy ~ yeart + norm + (1 + yeart + norm | species), 
+                        data = temperature_data_model,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50, 5), 3)))
+
+# Extract the fixed effects
+fixed_effects <- fixef(temporal_model)
+
+# Extract the random effects
+random_effects <- ranef(temporal_model)$species
+
+# Extract the posterior variance-covariance matrix for species
+post_var <- attr(ranef(temporal_model, condVar = TRUE)$species, "postVar")
+
+# Extract species effects and merge with your summary data
+species_effects <- random_effects %>%
+  tibble::rownames_to_column(var = "species") %>%
+  left_join(data_summary_species %>% dplyr::select(species, taxa), by = "species")
+
+# Calculate standard errors for each species' random effects
+yeart_se <- sqrt(post_var[2, 2, ])
+norm_se <- sqrt(post_var[3, 3, ])
+
+# Add confidence intervals to species_effects
+species_effects <- species_effects %>%
+  mutate(yeart_mean = yeart + fixed_effects[2],
+         norm_mean = norm + fixed_effects[3],
+         yeart_lower = yeart_mean - 1.96 * yeart_se,
+         yeart_upper = yeart_mean + 1.96 * yeart_se,
+         norm_lower = norm_mean - 1.96 * norm_se,
+         norm_upper = norm_mean + 1.96 * norm_se)
+
+# Create the plot with confidence intervals
+p <- species_effects %>%
+  ggplot(aes(x = yeart_mean, y = norm_mean, color = taxa)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = norm_lower, ymax = norm_upper), width = 0.1, alpha = 0.5) +
+  geom_errorbarh(aes(xmin = yeart_lower, xmax = yeart_upper), height = 0.1, alpha = 0.5) +
+  labs(x = "Temporal sensitivity (days/°C)", y = "Difference (Spatial - Temporal, days/°C)") +
+  theme_minimal() +
+  coord_cartesian(xlim = c(-20, 10), ylim = c(-15, 20)) +
+  theme(legend.position = "bottom")
+
+# Add marginal distributions
+p_with_marginals <- ggMarginal(p, type = "density")
+
+# Display the plot
+print(p_with_marginals)
+```
+
+```{r RLME_mix_boot}
+bootstrap_estimate <- function(data, n_bootstrap) {
+  bootstrap_estimates <- numeric(n_bootstrap)  
+  successful_bootstraps <- 0
+  
+  units <- unique(data$species) 
+  
+  while (successful_bootstraps < n_bootstrap) {
+    sampled_units <- sample(units, size = length(units), replace = TRUE)
+    
+    bootstrap_data <- data[data$species %in% sampled_units, ]
+    
+    fit_attempt <- tryCatch({
+temporal_model <- blmer(doy ~ yeart + norm + (1 + yeart + norm | species), data = bootstrap_data,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50, 50), 3)))
+      
+      fixef(temporal_model)["norm"]  
+    }, warning = function(w) {
+      return(NA)  
+    })
+    
+    if (!is.na(fit_attempt)) {
+      bootstrap_estimates[successful_bootstraps + 1] <- fit_attempt  
+      successful_bootstraps <- successful_bootstraps + 1 
+    }
+  }
+  
+  return(bootstrap_estimates)  
+}
+
+n_bootstrap <- 2000
+
+boot_estimates <- bootstrap_estimate(temperature_data_model, n_bootstrap)
+
+CI_lower <- quantile(boot_estimates, probs = 0.025, na.rm = TRUE)  
+CI_upper <- quantile(boot_estimates, probs = 0.975, na.rm = TRUE)  
+
+boot_estimates %>% 
+  as_tibble() %>%
+  ggplot(aes(x = value)) +
+  geom_density() +
+  geom_vline(xintercept = CI_lower, linetype = "dashed") +
+  geom_vline(xintercept = CI_upper, linetype = "dashed") +
+  labs(x = "Difference (Spatial - Temporal, days/°C)", y = "Density") +
+  theme_minimal() +
+  # add a red line for the true value
+  geom_vline(xintercept = fixed_effects[3], color = "red")
+```
+
+```{r RLME_mix_extract}
+```
+
+## Bayesian hierarchical
+
+```{r bay_mix_fit}
+library(rstan)
+set.seed(2)
+model_string <- model_string <- "
+data {
+  int<lower=0> N;         // Number of data points
+  int<lower=0> J;         // Number of groups (species)
+  int<lower=1, upper=J> species[N];  // Group (species) indicator for each observation
+  vector[N] doy;          // Response variable
+  vector[N] yeart;        // Predictor 1
+  vector[N] norm;         // Predictor 2
+}
+
+parameters {
+  real mu_a;               // Hyperparameter: mean of intercepts
+  real<lower=0> sigma_a;   // Hyperparameter: SD of intercepts
+  real mu_b1;              // Hyperparameter: mean of slopes for yeart
+  real<lower=0> sigma_b1;  // Hyperparameter: SD of slopes for yeart
+  real mu_b2;              // Hyperparameter: mean of slopes for norm
+  real<lower=0> sigma_b2;  // Hyperparameter: SD of slopes for norm
+  real<lower=0> sigma;     // Standard deviation of the residuals
+
+  vector[J] a;             // Random intercepts for species
+  vector[J] b1;            // Random slopes for yeart by species
+  vector[J] b2;            // Random slopes for norm by species
+}
+
+model {
+  // Priors
+  mu_a ~ normal(150, 50);
+  sigma_a ~ normal(0, 50);
+  mu_b1 ~ normal(-5, 50);
+  sigma_b1 ~ normal(0, 50);
+  mu_b2 ~ normal(0, 50); // slopes for norm, differences
+  sigma_b2 ~ normal(0, 50);
+  sigma ~ normal(0, 50);
+
+  // Hierarchical structure
+  a ~ normal(mu_a, sigma_a);
+  b1 ~ normal(mu_b1, sigma_b1);
+  b2 ~ normal(mu_b2, sigma_b2);
+  
+  // Likelihood
+  for (i in 1:N) {
+    doy[i] ~ normal(a[species[i]] + b1[species[i]] * yeart[i] + b2[species[i]] * norm[i], sigma);
+  }
+}
+"
+# reparameterize the species as group and represent the group by index
+temperature_data_model_stan <- temperature_data_model %>%
+  mutate(group = as.integer(as.factor(species))) 
+
+data_maple_tem = list(N = length(temperature_data_model_stan$yeart), J = max(temperature_data_model_stan$group), species = temperature_data_model_stan$group, doy =temperature_data_model_stan$doy, yeart = temperature_data_model_stan$yeart, norm = temperature_data_model_stan$norm)
+stan_samples_tem <- stan(model_code = model_string, data = data_maple_tem, iter = 10000, chains = 4)
+
+stan_samples_tem
+write_rds(stan_samples_tem, "../data/bayesian_sample_temporalstorage.rds")
+
+```
+
+```{r bay_mix_extract}
+stan_samples_tem <- read_rds("../data/bayesian_sample_temporalstorage.rds")
+stan_summary <- summary(stan_samples_tem)
+# extract global para
+yearts <- stan_summary$summary["mu_b1", "mean"] 
+norms <- stan_summary$summary["mu_b2", "mean"]  
+
+CI_norm <- quantile(rstan::extract(stan_samples_tem, "b2")[[1]], probs = c(0.025, 0.975))
+
+# predict_function <- function(x, mu_a, mu_b) {
+#   return(mu_a + mu_b * x)
+# }
+
+# data_with_predictions <- data %>% 
+#   mutate(fit.m = predict_function(springT, mu_a, mu_b))
+
+# extract group specific para
+stan_samples <- rstan::extract(stan_samples_tem)
+
+intercepts <- apply(stan_samples$b1, 2, mean)  
+slopes <- apply(stan_samples$b2, 2, mean) 
+```
+
+
+
+```{r}
+
+# Extract posterior samples for b1 and b2
+b1_samples <- stan_samples$b1
+b2_samples <- stan_samples$b2
+
+# Calculate the posterior means for each species
+b1_mean <- colMeans(b1_samples)
+b2_mean <- colMeans(b2_samples)
+
+# Calculate 95% credible intervals
+b1_ci_lower <- apply(b1_samples, 2, quantile, probs = 0.025)
+b1_ci_upper <- apply(b1_samples, 2, quantile, probs = 0.975)
+b2_ci_lower <- apply(b2_samples, 2, quantile, probs = 0.025)
+b2_ci_upper <- apply(b2_samples, 2, quantile, probs = 0.975)
+
+# Data frame for ggplot2
+df <- data.frame(b1 = b1_mean, b2 = b2_mean, 
+                 b1_ci_lower = b1_ci_lower, b1_ci_upper = b1_ci_upper,
+                 b2_ci_lower = b2_ci_lower, b2_ci_upper = b2_ci_upper)
+
+# Scatter plot with confidence intervals
+p <- ggplot(df, aes(x = b1, y = b2)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = b1_ci_lower, xmax = b1_ci_upper), height = 0.1, color = "blue") +
+  geom_errorbar(aes(ymin = b2_ci_lower, ymax = b2_ci_upper), width = 0.1, color = "red") +
+  labs(x = "b1 (yeart slope)", y = "b2 (norm slope)") +
+  theme_minimal()
+
+
+# Scatter plot with marginal distributions
+p <- ggplot(df, aes(x = b1, y = b2)) +
+  geom_point() +
+  labs(x = "b1 (yeart slope)", y = "b2 (norm slope)") +
+  theme_minimal()
+
+# Adding marginal distributions
+ggMarginal(p, type = "density")
+```
+
+# can we fit one model with random intercept only
+```{r}
+temporal_model <- blmer(doy ~ yeart + norm + (1 | species), 
+                        data = temperature_data_model,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50), 1)))
+summary(temporal_model)
+```
+
+```{r}
+
+```
 

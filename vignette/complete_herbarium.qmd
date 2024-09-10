@@ -168,6 +168,12 @@ write.csv(summary_results, "../data/species_summary_herb.csv", row.names = FALSE
 ```{r}
 summary_results <- read.csv("../data/species_summary_herb.csv")
 
+sample_size <- temperature_data_model %>%
+  group_by(species) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  rename(species = species)
+
 summary_results_wtaxa <- temperature_data_model %>%
   distinct(species, genus, family) %>% 
   right_join(summary_results, by = "species") %>%
@@ -182,8 +188,8 @@ summary_results_wtaxa <- temperature_data_model %>%
     diff_var <= 10 ~ "Medium",
     TRUE ~ "High"
   )) %>% 
-  mutate(taxa = genus)
-
+  mutate(taxa = genus) %>%
+  left_join(sample_size, by = "species") 
 ```
 
 ## summary figure
@@ -220,10 +226,11 @@ summary_results_wtaxa_combined <- summary_results_wtaxa %>%
 
 
 # Create the combined scatter/errorbar plot
-p_combined <- summary_results_wtaxa_combined %>% 
-    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
-ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model_fit, shape = sensitivity_type)) +
-  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+p_combined <- summary_results_wtaxa_combined %>%
+  mutate(species_name = forcats::fct_reorder(species, desc(species)),
+         species_label = paste0(species, " (n=", n, ")")) %>%  # Create labels with species name and sample size
+  ggplot(aes(x = estimate_combined, y = species_label, color = genus, alpha = model_fit, shape = sensitivity_type)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) +  # Adjust width as needed
   coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
   geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
   scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
@@ -235,7 +242,7 @@ ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model
   labs(
     title = "",
     x = "Sensitivity (days/°C)",
-    y = "Species",
+    y = "Species (n)",
     color = "Taxa",
     shape = "Sensitivity type",
     alpha = "Model fit"
@@ -243,7 +250,7 @@ ggplot(aes(x = estimate_combined, y = species_name, color = genus, alpha = model
   theme_minimal() +
   theme(
     axis.text.y = element_text(face = "italic"),
-    legend.text = element_markdown() # Italicize legend text
+    legend.text = element_markdown()  # Italicize legend text
   )
 
 # Stack the plots vertically using patchwork
@@ -910,7 +917,262 @@ boot_estimates %>%
   geom_vline(xintercept = fixed_effects[3], color = "red")
 ```
 
+# check the prediction differences
+
 ```{r}
+temperature_data <- read.csv("../data/herb_temperature_data.csv")
+
+temperature_data_model <- temperature_data %>%
+  group_by(species) %>%
+  # filter(n_distinct(doy) > 10) %>%  # hard to justify
+  filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(norm) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(doy, norm, anom) > 30) %>%  # Use n_distinct() for distinct counting
+  ungroup() 
+
+# by species colinearity
+temperature_data_model %>%
+  group_by(species) %>%
+  summarise(cor_anom_norm = cor(anom, norm, use = "complete.obs")) %>% 
+  arrange(desc(abs(cor_anom_norm)))
 
 ```
+
+## long term trend: predict only based on year
+```{r}
+temperature_data %>% 
+  filter(species == "Acer saccharum") %>%
+  ggplot(aes(x = year, y = doy)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Phenology Over Time",
+    x = "Year",
+    y = "Day of Year"
+  ) +
+  theme_minimal()
+```
+
+## anom controlled doy change
+
+```{r}
+temperature_data %>% 
+  filter(species == "Acer rubrum") %>%
+  ggplot(aes(x = anom, y = doy)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Phenology Over Anom",
+    x = "Anom",
+    y = "Day of Year"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+temperature_data %>%
+  filter(species == "Acer rubrum") %>%
+  mutate(norm_range = cut(norm, breaks = 8)) %>% # Adjust 'breaks' based on desired number of ranges
+  ggplot(aes(x = anom, y = doy, color = norm_range)) +
+  geom_point() +
+  geom_smooth(method = "lm", aes(group = norm_range), se = FALSE) + # Add separate regression lines by norm range
+  labs(
+    title = "Phenology Over Anom",
+    x = "Anom",
+    y = "Day of Year"
+  ) +
+  theme_minimal() +
+  scale_color_viridis_d() # Using a color scale for the discrete norm ranges
+```
+
+## norm controlled doy change
+```{r}
+temperature_data %>% 
+  filter(species == "Acer saccharum") %>%
+  ggplot(aes(x = norm, y = doy)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Phenology Over norm",
+    x = "Norm",
+    y = "Day of Year"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+library(MASS)
+
+species_data <- temperature_data_model %>%
+  filter(species == "Acer rubrum")
+```
+
+## predict based on clearly separate driven
+```{r}
+model_s <- rlm(doy ~ norm + anom + anom*norm + year, data = species_data)
+
+summary(model_s)
+
+model_ns <- rlm(doy ~ yeart, data = species_data)
+
+summary(model_ns)
+```
+
+## train-test
+### clearly separate driven
+
+```{r}
+train_data <- sugar_maple %>%
+  filter(year < 2000)
+test_data <- sugar_maple %>%
+  filter(year >= 2000) 
+
+model <- rlm(doy ~ norm + anom + anom*norm + year, data = train_data)
+predictions <- predict(model, newdata = test_data)
+
+rmse <- sqrt(mean((test_data$doy - predictions)^2))
+
+
+ggplot() +
+  geom_point(aes(x = test_data$doy, y = predictions)) +
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle(paste("RMSE:", round(rmse, 2))) +
+  labs(x = "Observed DOY", y = "Predicted DOY") +
+  theme_minimal()
+```
+
+### don't separate
+```{r}
+model <- rlm(doy ~ yeart, data = train_data)
+predictions <- predict(model, newdata = test_data)
+
+rmse <- sqrt(mean((test_data$doy - predictions)^2))
+
+
+ggplot() +
+  geom_point(aes(x = test_data$doy, y = predictions)) +
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle(paste("RMSE:", round(rmse, 2))) +
+  labs(x = "Observed DOY", y = "Predicted DOY") +
+  theme_minimal()
+```
+
+### only based on year
+```{r}
+model <- rlm(doy ~ year, data = train_data)
+predictions <- predict(model, newdata = test_data)
+
+rmse <- sqrt(mean((test_data$doy - predictions)^2))
+
+
+ggplot() +
+  geom_point(aes(x = test_data$doy, y = predictions)) +
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle(paste("RMSE:", round(rmse, 2))) +
+  labs(x = "Observed DOY", y = "Predicted DOY") +
+  theme_minimal()
+```
+
+
+### only based on multiple year average
+```{r}
+predictions <- rep(mean(train_data$doy), nrow(test_data))
+rmse <- sqrt(mean((test_data$doy - predictions)^2))
+ggplot() +
+  geom_point(aes(x = test_data$doy, y = predictions)) +
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle(paste("RMSE:", round(rmse, 2))) +
+  labs(x = "Observed DOY", y = "Predicted DOY") +
+  theme_minimal()
+
+```
+
+### extend to all species
+```{r}
+# calculate the four rmse for all species
+unique_species <- unique(temperature_data_model$species)
+
+rmse_results <- data.frame()
+
+for (species_name in unique_species) {
+  species_data <- temperature_data_model %>%
+    filter(species == species_name)
+  
+  train_data <- species_data %>%
+    filter(year < 2000)
+  test_data <- species_data %>%
+    filter(year >= 2000)
+  
+  if (nrow(train_data) < 40 || nrow(test_data) < 10) {
+    next
+  }
+  
+  
+  model1 <- rlm(doy ~ norm + anom, data = train_data)
+  predictions1 <- predict(model1, newdata = test_data)
+  rmse1 <- sqrt(mean((test_data$doy - predictions1)^2))
+  
+  model2 <- rlm(doy ~ yeart, data = train_data)
+  predictions2 <- predict(model2, newdata = test_data)
+  rmse2 <- sqrt(mean((test_data$doy - predictions2)^2))
+  
+  model3 <- rlm(doy ~ year, data = train_data)
+  predictions3 <- predict(model3, newdata = test_data)
+  rmse3 <- sqrt(mean((test_data$doy - predictions3)^2))
+  
+  predictions4 <- rep(mean(train_data$doy), nrow(test_data))
+  rmse4 <- sqrt(mean((test_data$doy - predictions4)^2))
+  
+  rmse_results <- rbind(
+    rmse_results,
+    data.frame(
+      species = species_name,
+      rmse_s = rmse1,
+      rmse_ns = rmse2,
+      rmse_y = rmse3,
+      rmse_a = rmse4,
+      train_size = nrow(train_data),
+      test_size = nrow(test_data)
+    )
+  )
+}
+
+```
+
+```{r}
+rmse_results %>%
+  pivot_longer(cols = -c(species, train_size, test_size), names_to = "model", values_to = "rmse") %>%  # Replace gather() with pivot_longer()
+  mutate(model = recode(model,  # Recode the model names
+                        "rmse_s" = "Separate",
+                        "rmse_ns" = "Non-Separate",
+                        "rmse_y" = "Year",
+                        "rmse_a" = "Average")) %>%
+  ggplot(aes(x = model, y = rmse)) +
+  geom_boxplot() +
+  labs(
+    title = "RMSE for Different Models",
+    x = "Model",
+    y = "RMSE"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+rmse_results %>%
+  mutate(diff = rmse_s-rmse_ns) %>%
+  ggplot(aes(x = diff)) +
+  geom_histogram() +
+  labs(
+    title = "RMSE Difference between Separate and Non-Separate Models",
+    x = "RMSE Difference",
+    y = "Count"
+  ) +
+  # add a normal line and label the 95% range
+  geom_vline(xintercept = c(-1.96, 1.96), linetype = "dashed", color = "red") +
+  annotate("text", x = 1.96, y = 10, label = "95% CI", color = "red") +
+  annotate("text", x = -1.96, y = 10, label = "95% CI", color = "red") +
+  theme_minimal()
+```
+
 

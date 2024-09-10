@@ -97,6 +97,7 @@ labs(x = expression("Temperature anomaly" ~ t[anom]), y = expression("Flowering 
 ```
 
 ### demonstrate the bell curve
+
 ```{r}
 # Load necessary libraries
 
@@ -150,8 +151,7 @@ p <- ggplot(data, aes(x = x)) +
 print(p)
 ```
 
-
-### marginal comparason
+## marginal comparason
 
 ```{r}
 summary_results_wtaxa %>% 
@@ -401,6 +401,7 @@ print(combined_plot)
 ```
 
 # figure to show the data spatial and temporal coverage of the three datasets
+
 ```{r}
 nab <- read.csv("/Volumes/seas-zhukai/datasets/vegetation/NAB/clean/2023-04-25/renew_station_info.csv") %>%
   select(lat, lon) %>%
@@ -506,4 +507,3 @@ p1 / p2 +
 
 ```{r}
 ```
-

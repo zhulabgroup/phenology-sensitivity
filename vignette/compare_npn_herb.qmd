@@ -161,7 +161,7 @@ herbarium_data <- read.csv("../data/species_summary_herb.csv") %>%
 npn_data <- read.csv("../data/species_summary_npn.csv") %>% 
   mutate(dataset = "Field observation") 
 species_list <- inner_join(herbarium_data, npn_data, by = "species") %>%
-  select(species) %>%
+  dplyr::select(species) %>%
   distinct()
 
 
@@ -178,68 +178,114 @@ joint_data_long <- joint_data %>%
     joint_data %>%
       mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
   ) %>% 
-  dplyr::select(species, taxa, dataset, sensitivity_type, estimate_combined, conf_low_combined, conf_high_combined, residual) %>%     
-    mutate(model_fit = case_when(
-    residual <= 20 ~ "Good",
-    residual <= 40 ~ "Moderate",
-    TRUE ~ "Poor"
-  )) 
+  dplyr::select(species, taxa, dataset, sensitivity_type, estimate_combined, conf_low_combined, conf_high_combined, residual) %>% 
+  group_by(species, sensitivity_type) %>%
+  mutate(equal = ifelse(max(conf_low_combined) < min(conf_high_combined), 1, 0)) %>%
+  arrange(taxa, species) %>%
+  mutate(species_name = forcats::fct_reorder(species, desc(species))) # Reorder species alphabetically within taxa
+
+
+```
+
+```{r fig.width=9, fig.height=10}
 
 
 joint_data_long %>% 
-    mutate(species_name = forcats::fct_reorder(species, desc(species))) %>%
-ggplot(aes(x = estimate_combined, y = species_name, color = taxa, alpha = model_fit, shape = dataset)) +
-  geom_point(size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
-  coord_cartesian(xlim = c(-30, 10)) +  # This will clip the error bars instead of removing them
-  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined, alpha = model_fit), width = 0, position = position_dodge(width = 0.5)) +
-  scale_alpha_manual(values = c("Good" = 1, "Moderate" = 0.5, "Poor" = 0.2), labels = c("Good", "Moderate", "Poor")) +
-  scale_color_discrete(
-    labels = function(x) {
-      sapply(x, function(label) paste0("*", label, "*"))
-    }
-  ) +
+  ggplot(aes(x = estimate_combined, y = species_name, color = dataset)) +
+    scale_color_manual(values = c("Herbarium" = "blue", "Field observation" = "red")) +
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-20, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined), width = 0, position = position_dodge(width = 0.5)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(aes(x = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
   labs(
     title = "",
     x = "Sensitivity (days/°C)",
     y = "Species",
-    color = "Taxa",
-    shape = "Dataset",
-    alpha = "Model fit"
+    color = "Dataset"
   ) +
-  facet_wrap(~sensitivity_type) +
+  facet_grid(taxa ~ sensitivity_type, scales = "free_y", space = "free_y") + 
   theme_minimal() +
   theme(
     axis.text.y = element_text(face = "italic"),
     legend.text = element_markdown() # Italicize legend text
-  )
+  )  +
+  # Apply themes for classic look, italics, and markdown legend
+  theme_classic() +
+  theme(
+    axis.text.y = element_text(face = "italic"), 
+    legend.position = "top"
+  ) 
 ```
 
-```{r}
-data_summary_species_npn <- data_summary_species %>% 
-  select(species, sig_diff) %>% 
-  rename(sig_diff_npn = sig_diff)
+# compare by pair
+```{r fig.width=8, fig.height=8}
+joint_data %>%  
+  mutate(alpha_level = factor(case_when(
+    diff_var <= 5 ~ "Low",
+    diff_var <= 10 ~ "Medium",
+    TRUE ~ "High"
+  ))) %>%
+  
+  ggplot(aes(x = norm_estimate, y = anom_estimate, color = dataset, alpha = factor(alpha_level), shape = as.factor(equal))) +
+    geom_point(size = 2) +
+    # Add a line connecting pairs with the same species name
+#    geom_line(aes(group = species), color = "black", alpha = 0.5) +
+    scale_alpha_manual(values = c("Low" = 1, "Medium" = 0.5, "High" = 0.2), labels = c("Low", "Medium", "High")) +
+  scale_shape_manual(values = c("0" = 3, "1" = 16), labels = c("0" = "Yes", "1" = "No")) +
+
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+    labs(
+    title = "",
+    x = "Temporal sensitivity (days/°C)",
+    y = "Spatial sensitivity (days/°C)",
+    shape = "Significant difference",
+    alpha = "Variance",
+    color = "Dataset"
+  ) +
+    theme_classic() +
+  # x y axies with equal scale
+  coord_fixed(ratio = 1) 
 ```
 
+
+# build 1 model to include both datasets
+
 ```{r}
-data_summary_species_herb <- data_summary_species %>% 
-  select(species, sig_diff) %>% 
-  rename(sig_diff_herb = sig_diff)
+npn_data <- read.csv("../data/npn_temperature_data.csv") %>% 
+  mutate(dataset = "Field observation") %>% 
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset)
+herb_data <- read.csv("../data/herb_temperature_data.csv") %>% 
+  mutate(dataset = "Herbarium") %>%
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset)
+
+shared_species <- inner_join(npn_data %>% distinct(species), herb_data %>% distinct(species)) 
+
+joint_data <- rbind(npn_data, herb_data) %>%
+  filter(species %in% shared_species$species) %>%
+  mutate(dataset = factor(dataset, levels = c("Field observation", "Herbarium")))
 ```
 
+
 ```{r}
-data_summary_species_combined <- inner_join(data_summary_species_npn, data_summary_species_herb, by = "species") 
-# make a tangent table summarizing number both report 0, both report 1, one report 0 and the other report 1
-data_summary_species_combined %>%
-  summarise(
-    both_0 = sum(sig_diff_npn == 0 & sig_diff_herb == 0),
-    both_1 = sum(sig_diff_npn == 1 & sig_diff_herb == 1),
-    npn_0_herb_1 = sum(sig_diff_npn == 0 & sig_diff_herb == 1),
-    npn_1_herb_0 = sum(sig_diff_npn == 1 & sig_diff_herb == 0)
-  )
+species_data <- joint_data %>% 
+  filter(species == "Acer rubrum") 
+model <- rlm(doy ~ (anom + norm)*dataset, data = species_data)
+summary(model)
+
 ```
+the result is consistent with our separate model then compare confidence interval
 
 ```{r}
+# Ensure 'Herbarium' is set as the baseline for 'dataset'
+joint_data$dataset <- relevel(joint_data$dataset, ref = "Herbarium")
 
+# Fit the model with 'Herbarium' as the baseline
+temporal_model <- blmer(doy ~ (anom + norm)*dataset + ((anom + norm)*dataset | species),
+                        data = joint_data,
+                        cov.prior = invwishart(df = 6, scale = diag(c(200, 20, 20, 200, 20, 20), 6)))
+
+summary(temporal_model)
 ```
 
 ```{r}

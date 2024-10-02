@@ -1,0 +1,164 @@
+---
+title: 'explore PMM'
+embed-resources: true
+author: "Yi Liu"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+format:
+  html:
+    code-folding: show
+    highlight: textmate
+    number-sections: true
+    theme: flatly
+    toc: TRUE
+    toc-depth: 4
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(ggtext)
+
+
+```
+
+# check the evolution distance
+```{r}
+library(ape)
+
+tree <- read.tree("../data/phylogenetics/timetree.nwk") %>% 
+  # replace "_" with " " in tip labels
+  {
+    new_tree <- .
+    new_tree$tip.label <- gsub("_", " ", new_tree$tip.label)
+    new_tree$tip.label <- gsub("Morus celtidifolia", "Morus microphylla", new_tree$tip.label)
+    new_tree
+  }
+```
+
+```{r}
+distances <- cophenetic.phylo(tree)
+```
+
+```{r}
+temperature_data <- read.csv("../data/herb_temperature_data.csv")
+
+temperature_data_model <- temperature_data %>%
+  group_by(species) %>%
+  # filter(n_distinct(doy) > 10) %>%  # hard to justify
+  filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(norm) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(doy, norm, anom) > 30) %>%  # Use n_distinct() for distinct counting
+  ungroup() 
+
+```
+
+
+let's try whether not matching the species work
+
+```{r}
+pheno_species <- temperature_data_model %>%
+  distinct(species)
+
+phylo_species <- tree$tip.label 
+# %>% 
+# # replace Morus microphylla with Morus microphylla var. microphylla
+#   gsub("Morus celtidifolia", "Morus microphylla", .) 
+
+setdiff(pheno_species$species, phylo_species) # check the one name to correct
+```
+
+```{r}
+temperature_data_model_phylo <- temperature_data_model %>%
+  filter(species %in% phylo_species) %>% 
+  dplyr::select(species, doy, norm, anom, yeart) 
+# %>% # filter out the species not in the phylo tree
+#   distinct(species) # check the species
+
+nspecies <- n_distinct(temperature_data_model_phylo$species)
+```
+
+
+
+```{r}
+  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
+              data=list(N=nrow(temperature_data_model_phylo),
+                        n_sp=nspecies,
+                        sp=temperature_data_model_phylo$species,
+                        x1=temperature_data_model_phylo$yeart,
+                        x2=temperature_data_model_phylo$anom,
+                        y=temperature_data_model_phylo$norm,
+                        Vphy=vcv(phylo, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
+
+              iter = 4000,
+              warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
+              chains = 4,
+              seed = 117 
+  )
+  
+  ## Save fitted posterior
+  saveRDS(fitlambest, "output/fit_model_PMM.rds")
+  
+
+```
+
+
+
+# reproduce Morales paper
+
+```{r}
+library(caper)
+library(pez)
+library(phytools)
+library(rstan)
+library(shinystan)
+library(plyr)
+library(dplyr)
+
+options(mc.cores = parallel::detectCores())
+
+
+
+#'######################################
+#### load data and phylogeny ####
+#'######################################
+
+
+d = read.csv("../data/phylogenetics/MoralesCastilla-PhenoPhyloMM-8202252/data/ospreebbphyloms_forknb.csv")
+phylo = read.tree("../data/phylogenetics/MoralesCastilla-PhenoPhyloMM-8202252/data/phyloforphyloms.tre")
+
+
+  
+```
+
+```{r}
+plot(phylo)
+```
+
+```{r})
+```
+
+
+
+
+
+
+
+# download and merge my own tree
+```{r}
+
+tree_most <- read.tree("../data/phylogenetics/timetree.nwk")
+plot(tree_most)
+```
+
+```{r}
+tree_few <- read.tree("../data/phylogenetics/phyloT_generated_tree_1727817578_newick.txt")
+plot(tree_few) # looks like it doesn't make since to marge the trees
+```
+
+```{r}
+```
+

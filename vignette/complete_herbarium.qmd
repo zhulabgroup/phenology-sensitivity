@@ -1063,16 +1063,16 @@ temperature_data %>%
 ```
 
 ```{r fig.width=7, fig.height=6}
-interval_length <- 1.5 # Set the desired interval length
+interval_length <- 2 # Set the desired interval length
 
 temperature_data_model %>%
   filter(species == "Acer rubrum") %>%
   mutate(norm_range = cut(norm, breaks = seq(min(norm), max(norm) + interval_length, by = interval_length))) %>% 
-  ggplot(aes(x = yeart, y = doy, color = norm_range)) +
+  ggplot() +
   # geom_point(alpha = 0.3) +
-    geom_smooth(method = "lm", se = FALSE, color = "red", alpha = 0.5) +
+    geom_smooth(aes(x = norm, y = doy), method = "lm", se = FALSE, color = "red", alpha = 0.5) +
 
-  geom_smooth(method = "lm", aes(group = norm_range), se = FALSE) +
+  geom_smooth(method = "lm", aes(x = yeart, y = doy, group = norm_range), color = "purple", size = 2, se = FALSE) +
   labs(
     title = "Acer rubrum", 
     #change the color of the title
@@ -1385,3 +1385,4 @@ print(p1+p2)
 
 
 ```
+

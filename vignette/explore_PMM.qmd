@@ -72,9 +72,15 @@ setdiff(pheno_species$species, phylo_species) # check the one name to correct
 ```
 
 ```{r}
+phylo_species_df <- data.frame(species = phylo_species)
+
+phylo_species_id <- phylo_species_df %>% 
+  mutate(sppid = 1:n())
+
 temperature_data_model_phylo <- temperature_data_model %>%
-  filter(species %in% phylo_species) %>% 
-  dplyr::select(species, doy, norm, anom, yeart) 
+  filter(species %in% phylo_species_df$species) %>% 
+  dplyr::select(species, doy, norm, anom, yeart) %>% 
+  left_join(phylo_species_id, by = "species")
 # %>% # filter out the species not in the phylo tree
 #   distinct(species) # check the species
 
@@ -84,23 +90,26 @@ nspecies <- n_distinct(temperature_data_model_phylo$species)
 
 
 ```{r}
+library(rstan)
+options(mc.cores = parallel::detectCores())
+
   fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
               data=list(N=nrow(temperature_data_model_phylo),
                         n_sp=nspecies,
-                        sp=temperature_data_model_phylo$species,
+                        sp=temperature_data_model_phylo$sppid,
                         x1=temperature_data_model_phylo$yeart,
                         x2=temperature_data_model_phylo$anom,
-                        y=temperature_data_model_phylo$norm,
-                        Vphy=vcv(phylo, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
+                        y=temperature_data_model_phylo$doy,
+                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
 
-              iter = 4000,
+              iter = 10000, #4000
               warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
-              chains = 4,
-              seed = 117 
+              chains = 4, #4
+              seed = 2 
   )
   
   ## Save fitted posterior
-  saveRDS(fitlambest, "output/fit_model_PMM.rds")
+  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM_more.rds")
   
 
 ```

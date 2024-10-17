@@ -115,42 +115,133 @@ options(mc.cores = parallel::detectCores())
 ```
 
 
-
-# reproduce Morales paper
-
 ```{r}
-library(caper)
-library(pez)
-library(phytools)
-library(rstan)
-library(shinystan)
-library(plyr)
-library(dplyr)
-
-options(mc.cores = parallel::detectCores())
+fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM_newprior_more.rds")
+# summarize the results
+fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
+                                       "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
+                                       "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
+fitsumdf <- as.data.frame(fitsum)
 
 
 
-#'######################################
-#### load data and phylogeny ####
-#'######################################
-
-
-d = read.csv("../data/phylogenetics/MoralesCastilla-PhenoPhyloMM-8202252/data/ospreebbphyloms_forknb.csv")
-phylo = read.tree("../data/phylogenetics/MoralesCastilla-PhenoPhyloMM-8202252/data/phyloforphyloms.tre")
-
-
-  
 ```
 
 ```{r}
-plot(phylo)
+# Extract summary of b_zc
+b_zc_samples <- extract(fitlambest)$b_zc
+
+# Calculate the 95% confidence interval
+ci_lower <- quantile(b_zc_samples, 0.025)
+ci_upper <- quantile(b_zc_samples, 0.975)
+
+# Create a data frame for plotting
+b_zc_df <- data.frame(b_zc = b_zc_samples)
+
+# Plot the distribution using ggplot2
+ggplot(b_zc_df, aes(x = b_zc)) +
+  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
+  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
+  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
+  labs(title = "Distribution of diff with 95% Confidence Interval",
+       x = "b_zc",
+       y = "Density") +
+  theme_minimal()
+```
+```{r}
+# Extract summary of b_zc
+b_zc_samples <- extract(fitlambest)$lam_interceptsbc
+
+# Calculate the 95% confidence interval
+ci_lower <- quantile(b_zc_samples, 0.025)
+ci_upper <- quantile(b_zc_samples, 0.975)
+
+# Create a data frame for plotting
+b_zc_df <- data.frame(b_zc = b_zc_samples)
+
+# Plot the distribution using ggplot2
+ggplot(b_zc_df, aes(x = b_zc)) +
+  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
+  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
+  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
+  labs(title = "Distribution of diff_lam with 95% Confidence Interval",
+       x = "b_zc",
+       y = "Density") +
+  theme_minimal()
+```
+```{r}
+# Extract summary of b_zc
+b_zc_samples <- extract(fitlambest)$lam_interceptsbf
+
+# Calculate the 95% confidence interval
+ci_lower <- quantile(b_zc_samples, 0.025)
+ci_upper <- quantile(b_zc_samples, 0.975)
+
+# Create a data frame for plotting
+b_zc_df <- data.frame(b_zc = b_zc_samples)
+
+# Plot the distribution using ggplot2
+ggplot(b_zc_df, aes(x = b_zc)) +
+  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
+  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
+  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
+  labs(title = "Distribution of spatial sensitivity_lam with 95% Confidence Interval",
+       x = "b_zc",
+       y = "Density") +
+  theme_minimal()
 ```
 
-```{r})
+```{r}
+# Extract summary of b_zc
+b_zc_samples <- extract(fitlambest)$sigma_interceptsbc
+
+
+# Calculate the 95% confidence interval
+ci_lower <- quantile(b_zc_samples, 0.025)
+ci_upper <- quantile(b_zc_samples, 0.975)
+
+# Create a data frame for plotting
+b_zc_df <- data.frame(b_zc = b_zc_samples)
+
+# Plot the distribution using ggplot2
+ggplot(b_zc_df, aes(x = b_zc)) +
+  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
+  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
+  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
+  labs(title = "Distribution of diff_sigma with 95% Confidence Interval",
+       x = "b_zc",
+       y = "Density") +
+  theme_minimal()
 ```
 
 
+# try HMM to see why it's different from BLME
+```{r}
+  fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
+                   data=list(N=nrow(temperature_data_model_phylo),
+                        n_sp=nspecies,
+                        sp=temperature_data_model_phylo$sppid,
+                        x1=temperature_data_model_phylo$yeart,
+                        x2=temperature_data_model_phylo$anom,
+                        y=temperature_data_model_phylo$doy,
+                        Vphy=vcv(tree, corr = TRUE)),
+              iter = 10000, #4000
+              warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
+              chains = 4, #4
+              seed = 2  
+  )
+  saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM.rds")
+```
+
+# using BLME for HMM
+```{r}
+library(blme)
+temporal_model <- blmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
+                        data = temperature_data_model_phylo,
+                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50, 50), 3)))
+
+summary(temporal_model)
+```
 
 
 
@@ -169,5 +260,28 @@ plot(tree_few) # looks like it doesn't make since to marge the trees
 ```
 
 ```{r}
+```
+
+
+# check multivariate normal distribution
+```{r}
+# Load necessary library
+library(mvtnorm)
+
+# Define mean vector and covariance matrix for the bivariate normal distribution
+mu <- c(0, 0)
+sigma <- matrix(c(1, 0, 0, 3), 2, 2)
+
+# Generate a grid of points
+x <- seq(-3, 3, length = 50)
+y <- seq(-3, 3, length = 50)
+xy <- expand.grid(x = x, y = y)
+
+# Compute the bivariate normal density values
+z <- matrix(dmvnorm(xy, mean = mu, sigma = sigma), nrow = length(x))
+
+# Plot using filled.contour to represent the third dimension as color
+filled.contour(x, y, z, color.palette = terrain.colors, 
+               xlab = "X", ylab = "Y", main = "Bivariate Normal Distribution", asp = 1)
 ```
 

@@ -43,8 +43,39 @@ tree <- read.tree("../data/phylogenetics/timetree.nwk") %>%
 distances <- cophenetic.phylo(tree)
 ```
 
+
+# download the tree
+
+```{r}
+library(devtools)
+devtools::install_github("jinyizju/V.PhyloMaker2")
+
+species_list <- temperature_data_model %>%
+  distinct(species, genus, family)
+
+
+library(V.PhyloMaker2)
+
+result <- phylo.maker(species_list, 
+                      tree = GBOTB.extended.TPL, 
+                      nodes = nodes.info.1.TPL, 
+                      scenarios = c("S1", "S2", "S3"))
+
+write.tree(result[["scenario.1"]], "../data/phylogenetics/PhyloMaker_tree_scenario1.nwk")
+```
+
+
+```{r}
+par(mfrow = c(1, 3))
+plot(result[["scenario.1"]])
+plot(result[["scenario.2"]])
+plot(result[["scenario.3"]])
+```
+
+# fit the model
 ```{r}
 temperature_data <- read.csv("../data/herb_temperature_data.csv")
+tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1.nwk") 
 
 temperature_data_model <- temperature_data %>%
   group_by(species) %>%
@@ -56,33 +87,15 @@ temperature_data_model <- temperature_data %>%
 
 ```
 
-
-let's try whether not matching the species work
-
 ```{r}
-pheno_species <- temperature_data_model %>%
-  distinct(species)
-
-phylo_species <- tree$tip.label 
-# %>% 
-# # replace Morus microphylla with Morus microphylla var. microphylla
-#   gsub("Morus celtidifolia", "Morus microphylla", .) 
-
-setdiff(pheno_species$species, phylo_species) # check the one name to correct
-```
-
-```{r}
-phylo_species_df <- data.frame(species = phylo_species)
-
-phylo_species_id <- phylo_species_df %>% 
-  mutate(sppid = 1:n())
+phylo_species_id <- temperature_data_model %>%
+  distinct(species) %>%
+  dplyr::mutate(sppid = dplyr::row_number())
 
 temperature_data_model_phylo <- temperature_data_model %>%
-  filter(species %in% phylo_species_df$species) %>% 
   dplyr::select(species, doy, norm, anom, yeart) %>% 
   left_join(phylo_species_id, by = "species")
-# %>% # filter out the species not in the phylo tree
-#   distinct(species) # check the species
+
 
 nspecies <- n_distinct(temperature_data_model_phylo$species)
 ```
@@ -109,20 +122,19 @@ options(mc.cores = parallel::detectCores())
   )
   
   ## Save fitted posterior
-  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM_more.rds")
+  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM.rds")
   
 
 ```
 
-
+## dignose
 ```{r}
-fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM_newprior_more.rds")
+fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM.rds")
 # summarize the results
 fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
                                        "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
                                        "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
 fitsumdf <- as.data.frame(fitsum)
-
 
 
 ```
@@ -215,7 +227,8 @@ ggplot(b_zc_df, aes(x = b_zc)) +
 ```
 
 
-# try HMM to see why it's different from BLME
+
+# try HMM 
 ```{r}
   fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
                    data=list(N=nrow(temperature_data_model_phylo),
@@ -233,34 +246,34 @@ ggplot(b_zc_df, aes(x = b_zc)) +
   saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM.rds")
 ```
 
+```{r}
+fitlambest <- readRDS("../data/phylogenetics/fit_model_HMM.rds")
+# summarize the results
+fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
+                                       "b_zf", "sigma_interceptsbf", 
+                                       "b_zc", "sigma_interceptsbc"))
+fitsumdf <- as.data.frame(fitsum)
+
+```
+
 # using BLME for HMM
 ```{r}
-library(blme)
-temporal_model <- blmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
-                        data = temperature_data_model_phylo,
-                        cov.prior = invwishart(df = 3, scale = diag(c(50, 50, 50), 3)))
-
-summary(temporal_model)
+# library(blme)
+# temporal_model <- blmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
+#                         data = temperature_data_model,
+#                         cov.prior = invwishart(df = 3, scale = diag(c(10, 10, 10), 3)))
+# 
+# summary(temporal_model)
+# 
+# model <- lmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
+#                         data = temperature_data_model)
+# summary(model)
 ```
 
 
 
 
 
-# download and merge my own tree
-```{r}
-
-tree_most <- read.tree("../data/phylogenetics/timetree.nwk")
-plot(tree_most)
-```
-
-```{r}
-tree_few <- read.tree("../data/phylogenetics/phyloT_generated_tree_1727817578_newick.txt")
-plot(tree_few) # looks like it doesn't make since to marge the trees
-```
-
-```{r}
-```
 
 
 # check multivariate normal distribution
@@ -283,5 +296,10 @@ z <- matrix(dmvnorm(xy, mean = mu, sigma = sigma), nrow = length(x))
 # Plot using filled.contour to represent the third dimension as color
 filled.contour(x, y, z, color.palette = terrain.colors, 
                xlab = "X", ylab = "Y", main = "Bivariate Normal Distribution", asp = 1)
+```
+
+
+
+```{r}
 ```
 

@@ -73,6 +73,8 @@ plot(result[["scenario.3"]])
 ```
 
 # fit the model
+
+
 ```{r}
 temperature_data <- read.csv("../data/herb_temperature_data.csv")
 tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1.nwk") 
@@ -100,44 +102,39 @@ temperature_data_model_phylo <- temperature_data_model %>%
 nspecies <- n_distinct(temperature_data_model_phylo$species)
 ```
 
-
-
+## try HMM 
 ```{r}
 library(rstan)
 options(mc.cores = parallel::detectCores())
 
-  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
-              data=list(N=nrow(temperature_data_model_phylo),
+  fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
+                   data=list(N=nrow(temperature_data_model_phylo),
                         n_sp=nspecies,
                         sp=temperature_data_model_phylo$sppid,
                         x1=temperature_data_model_phylo$yeart,
                         x2=temperature_data_model_phylo$anom,
                         y=temperature_data_model_phylo$doy,
-                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
-
+                        Vphy=vcv(tree, corr = TRUE)),
               iter = 10000, #4000
               warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
               chains = 4, #4
-              seed = 2 
+              seed = 2  
   )
-  
-  ## Save fitted posterior
-  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM.rds")
-  
-
+  saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM.rds")
 ```
 
-## dignose
+### dignose
 ```{r}
-fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM.rds")
+fitlambest <- readRDS("../data/phylogenetics/fit_model_HMM.rds")
 # summarize the results
 fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
-                                       "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
-                                       "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
+                                       "b_zf", "sigma_interceptsbf", 
+                                       "b_zc", "sigma_interceptsbc"))
 fitsumdf <- as.data.frame(fitsum)
 
-
 ```
+
+
 
 ```{r}
 # Extract summary of b_zc
@@ -227,34 +224,42 @@ ggplot(b_zc_df, aes(x = b_zc)) +
 ```
 
 
-
-# try HMM 
+## try PMM
 ```{r}
-  fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
-                   data=list(N=nrow(temperature_data_model_phylo),
+
+
+  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
+              data=list(N=nrow(temperature_data_model_phylo),
                         n_sp=nspecies,
                         sp=temperature_data_model_phylo$sppid,
                         x1=temperature_data_model_phylo$yeart,
                         x2=temperature_data_model_phylo$anom,
                         y=temperature_data_model_phylo$doy,
-                        Vphy=vcv(tree, corr = TRUE)),
+                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
+
               iter = 10000, #4000
               warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
               chains = 4, #4
-              seed = 2  
+              seed = 2 
   )
-  saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM.rds")
+  
+  ## Save fitted posterior
+  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM.rds")
+  
+
 ```
 
 ```{r}
-fitlambest <- readRDS("../data/phylogenetics/fit_model_HMM.rds")
+fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM.rds")
 # summarize the results
 fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
-                                       "b_zf", "sigma_interceptsbf", 
-                                       "b_zc", "sigma_interceptsbc"))
+                                       "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
+                                       "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
 fitsumdf <- as.data.frame(fitsum)
 
+
 ```
+
 
 # using BLME for HMM
 ```{r}

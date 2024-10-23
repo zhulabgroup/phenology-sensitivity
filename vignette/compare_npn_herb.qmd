@@ -267,6 +267,23 @@ joint_data <- rbind(npn_data, herb_data) %>%
 ```
 
 
+## check whether the data itself is consistent
+```{r}
+joint_data %>% 
+  ggplot(aes(x = yeart, y = doy, color = dataset)) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~species) +
+  theme_minimal()
+  
+```
+
+```{r}
+```
+
+
+
+## build model
+
 ```{r}
 species_data <- joint_data %>% 
   filter(species == "Acer rubrum") 

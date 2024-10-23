@@ -89,170 +89,34 @@ temperature_data_model <- temperature_data %>%
 
 ```
 
-```{r}
-phylo_species_id <- temperature_data_model %>%
-  distinct(species) %>%
-  dplyr::mutate(sppid = dplyr::row_number())
-
-temperature_data_model_phylo <- temperature_data_model %>%
-  dplyr::select(species, doy, norm, anom, yeart) %>% 
-  left_join(phylo_species_id, by = "species")
-
-
-nspecies <- n_distinct(temperature_data_model_phylo$species)
-```
-
-## try HMM 
-```{r}
-library(rstan)
-options(mc.cores = parallel::detectCores())
-
-  fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
-                   data=list(N=nrow(temperature_data_model_phylo),
-                        n_sp=nspecies,
-                        sp=temperature_data_model_phylo$sppid,
-                        x1=temperature_data_model_phylo$yeart,
-                        x2=temperature_data_model_phylo$anom,
-                        y=temperature_data_model_phylo$doy,
-                        Vphy=vcv(tree, corr = TRUE)),
-              iter = 10000, #4000
-              warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
-              chains = 4, #4
-              seed = 2  
-  )
-  saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM.rds")
-```
-
-### dignose
-```{r}
-fitlambest <- readRDS("../data/phylogenetics/fit_model_HMM.rds")
-# summarize the results
-fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
-                                       "b_zf", "sigma_interceptsbf", 
-                                       "b_zc", "sigma_interceptsbc"))
-fitsumdf <- as.data.frame(fitsum)
-
+```{r fig.width=5, fig.height=15}}
+plot(tree)
 ```
 
 
 
+## dignose for divergebt transitions
 ```{r}
-# Extract summary of b_zc
-b_zc_samples <- extract(fitlambest)$b_zc
+# Check for divergent transitions after warmup across all chains
+divergent_transitions <- do.call(rbind, get_sampler_params(fitlambest, inc_warmup = FALSE))[, "divergent__"]
 
-# Calculate the 95% confidence interval
-ci_lower <- quantile(b_zc_samples, 0.025)
-ci_upper <- quantile(b_zc_samples, 0.975)
+# Extract parameters that are relevant for diagnosing the issue
+# You can plot a subset of parameters, especially if your model has many parameters
 
-# Create a data frame for plotting
-b_zc_df <- data.frame(b_zc = b_zc_samples)
-
-# Plot the distribution using ggplot2
-ggplot(b_zc_df, aes(x = b_zc)) +
-  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
-  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
-  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
-  labs(title = "Distribution of diff with 95% Confidence Interval",
-       x = "b_zc",
-       y = "Density") +
-  theme_minimal()
-```
-```{r}
-# Extract summary of b_zc
-b_zc_samples <- extract(fitlambest)$lam_interceptsbc
-
-# Calculate the 95% confidence interval
-ci_lower <- quantile(b_zc_samples, 0.025)
-ci_upper <- quantile(b_zc_samples, 0.975)
-
-# Create a data frame for plotting
-b_zc_df <- data.frame(b_zc = b_zc_samples)
-
-# Plot the distribution using ggplot2
-ggplot(b_zc_df, aes(x = b_zc)) +
-  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
-  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
-  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
-  labs(title = "Distribution of diff_lam with 95% Confidence Interval",
-       x = "b_zc",
-       y = "Density") +
-  theme_minimal()
-```
-```{r}
-# Extract summary of b_zc
-b_zc_samples <- extract(fitlambest)$lam_interceptsbf
-
-# Calculate the 95% confidence interval
-ci_lower <- quantile(b_zc_samples, 0.025)
-ci_upper <- quantile(b_zc_samples, 0.975)
-
-# Create a data frame for plotting
-b_zc_df <- data.frame(b_zc = b_zc_samples)
-
-# Plot the distribution using ggplot2
-ggplot(b_zc_df, aes(x = b_zc)) +
-  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
-  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
-  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
-  labs(title = "Distribution of spatial sensitivity_lam with 95% Confidence Interval",
-       x = "b_zc",
-       y = "Density") +
-  theme_minimal()
-```
-
-```{r}
-# Extract summary of b_zc
-b_zc_samples <- extract(fitlambest)$sigma_interceptsbc
-
-
-# Calculate the 95% confidence interval
-ci_lower <- quantile(b_zc_samples, 0.025)
-ci_upper <- quantile(b_zc_samples, 0.975)
-
-# Create a data frame for plotting
-b_zc_df <- data.frame(b_zc = b_zc_samples)
-
-# Plot the distribution using ggplot2
-ggplot(b_zc_df, aes(x = b_zc)) +
-  geom_density(fill = "blue", alpha = 0.5) +  # Plot the density
-  geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +  # Lower 95% CI line
-  geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +  # Upper 95% CI line
-  labs(title = "Distribution of diff_sigma with 95% Confidence Interval",
-       x = "b_zc",
-       y = "Density") +
-  theme_minimal()
+# Generate pairs() plot and color divergent transitions
+pairs(fitlambest, pars = c("a_z", "sigma_interceptsa", 
+                           "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
+                           "b_zc", "sigma_interceptsbc", "lam_interceptsbc"), # Customize parameters here
+      condition = divergent_transitions == 1,  # Highlight divergent transitions
+      panel = points)  # You can use 'points' to see scatter plots
 ```
 
 
-## try PMM
-```{r}
-
-
-  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
-              data=list(N=nrow(temperature_data_model_phylo),
-                        n_sp=nspecies,
-                        sp=temperature_data_model_phylo$sppid,
-                        x1=temperature_data_model_phylo$yeart,
-                        x2=temperature_data_model_phylo$anom,
-                        y=temperature_data_model_phylo$doy,
-                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
-
-              iter = 10000, #4000
-              warmup = 2000, # half the iter as warmp is default, but leaving in case we want to change
-              chains = 4, #4
-              seed = 2 
-  )
-  
-  ## Save fitted posterior
-  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM.rds")
-  
-
-```
 
 ```{r}
 fitlambest <- readRDS("../data/phylogenetics/fit_model_PMM.rds")
 # summarize the results
-fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", 
+fitsum <- summary(fitlambest, pars = c("a_z", "sigma_interceptsa", "lam_interceptsa",
                                        "b_zf", "sigma_interceptsbf", "lam_interceptsbf", 
                                        "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
 fitsumdf <- as.data.frame(fitsum)
@@ -261,16 +125,67 @@ fitsumdf <- as.data.frame(fitsum)
 ```
 
 
+```{r}
+# plot the posterior distribution of lam_interceptsbf
+posterior_lam_interceptsbf <- extract(fitlambest)$lam_interceptsbc
+posterior_lam_interceptsbf <- posterior_lam_interceptsbf %>% as.data.frame()
+ggplot(posterior_lam_interceptsbf, aes(x = .)) +
+  geom_density(fill = "skyblue", color = "black") +
+  labs(title = "Posterior Distribution of lam_interceptsbf",
+       x = "lam_interceptsbf",
+       y = "Density") +
+  theme_minimal()
+
+```
+
+```{r}
+eigen_values <- eigen(vcv(tree, corr = TRUE))$values
+print(eigen_values)  # Check for very small or negative eigenvalues
+```
+
+```{r}
+# Regularize the Vphy matrix by adding a small value to the diagonal
+Vphy <- vcv(tree, corr = TRUE) + diag(1e-3, nrow(vcv(tree, corr = TRUE)))
+```
+
+
+```{r}
+eigen_values <- eigen(Vphy)$values
+print(eigen_values)
+```
+
+
+```{r}
+# Assuming fitlamb0 is your fitted Stan model object
+fit_summary <- summary(fitlambest)
+
+# Extract the summary information into a data frame
+fit_df <- as.data.frame(fit_summary$summary)
+
+spatial_sensitivity <- fit_df[grepl("b_force", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_spa = mean, lower_spa = `2.5%`, upper_spa = `97.5%`)
+
+taxa_info <- temperature_data_model %>%
+  distinct(species, genus)
+
+diff_sensitivity <- fit_df[grepl("b_chill", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id, spatial_sensitivity) %>% 
+  left_join(taxa_info, by = "species")
+```
+
 # using BLME for HMM
 ```{r}
 # library(blme)
-# temporal_model <- blmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
+# temporal_model <- blmer(doy ~ yeart + anom + (1 + yeart + anom | species),
 #                         data = temperature_data_model,
-#                         cov.prior = invwishart(df = 3, scale = diag(c(10, 10, 10), 3)))
+#                         cov.prior = invwishart(df = 3, scale = diag(c(50, 50, 50), 3)))
 # 
 # summary(temporal_model)
 # 
-# model <- lmer(doy ~ yeart + anom + (1 + yeart + anom | species), 
+# model <- lmer(doy ~ yeart + anom + (1 + yeart + anom | species),
 #                         data = temperature_data_model)
 # summary(model)
 ```
@@ -303,8 +218,229 @@ filled.contour(x, y, z, color.palette = terrain.colors,
                xlab = "X", ylab = "Y", main = "Bivariate Normal Distribution", asp = 1)
 ```
 
+# apply to NPN data
+
+# try put the two dataset together 
+
+```{r}
+npn_data <- read.csv("../data/npn_temperature_data.csv") %>% 
+  mutate(dataset = "Field observation") %>% 
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset)
+herb_data <- read.csv("../data/herb_temperature_data.csv") %>% 
+  mutate(dataset = "Herbarium") %>%
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset, family)
+
+joint_data_total <- rbind(npn_data, herb_data %>% dplyr::select(-family))%>%
+  mutate(dataset = factor(dataset, levels = c("Field observation", "Herbarium"))) %>%
+  group_by(species) %>%
+  # filter(n_distinct(doy) > 10) %>%  # hard to justify
+  filter(n_distinct(anom) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(norm) > 10) %>%  # Use n_distinct() for distinct counting
+  filter(n_distinct(doy, norm, anom) > 30) %>%  # Use n_distinct() for distinct counting
+  ungroup() 
+
+total_species <- full_join(npn_data %>% distinct(species, genus), herb_data %>% distinct(species, genus, family)) %>% 
+  filter(species %in% joint_data_total$species) 
+```
+
+
+## download tree
+```{r}
+
+result_total <- phylo.maker(total_species, 
+                      tree = GBOTB.extended.TPL, 
+                      nodes = nodes.info.1.TPL, 
+                      scenarios = c("S1", "S2", "S3"))
+
+write.tree(result_total[["scenario.1"]], "../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk")
+```
+
+
+## check tree: not too much differences in vcv matrix
+```{r}
+tree <- result_total[["scenario.3"]]
+# Regularize the Vphy matrix by adding a small value to the diagonal
+Vphy <- vcv(tree, corr = TRUE) 
+```
 
 
 ```{r}
+eigen_values <- eigen(Vphy)$values
+print(eigen_values)
 ```
 
+
+
+# run total models
+
+
+```{r}
+tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk") 
+
+
+```
+
+```{r}
+tree_species <- rownames(vcv(tree, corr = TRUE)) %>% 
+  gsub("_", " ", .) 
+
+# Create a data frame to match species in the tree with IDs
+phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
+
+# Join the species IDs from the tree with the temperature data
+temperature_data_model_phylo <- joint_data_total %>%
+  dplyr::select(species, doy, norm, anom, yeart) %>% 
+  left_join(phylo_species_id, by = "species")  # Join based on species names
+
+# Ensure that species IDs in the dataset match those in the tree
+nspecies <- n_distinct(temperature_data_model_phylo$species)
+```
+
+## try HMM 
+```{r}
+library(rstan)
+options(mc.cores = parallel::detectCores())
+
+fitlamb0 <- stan("../data/phylogenetics/PhenoPhyloMM_HMM_Yi.stan",
+                 data = list(N = nrow(temperature_data_model_phylo),
+                             n_sp = nspecies,
+                             sp = temperature_data_model_phylo$sppid,
+                             x1 = temperature_data_model_phylo$yeart,
+                             x2 = temperature_data_model_phylo$anom,
+                             y = temperature_data_model_phylo$doy,
+                             Vphy = vcv(tree, corr = TRUE)),
+                 iter = 4000, #4000
+                 warmup = 2000, # half the iter as warmup is default, but leaving in case we want to change
+                 chains = 4, #4
+                 seed = 2
+)
+  saveRDS(fitlamb0, "../data/phylogenetics/fit_model_HMM_all.rds")
+```
+
+### dignose
+
+```{r}
+fitlamb0 <- readRDS("../data/phylogenetics/fit_model_HMM_all.rds")
+# summarize the results
+fitsum_h <- summary(fitlamb0, pars = c("a_z", "sigma_interceptsa", 
+                                       "b_zf", "sigma_interceptsbf", 
+                                       "b_zc", "sigma_interceptsbc"))
+fitsumdf_h <- as.data.frame(fitsum_h)
+
+```
+
+```{r}
+# Extract the posterior samples for b_zc from the Stan model
+posterior_b_zc <- extract(fitlamb0)$b_zc
+posterior_b_zc <- as.data.frame(posterior_b_zc)
+
+# Get the 95% confidence interval from the summary data frame
+posterior_b_zc_lower <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.2.5.`)
+posterior_b_zc_upper <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.97.5.`)
+
+# Plot posterior distribution with 95% CI
+library(ggplot2)
+
+ggplot(posterior_b_zc, aes(x = posterior_b_zc)) +
+  geom_density(fill = "skyblue", color = "black") +  # Posterior density plot
+  geom_vline(xintercept = posterior_b_zc_lower, linetype = "dashed", color = "red", size = 1) +  # Lower bound of 95% CI
+  geom_vline(xintercept = posterior_b_zc_upper, linetype = "dashed", color = "red", size = 1) +  # Upper bound of 95% CI
+  labs(title = " ",
+       x = "Difference (Temporal - Spatial, days/°C)",
+       y = "Density") +
+  theme_minimal()
+```
+
+
+```{r}
+# Assuming fitlamb0 is your fitted Stan model object
+fit_summary <- summary(fitlamb0)
+
+# Extract the summary information into a data frame
+fit_df <- as.data.frame(fit_summary$summary)
+
+spatial_sensitivity <- fit_df[grepl("b_force", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_spa = mean, lower_spa = `2.5%`, upper_spa = `97.5%`)
+
+taxa_info <- temperature_data_model %>%
+  distinct(species, genus)
+
+diff_sensitivity <- fit_df[grepl("b_chill", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id, spatial_sensitivity) %>% 
+  left_join(taxa_info, by = "species")
+
+```
+
+
+```{r}
+library(ggExtra)
+p <- diff_sensitivity %>%
+  ggplot(aes(x = mean_spa, y = mean_diff, color = genus)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff), width = 0.1, alpha = 0.5) +
+  geom_errorbarh(aes(xmin = lower_spa, xmax = upper_spa), height = 0.1, alpha = 0.5) +
+  labs(x = "Spatial sensitivity (days/°C)", y = "Difference (Temporal - Spatial, days/°C)") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Add marginal distributions
+p_with_marginals <- ggMarginal(p, type = "density")
+
+# Display the plot
+print(p_with_marginals)
+```
+
+
+
+## try PMM
+```{r}
+
+
+  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi.stan",
+              data=list(N=nrow(temperature_data_model_phylo),
+                        n_sp=nspecies,
+                        sp=temperature_data_model_phylo$sppid,
+                        x1=temperature_data_model_phylo$yeart,
+                        x2=temperature_data_model_phylo$anom,
+                        y=temperature_data_model_phylo$doy,
+                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
+
+              iter = 8000, #4000
+              warmup = 4000, # half the iter as warmp is default, but leaving in case we want to change
+              chains = 4, #4
+              seed = 2 
+  )
+  
+  ## Save fitted posterior
+  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM_all.rds")
+  
+
+```
+
+## try PMM_neg
+```{r}
+
+
+  fitlambest <- stan("../data/phylogenetics/PhenoPhyloMM_PMM_Yi_neg.stan",
+              data=list(N=nrow(temperature_data_model_phylo),
+                        n_sp=nspecies,
+                        sp=temperature_data_model_phylo$sppid,
+                        x1=temperature_data_model_phylo$yeart,
+                        x2=temperature_data_model_phylo$anom,
+                        y=temperature_data_model_phylo$doy,
+                        Vphy=vcv(tree, corr = TRUE)), # vcv: Phylogenetic Variance-covariance or Correlation Matrix
+
+              iter = 8000, #4000
+              warmup = 4000, # half the iter as warmp is default, but leaving in case we want to change
+              chains = 4, #4
+              seed = 2 
+  )
+  
+  ## Save fitted posterior
+  saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM_all_neg.rds")
+  
+
+```

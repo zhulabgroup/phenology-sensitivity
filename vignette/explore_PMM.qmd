@@ -275,8 +275,14 @@ print(eigen_values)
 
 
 ```{r}
+library(ggtree)
+
 tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk") 
 
+# get the families included in the tree
+families <- total_species %>% 
+  distinct(family) %>% 
+  pull(family)
 
 ```
 
@@ -339,8 +345,6 @@ posterior_b_zc_lower <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`
 posterior_b_zc_upper <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.97.5.`)
 
 # Plot posterior distribution with 95% CI
-library(ggplot2)
-
 ggplot(posterior_b_zc, aes(x = posterior_b_zc)) +
   geom_density(fill = "skyblue", color = "black") +  # Posterior density plot
   geom_vline(xintercept = posterior_b_zc_lower, linetype = "dashed", color = "red", size = 1) +  # Lower bound of 95% CI
@@ -383,6 +387,8 @@ p <- diff_sensitivity %>%
   geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff), width = 0.1, alpha = 0.5) +
   geom_errorbarh(aes(xmin = lower_spa, xmax = upper_spa), height = 0.1, alpha = 0.5) +
   labs(x = "Spatial sensitivity (days/°C)", y = "Difference (Temporal - Spatial, days/°C)") +
+    xlim(-9,3)+
+  ylim(-6,8)+
   theme_minimal() +
   theme(legend.position = "bottom")
 
@@ -419,6 +425,246 @@ print(p_with_marginals)
   
 
 ```
+```{r}
+fitlambp <- readRDS("../data/phylogenetics/fit_model_PMM_all.rds")
+# summarize the results
+fitsum_h <- summary(fitlambp, pars = c("a_z", "sigma_interceptsa", "lam_interceptsa",
+                                       "b_zf", "sigma_interceptsbf", "lam_interceptsbf",
+                                       "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
+fitsumdf_h <- as.data.frame(fitsum_h)
+
+```
+
+```{r}
+
+# Extract the posterior samples for b_zc from the Stan model
+posterior_b_zc <- extract(fitlambp)$b_zc
+posterior_b_zc <- as.data.frame(posterior_b_zc)
+
+# Get the 95% confidence interval from the summary data frame
+posterior_b_zc_lower <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.2.5.`)
+posterior_b_zc_upper <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.97.5.`)
+
+# Plot posterior distribution with 95% CI
+ggplot(posterior_b_zc, aes(x = posterior_b_zc)) +
+  geom_density(fill = "skyblue", color = "black") +  # Posterior density plot
+  geom_vline(xintercept = posterior_b_zc_lower, linetype = "dashed", color = "red", size = 1) +  # Lower bound of 95% CI
+  geom_vline(xintercept = posterior_b_zc_upper, linetype = "dashed", color = "red", size = 1) +  # Upper bound of 95% CI
+  labs(title = " ",
+       x = "Difference (Temporal - Spatial, days/°C)",
+       y = "Density") +
+  theme_minimal()
+```
+
+
+```{r}
+# plot the posterior distribution of lam_interceptsbf
+posterior_lam_interceptsbf <- extract(fitlambp)$lam_interceptsbc
+posterior_lam_interceptsbf <- posterior_lam_interceptsbf %>% as.data.frame()
+
+ggplot(posterior_lam_interceptsbf, aes(x = .)) +
+  geom_density(fill = "skyblue", color = "black") +
+  labs(title = "Posterior Distribution of lam_interceptsbf",
+       x = "lam_interceptsbf",
+       y = "Density") +
+  theme_minimal()
+
+```
+
+
+```{r}
+# Assuming fitlamb0 is your fitted Stan model object
+fit_summary <- summary(fitlambp)
+
+# Extract the summary information into a data frame
+fit_df <- as.data.frame(fit_summary$summary)
+
+spatial_sensitivity <- fit_df[grepl("b_force", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_spa = mean, lower_spa = `2.5%`, upper_spa = `97.5%`)
+
+taxa_info <- temperature_data_model %>%
+  distinct(species, genus)
+
+diff_sensitivity <- fit_df[grepl("b_chill", rownames(fit_df)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id, spatial_sensitivity) %>% 
+  left_join(taxa_info, by = "species")
+
+```
+
+
+```{r}
+library(ggExtra)
+p <- diff_sensitivity %>%
+  ggplot(aes(x = mean_spa, y = mean_diff, color = genus)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff), width = 0.1, alpha = 0.5) +
+  geom_errorbarh(aes(xmin = lower_spa, xmax = upper_spa), height = 0.1, alpha = 0.5) +
+  labs(x = "Spatial sensitivity (days/°C)", y = "Difference (Temporal - Spatial, days/°C)") +
+  theme_minimal() +
+  xlim(-9,3)+
+  ylim(-6,8)+
+  theme(legend.position = "bottom")
+
+# Add marginal distributions
+p_with_marginals <- ggMarginal(p, type = "density")
+
+# Display the plot
+print(p_with_marginals)
+```
+## plot PMM and HMM estimate
+
+### try HMM first
+```{r fig.width=30, fig.height=9}
+
+diff_sensitivity %>% 
+  ggplot(aes(y = mean_diff, x = species)) +
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  # coord_cartesian(xlim = c(-20, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    x = "Difference (Temporal - Spatial, days/°C)",
+    y = "Species",
+    color = "Dataset"
+  ) +
+    facet_grid(. ~ genus, scales = "free_x", space = "free_x") + 
+
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5), 
+    legend.text = element_markdown() # Italicize legend text
+  ) 
+```
+
+```{r fig.width=30, fig.height=30}
+lam_bc_pmm <- diff_sensitivity$mean_diff
+
+# Assuming `tree` is a phylogenetic tree object and `lam_bc_pmm` contains the lambda values for the leaves
+# You can use the `phytools` package to compute ancestral node values by averaging over descendant leaves.
+
+# Load required libraries
+library(phytools)
+
+# Step 1: Create a named vector for the lambda values (`lam_bc_pmm`), with species names as names
+lambda_tips <- setNames(lam_bc_pmm, tree$tip.label) # Assuming `lam_bc_pmm` contains species' lambda values
+
+# Step 2: Use `fastAnc` to calculate ancestral states (lambda values) for internal nodes
+lambda_nodes <- fastAnc(tree, lambda_tips) # Computes the ancestral values by averaging the lambda values of descendants
+
+# Step 3: Combine tip and node lambda values into one vector for plotting
+lambda_all <- c(lambda_tips, lambda_nodes)
+
+# Step 4: Create the ggtree plot and color the tips and nodes based on their lambda values
+# Create the tree plot
+# Create the tree plot
+tree_plot <- ggtree(tree) + 
+    geom_tiplab(angle = 90) + 
+  geom_tippoint(aes(color = lambda_all), size = 3) +  # Color tips based on lambda
+  geom_nodepoint(aes(color = lambda_all), size = 2) +  # Color nodes based on averaged lambda values
+  scale_color_gradient(low = "blue", middle = "white", high = "red", name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Set the legend title here
+  theme_tree() +
+  theme(legend.position = "right", plot.margin = margin(t = 50, r = 5, b = 5, l = 5)) +  # Adjust legend position
+  coord_flip()  # Flip the tree
+
+print(tree_plot)
+```
+
+```{r}
+# Extract the species order from the tree
+species_order <- tree$tip.label  # This gives the order of species in the tree
+```
+
+```{r}
+# Reorder the species in diff_sensitivity based on the tree order
+diff_sensitivity$species <- factor(diff_sensitivity$species, levels = species_order)
+```
+
+```{r}
+# Now, plot the ggplot with the reordered species
+diff_sensitivity %>%
+  ggplot(aes(y = mean_diff, x = species)) +
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    x = "Difference (Temporal - Spatial, days/°C)",
+    y = "Species",
+    color = "Dataset"
+  ) +
+  facet_grid(. ~ genus, scales = "free_x", space = "free_x") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5), 
+    legend.text = element_markdown()
+  )
+```
+
+
+```{r}
+library(ggplot2)
+library(ggtree)
+library(dplyr)
+
+# Load fitted models
+fitlamb0 <- readRDS("../data/phylogenetics/fit_model_HMM_all.rds")
+fitlambp <- readRDS("../data/phylogenetics/fit_model_PMM_all.rds")
+
+# Summarize results from HMM
+fitsum_h_hmm <- summary(fitlamb0, pars = c("b_zf", "b_zc"))
+fitsumdf_h_hmm <- as.data.frame(fitsum_h_hmm$summary)
+
+# Summarize results from PMM, including lambda (lam)
+fitsum_h_pmm <- summary(fitlambp, pars = c("b_zf", "b_zc", "lam_interceptsbf", "lam_interceptsbc"))
+fitsumdf_h_pmm <- as.data.frame(fitsum_h_pmm$summary)
+
+# Extract b_zf, b_zc, and lam for HMM and PMM
+b_zf_hmm <- fitsumdf_h_hmm[grep("b_zf", rownames(fitsumdf_h_hmm)), ]
+b_zc_hmm <- fitsumdf_h_hmm[grep("b_zc", rownames(fitsumdf_h_hmm)), ]
+
+b_zf_pmm <- fitsumdf_h_pmm[grep("b_zf", rownames(fitsumdf_h_pmm)), ]
+b_zc_pmm <- fitsumdf_h_pmm[grep("b_zc", rownames(fitsumdf_h_pmm)), ]
+lam_bf_pmm <- fitsumdf_h_pmm[grep("lam_interceptsbf", rownames(fitsumdf_h_pmm)), ]
+lam_bc_pmm <- fitsumdf_h_pmm[grep("lam_interceptsbc", rownames(fitsumdf_h_pmm)), ]
+
+# Assuming you have a phylogenetic tree object named `tree`
+# Convert the lambda values into a color palette
+lambda_color_scale <- scale_color_gradient(low = "yellow", high = "purple")
+
+# Plot phylogenetic tree with species colored by lambda values
+tree_plot <- ggtree(tree) + geom_tippoint(aes(color = lam_bf_pmm), size = 3) + lambda_color_scale
+
+# Prepare a dataframe for HMM and PMM for plotting
+plot_data_hmm <- data.frame(species = rownames(b_zf_hmm),
+                            b_zf_hmm = b_zf_hmm$mean,
+                            b_zc_hmm = b_zc_hmm$mean)
+
+plot_data_pmm <- data.frame(species = rownames(b_zf_pmm),
+                            b_zf_pmm = b_zf_pmm$mean,
+                            b_zc_pmm = b_zc_pmm$mean,
+                            lam_bf = lam_bf_pmm$mean,
+                            lam_bc = lam_bc_pmm$mean)
+
+# Plot the estimates of b_zf and b_zc for HMM and PMM
+plot_b_zf_b_zc <- ggplot() +
+  geom_point(data = plot_data_hmm, aes(x = b_zf_hmm, y = b_zc_hmm), color = "blue", size = 3) +
+  geom_point(data = plot_data_pmm, aes(x = b_zf_pmm, y = b_zc_pmm, color = lam_bf), size = 3) +
+  lambda_color_scale +
+  labs(x = "b_zf (forcing)", y = "b_zc (chilling)", title = "Posterior Estimates of b_zf and b_zc") +
+  theme_minimal()
+
+# Combine the tree plot and estimate plot into one figure using cowplot or patchwork
+library(patchwork)
+combined_plot <- tree_plot + plot_b_zf_b_zc + plot_layout(ncol = 2)
+
+# Display the combined plot
+print(combined_plot)
+```
+
 
 ## try PMM_neg
 ```{r}
@@ -443,4 +689,35 @@ print(p_with_marginals)
   saveRDS(fitlambest, "../data/phylogenetics/fit_model_PMM_all_neg.rds")
   
 
+```
+
+```{r}
+fitlambp <- readRDS("../data/phylogenetics/fit_model_PMM_all_neg.rds")
+# summarize the results
+fitsum_h <- summary(fitlambp, pars = c("a_z", "sigma_interceptsa", "lam_interceptsa",
+                                       "b_zf", "sigma_interceptsbf", "lam_interceptsbf",
+                                       "b_zc", "sigma_interceptsbc", "lam_interceptsbc"))
+fitsumdf_h <- as.data.frame(fitsum_h)
+
+```
+
+```{r}
+
+# Extract the posterior samples for b_zc from the Stan model
+posterior_b_zc <- extract(fitlambp)$b_zc
+posterior_b_zc <- as.data.frame(posterior_b_zc)
+
+# Get the 95% confidence interval from the summary data frame
+posterior_b_zc_lower <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.2.5.`)
+posterior_b_zc_upper <- fitsumdf_h %>% filter(row.names(.) == "b_zc") %>% pull(`summary.97.5.`)
+
+# Plot posterior distribution with 95% CI
+ggplot(posterior_b_zc, aes(x = posterior_b_zc)) +
+  geom_density(fill = "skyblue", color = "black") +  # Posterior density plot
+  geom_vline(xintercept = posterior_b_zc_lower, linetype = "dashed", color = "red", size = 1) +  # Lower bound of 95% CI
+  geom_vline(xintercept = posterior_b_zc_upper, linetype = "dashed", color = "red", size = 1) +  # Upper bound of 95% CI
+  labs(title = " ",
+       x = "Difference (Temporal - Spatial, days/°C)",
+       y = "Density") +
+  theme_minimal()
 ```

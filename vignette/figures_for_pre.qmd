@@ -400,6 +400,618 @@ combined_plot <- p_density / plot_spacer() / p_combined + plot_layout(heights = 
 print(combined_plot)
 ```
 
+# two sample figure
+```{r}
+joint_data_total <- readRDS("../data/phylogenetics/joint_data_total.rds")
+library(MASS)
+
+acer_ru <- joint_data_total %>% 
+  filter(species == "Acer rubrum") 
+
+acer_ru_her <- acer_ru %>% 
+  filter(dataset == "Herbarium")
+
+acer_ru_fil <- acer_ru %>%
+  filter(dataset == "Field observation")
+
+lm(doy ~ yeart+anom, data = acer_ru) %>% 
+  summary()
+lm(doy ~ yeart+anom, data = acer_ru_her) %>% 
+  summary()
+lm(doy ~ yeart+anom, data = acer_ru_fil) %>% 
+  summary()
+
+```
+
+```{r}
+acer_ru <- joint_data_total %>% 
+  filter(species == "Acer macrophyllum") 
+
+acer_ru_her <- acer_ru %>% 
+  filter(dataset == "Herbarium")
+
+acer_ru_fil <- acer_ru %>%
+  filter(dataset == "Field observation")
+
+lm(doy ~ yeart+anom, data = acer_ru) %>% 
+  summary()
+lm(doy ~ yeart+anom, data = acer_ru_her) %>% 
+  summary()
+lm(doy ~ yeart+anom, data = acer_ru_fil) %>% 
+  summary()
+```
+
+```{r}
+acer_ma <- joint_data_total %>% 
+  filter(species == "Acer rubrum")
+
+ggplot(acer_ma, aes(x = yeart, y = doy,color = dataset)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Acer macrophyllum",
+    x = "Year",
+    y = "Day of year"
+  )
+```
+
+```{r}
+```
+
+
+```{r}
+acer_ma <- joint_data_total %>% 
+  filter(species == "Acer macrophyllum")
+rlm(doy ~ anom+yeart, data = acer_ma) %>% 
+  summary()
+```
+
+## check whether the data itself is consistent
+```{r}
+joint_data_total %>% 
+  group_by(species) %>%
+  filter(n_distinct(dataset) > 1) %>%
+  ungroup() %>%
+  ggplot(aes(x = yeart, y = doy, color = dataset)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~species) +
+  theme_minimal()
+```
+
+# show PMM and HMM result together
+
+## HMM
+```{r}
+library(ape)
+library(ggtree)
+library(phytools)
+library(rstan)
+library(ggplot2)
+library(dplyr)
+library(ggtext)
+HMM <- readRDS("../data/phylogenetics/fit_model_HMM_all.rds")
+# summarize the results
+HMM_summary <- summary(HMM) 
+  
+# Extract the summary information into a data frame
+HMM_group <- as.data.frame(HMM_summary$summary)
+
+# get genus information
+taxa_info <- read.csv("../data/phylogenetics/total_species.csv")
+
+# get the phylo_species_id
+tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk") 
+tree_species <- rownames(vcv(tree, corr = TRUE)) %>% 
+  gsub("_", " ", .) 
+
+phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
+
+
+diff_sensitivity_HMM <- HMM_group[grepl("b_chill", rownames(HMM_group)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id) %>% 
+  left_join(taxa_info, by = "species")
+```
+
+```{r fig.width=9, fig.height=30}
+HMM <- diff_sensitivity_HMM %>% 
+  ggplot(aes(x = mean_diff, y = species)) +  # Swapped x and y
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff)) +  # Changed to xmin and xmax
+  geom_vline(xintercept = 0, linetype = "dashed") +  # Changed to vline
+  labs(
+    title = "",
+    y = "Species",  # Swapped x and y labels
+    x = "Difference (Temporal - Spatial, days/°C)",
+    color = "Dataset"
+  ) +
+  facet_grid(genus ~ ., scales = "free_y", space = "free_y") +  # Changed to facet by rows
+  theme_classic() +
+  theme(
+    axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown()
+  )
+
+print(HMM)
+```
+
+
+## PMM
+```{r}
+PMM <- readRDS("../data/phylogenetics/fit_model_PMM_all.rds")
+# summarize the results
+PMM_summary <- summary(PMM)
+
+# Extract the summary information into a data frame
+PMM_group <- as.data.frame(PMM_summary$summary)
+
+diff_sensitivity_PMM <- PMM_group[grepl("b_chill", rownames(PMM_group)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id) %>% 
+  left_join(taxa_info, by = "species")
+```
+
+```{r fig.width=9, fig.height=30}
+PMM <- diff_sensitivity_PMM %>% 
+  ggplot(aes(x = mean_diff, y = species)) +  # Swapped x and y
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff)) +  # Changed to xmin and xmax
+  geom_vline(xintercept = 0, linetype = "dashed") +  # Changed to vline
+  labs(
+    title = "",
+    y = "Species",  # Swapped x and y labels
+    x = "Difference (Temporal - Spatial, days/°C)",
+    color = "Dataset"
+  ) +
+  facet_grid(genus ~ ., scales = "free_y", space = "free_y") +  # Changed to facet by rows
+  theme_classic() +
+  theme(
+    axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown()
+  )
+
+print(PMM)
+
+```
+
+
+## Tree
+
+### with label version
+
+```{r fig.width=5, fig.height=30}
+tree_plot_full <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
+  geom_tree() + 
+  hexpand(0.9) +
+  geom_tiplab(angle = 0, size = 5, offset = 0.2) +  # Adjust angle, size, and offset for tip labels
+  scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Use scale_color_gradient2 for three colors
+  theme_tree() +
+theme(
+  legend.position = c(0.05, 0.95),  # Position legend inside plot area
+  legend.justification = c(0, 1),   # Align legend to top-left
+  legend.direction = "horizontal",    # Display legend vertically
+  legend.background = element_rect(fill = "white", color = NA),  # Optional: add background
+  legend.title = element_text(size = 10),  # Adjust title size if needed
+  legend.key = element_rect(color = NA),   # Remove key borders
+  legend.margin = margin(0, 0, 0, 0)       # Remove legend margins
+) +
+guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.position = "bottom"))
+       
+print(tree_plot_full)
+```
+
+### condense version
+```{r fig.width=5, fig.height=15}
+tree$tip.label <- tree$tip.label %>% gsub("_", " ", .)
+
+diff_color <- data.frame(
+  species = diff_sensitivity_PMM$species,
+  diff = diff_sensitivity_PMM$mean_diff
+) 
+# Assuming `tree` is a phylogenetic tree object and `lam_bc_pmm` contains the lambda values for the leaves
+# You can use the `phytools` package to compute ancestral node values by averaging over descendant leaves.
+
+# Load required libraries
+library(phytools)
+
+# Step 1: Create a named vector for the lambda values (`lam_bc_pmm`), with species names as names
+lambda_tips <- setNames(diff_color$diff, tree$tip.label) # Assuming `lam_bc_pmm` contains species' lambda values
+
+# Step 2: Use `fastAnc` to calculate ancestral states (lambda values) for internal nodes
+lambda_nodes <- fastAnc(tree, diff_color$diff) # Computes the ancestral values by averaging the lambda values of descendants
+
+# Step 3: Combine tip and node lambda values into one vector for plotting
+lambda_all <- c(lambda_tips, lambda_nodes)
+
+# Step 4: Create the ggtree plot and color the tips and nodes based on their lambda values
+tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Shrink branch lengths with xscale
+  geom_tree() + 
+  scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
+                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  theme_tree()+
+theme(
+  plot.margin = margin(t = 20, r = 0, b = 30, l = 0),
+  legend.position = c(0.05, 0.95),  # Position legend inside plot area
+  legend.justification = c(0, 1),   # Align legend to top-left
+  legend.direction = "horizontal",    # Display legend vertically
+  legend.background = element_rect(fill = "white", color = NA),  # Optional: add background
+  legend.title = element_text(size = 10),  # Adjust title size if needed
+  legend.key = element_rect(color = NA),   # Remove key borders
+  legend.margin = margin(0, 0, 0, 0)       # Remove legend margins
+) +
+guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.position = "bottom"))
+
+print(tree_plot)
+```
+
+### another color
+```{r}
+tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
+  geom_tree() + 
+  geom_tiplab(angle = 0, size = 5, offset = 0.2) +  # Adjust angle, size, and offset for tip labels
+  scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Use scale_color_gradient2 for three colors
+  theme_tree() +
+  theme(legend.position = "right", plot.margin = margin(t = 50, r = 5, b = 5, l = 5))  # Adjust legend position
+
+print(tree_plot)
+```
+
+### PMM reorder
+```{r fig.width=5, fig.height=15}
+# Load necessary libraries
+library(ggtree)
+library(dplyr)
+
+# Plot your tree using ggtree
+tree_plot <- ggtree(tree) + geom_tiplab()
+
+# Extract the order of tip labels as they are plotted
+tip_order <- tree_plot$data %>% 
+  filter(isTip) %>% 
+  arrange(y) %>% 
+  pull(label)
+
+# Use this order to reorder your species in the second figure
+diff_sensitivity_PMM$species <- factor(diff_sensitivity_PMM$species, levels = tip_order)
+
+# Now create your PMM plot with the reordered species
+PMM <- diff_sensitivity_PMM %>% 
+  ggplot(aes(x = mean_diff, y = species, color = mean_diff)) +  
+  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff, color = mean_diff), width = 0.2) +
+    scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
+                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    y = " ",
+    x = "Difference (Temporal - Spatial, days/°C)",
+  ) +
+  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") +
+  theme_classic() +
+  theme(legend.position = "none",     
+        axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown())
+# +
+#   theme(
+#     axis.text.y = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     legend.text = element_markdown(),
+#     strip.background = element_blank(),
+#     strip.text.y = element_blank()
+#   )
+
+print(PMM)
+```
+### combined figure
+```{r fig.width=9, fig.height=15}
+combined_plot <- plot_grid(tree_plot, PMM, ncol=2)
+
+# Print combined plot
+print(combined_plot)
+```
+
+### HMM reorder
+```{r fig.width=5, fig.height=15}
+diff_sensitivity_HMM$species <- factor(diff_sensitivity_HMM$species, levels = tip_order)
+
+HMM <- diff_sensitivity_HMM %>% 
+  ggplot(aes(x = mean_diff, y = species, color = mean_diff)) +  
+  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff, color = mean_diff), width = 0.2) +
+    scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
+                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    y = " ",
+    x = "Difference (Temporal - Spatial, days/°C)",
+  ) +
+  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") +
+  theme_classic() +
+  theme(legend.position = "none",     
+        axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown())
+# +
+#   theme(
+#     axis.text.y = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     legend.text = element_markdown(),
+#     strip.background = element_blank(),
+#     strip.text.y = element_blank()
+#   )
+
+print(HMM)
+```
+
+```{r}
+# Load necessary libraries
+library(ggtree)
+library(ggplot2)
+library(dplyr)
+
+# Assuming 'tree' is your phylogenetic tree and 'diff_sensitivity_PMM' is your data frame
+# Create a base ggtree plot
+p <- ggtree(tree) + geom_tiplab()
+
+# Prepare the data for the second plot
+d1 <- diff_sensitivity_PMM %>%
+  mutate(species = factor(species, levels = tip_order)) %>% # Ensure species order matches
+  # make speceis column the first column
+  select(species, everything())
+  
+# Use facet_plot to add a scatter plot to the ggtree
+p2 <- facet_plot(p, panel = "dot", data = d1, geom = geom_point,
+                 aes(x = mean_diff))
+
+# Adjust the theme if necessary to ensure both plots are visually aligned
+p2 <- p2 + theme(
+  axis.title.x = element_blank(), # Remove redundant x-axis titles
+  axis.text.x = element_text(size = 10), # Adjust x-axis text size for clarity
+  strip.background = element_blank(), # Remove background for cleaner look
+  strip.text.y = element_text(angle = 0) # Align facet labels if needed
+)
+
+# Print the combined plot
+print(p2)
+```
+
+```{r}
+
+```
+
+## sensitivity
+```{r}
+PMM_app <- readRDS("../data/phylogenetics/fit_model_PMM_all_app.rds")
+# summarize the results
+PMM_app_summary <- summary(PMM_app)
+
+# Extract the summary information into a data frame
+PMM_app_group <- as.data.frame(PMM_app_summary$summary)
+
+diff_sensitivity_PMM_app <- PMM_app_group[grepl("b_force", rownames(PMM_app_group)), ] %>% 
+  dplyr::select(mean, `2.5%`, `97.5%`) %>%
+  dplyr::rename(mean_diff = mean, lower_diff = `2.5%`, upper_diff = `97.5%`) %>% 
+  cbind(phylo_species_id) %>% 
+  left_join(taxa_info, by = "species")
+```
+
+### sensitivity
+```{r fig.width=9, fig.height=30}
+diff_sensitivity_PMM_app$species <- factor(diff_sensitivity_PMM_app$species, levels = tip_order)
+
+# Now create your PMM plot with the reordered species
+PMM <- diff_sensitivity_PMM %>% 
+  ggplot(aes(x = mean_diff, y = species, color = mean_diff)) +  
+  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff, color = mean_diff), width = 0.2) +
+    scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
+                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    y = " ",
+    x = "Difference (Temporal - Spatial, days/°C)",
+  ) +
+  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") +
+  theme_classic() +
+  theme(legend.position = "none",     
+        axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown())
+
+PMM_app_figure <- diff_sensitivity_PMM_app %>% 
+  ggplot(aes(x = mean_diff, y = species, color = mean_diff)) +  
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff)) +  # Changed to xmin and xmax
+  geom_vline(xintercept = 0, linetype = "dashed") +  # Changed to vline
+  labs(
+    title = "",
+    y = "Species",  # Swapped x and y labels
+    x = "Sensitivity (days/°C)"
+  ) +
+  facet_grid(genus ~ ., scales = "free_y", space = "free_y") +  # Changed to facet by rows
+  theme_classic() +
+  theme(
+    axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
+    legend.text = element_markdown()
+  )
+
+print(PMM_app_figure)
+
+```
+
+## Tree
+
+### with label version
+
+```{r fig.width=5, fig.height=30}
+tree$tip.label <- tree$tip.label %>% gsub("_", " ", .)
+
+diff_color <- data.frame(
+  species = diff_sensitivity_PMM_app$species,
+  diff = diff_sensitivity_PMM_app$mean_diff
+) 
+# Assuming `tree` is a phylogenetic tree object and `lam_bc_pmm` contains the lambda values for the leaves
+# You can use the `phytools` package to compute ancestral node values by averaging over descendant leaves.
+
+# Load required libraries
+library(phytools)
+
+# Step 1: Create a named vector for the lambda values (`lam_bc_pmm`), with species names as names
+lambda_tips <- setNames(diff_color$diff, tree$tip.label) # Assuming `lam_bc_pmm` contains species' lambda values
+
+# Step 2: Use `fastAnc` to calculate ancestral states (lambda values) for internal nodes
+lambda_nodes <- fastAnc(tree, diff_color$diff) # Computes the ancestral values by averaging the lambda values of descendants
+
+# Step 3: Combine tip and node lambda values into one vector for plotting
+lambda_all <- c(lambda_tips, lambda_nodes)
+
+tree_plot_full <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
+  geom_tree() + 
+  hexpand(0.9) +
+  geom_tiplab(angle = 0, size = 5, offset = 0.2) +  # Adjust angle, size, and offset for tip labels
+  scale_color_gradient2(low = "red", mid = "blue", high = "white", name = "Sensitivity (days/°C)") +  # Use scale_color_gradient2 for three colors
+  theme_tree() +
+theme(
+  legend.position = c(0.05, 0.95),  # Position legend inside plot area
+  legend.justification = c(0, 1),   # Align legend to top-left
+  legend.direction = "horizontal",    # Display legend vertically
+  legend.background = element_rect(fill = "white", color = NA),  # Optional: add background
+  legend.title = element_text(size = 10),  # Adjust title size if needed
+  legend.key = element_rect(color = NA),   # Remove key borders
+  legend.margin = margin(0, 0, 0, 0)       # Remove legend margins
+) +
+guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.position = "bottom"))
+       
+print(tree_plot_full)
+```
+
+### condense version
+```{r fig.width=3, fig.height=10}
+
+
+# Step 4: Create the ggtree plot and color the tips and nodes based on their lambda values
+tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Shrink branch lengths with xscale
+  geom_tree() + 
+  scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
+                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  theme_tree()+
+theme(
+  legend.position = c(0.05, 0.95),  # Position legend inside plot area
+  legend.justification = c(0, 1),   # Align legend to top-left
+  legend.direction = "horizontal",    # Display legend vertically
+  legend.background = element_rect(fill = "white", color = NA),  # Optional: add background
+  legend.title = element_text(size = 10),  # Adjust title size if needed
+  legend.key = element_rect(color = NA),   # Remove key borders
+  legend.margin = margin(0, 0, 0, 0)       # Remove legend margins
+) +
+guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.position = "bottom"))
+
+print(tree_plot)
+```
+
+
+```{r}
+tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
+  geom_tree() + 
+  geom_tiplab(angle = 0, size = 5, offset = 0.2) +  # Adjust angle, size, and offset for tip labels
+  scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Use scale_color_gradient2 for three colors
+  theme_tree() +
+  theme(legend.position = "right", plot.margin = margin(t = 50, r = 5, b = 5, l = 5))  # Adjust legend position
+
+print(tree_plot)
+```
+
+
+```{r fig.width=9, fig.height=30}
+# Load necessary libraries
+library(ggtree)
+library(dplyr)
+
+# Plot your tree using ggtree
+tree_plot <- ggtree(tree) + geom_tiplab()
+
+# Extract the order of tip labels as they are plotted
+tip_order <- tree_plot$data %>% 
+  filter(isTip) %>% 
+  arrange(y) %>% 
+  pull(label)
+
+# Use this order to reorder your species in the second figure
+diff_sensitivity_PMM$species <- factor(diff_sensitivity_PMM$species, levels = tip_order)
+
+# Now create your PMM plot with the reordered species
+PMM <- diff_sensitivity_PMM %>% 
+  ggplot(aes(x = mean_diff, y = species)) +  
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    title = "",
+    y = "Species",
+    x = "Difference (Temporal - Spatial, days/°C)",
+    color = "Dataset"
+  ) +
+  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") +
+  theme_classic() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.text = element_markdown(),
+    strip.background = element_blank(),
+    strip.text.y = element_blank()
+  )
+
+print(PMM)
+```
+
+```{r fig.width=9, fig.height=30}
+combined_plot <- plot_grid(tree_plot, PMM, ncol=2)
+
+# Print combined plot
+print(combined_plot)
+```
+
+```{r}
+# Load necessary libraries
+library(ggtree)
+library(ggplot2)
+library(dplyr)
+
+# Assuming 'tree' is your phylogenetic tree and 'diff_sensitivity_PMM' is your data frame
+# Create a base ggtree plot
+p <- ggtree(tree) + geom_tiplab()
+
+# Prepare the data for the second plot
+d1 <- diff_sensitivity_PMM %>%
+  mutate(species = factor(species, levels = tip_order)) %>% # Ensure species order matches
+  # make speceis column the first column
+  select(species, everything())
+  
+# Use facet_plot to add a scatter plot to the ggtree
+p2 <- facet_plot(p, panel = "dot", data = d1, geom = geom_point,
+                 aes(x = mean_diff))
+
+# Adjust the theme if necessary to ensure both plots are visually aligned
+p2 <- p2 + theme(
+  axis.title.x = element_blank(), # Remove redundant x-axis titles
+  axis.text.x = element_text(size = 10), # Adjust x-axis text size for clarity
+  strip.background = element_blank(), # Remove background for cleaner look
+  strip.text.y = element_text(angle = 0) # Align facet labels if needed
+)
+
+# Print the combined plot
+print(p2)
+```
+
+```{r}
+
+```
+
+
 # figure to show the data spatial and temporal coverage of the three datasets
 
 ```{r}
@@ -499,11 +1111,7 @@ p1 / p2 +
   plot_annotation(tag_levels = "a")
 ```
 
-```{r}
-```
 
-```{r}
-```
 
 ```{r}
 ```

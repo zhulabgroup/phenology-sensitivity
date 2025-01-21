@@ -218,7 +218,6 @@ filled.contour(x, y, z, color.palette = terrain.colors,
                xlab = "X", ylab = "Y", main = "Bivariate Normal Distribution", asp = 1)
 ```
 
-# apply to NPN data
 
 # try put the two dataset together 
 
@@ -241,6 +240,9 @@ joint_data_total <- rbind(npn_data, herb_data %>% dplyr::select(-family))%>%
 
 total_species <- full_join(npn_data %>% distinct(species, genus), herb_data %>% distinct(species, genus, family)) %>% 
   filter(species %in% joint_data_total$species) 
+
+write.csv(total_species, "../data/phylogenetics/total_species.csv", row.names = FALSE)
+
 ```
 
 
@@ -271,7 +273,7 @@ print(eigen_values)
 
 
 
-# run total models
+## run total models
 
 
 ```{r}
@@ -427,6 +429,12 @@ print(p_with_marginals)
 ```
 ```{r}
 fitlambp <- readRDS("../data/phylogenetics/fit_model_PMM_all.rds")
+
+test <- summary(fitlambp)
+test_d <- as.data.frame(test$summary)
+```
+
+```{r}
 # summarize the results
 fitsum_h <- summary(fitlambp, pars = c("a_z", "sigma_interceptsa", "lam_interceptsa",
                                        "b_zf", "sigma_interceptsbf", "lam_interceptsbf",
@@ -583,26 +591,6 @@ species_order <- tree$tip.label  # This gives the order of species in the tree
 diff_sensitivity$species <- factor(diff_sensitivity$species, levels = species_order)
 ```
 
-```{r}
-# Now, plot the ggplot with the reordered species
-diff_sensitivity %>%
-  ggplot(aes(y = mean_diff, x = species)) +
-  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(ymin = lower_diff, ymax = upper_diff)) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  labs(
-    title = "",
-    x = "Difference (Temporal - Spatial, days/°C)",
-    y = "Species",
-    color = "Dataset"
-  ) +
-  facet_grid(. ~ genus, scales = "free_x", space = "free_x") +
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5), 
-    legend.text = element_markdown()
-  )
-```
 
 
 ```{r}

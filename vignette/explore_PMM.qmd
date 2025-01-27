@@ -304,6 +304,51 @@ temperature_data_model_phylo <- joint_data_total %>%
 nspecies <- n_distinct(temperature_data_model_phylo$species)
 ```
 
+## try by species model
+```{r}
+
+source("../scripts/function_visionalize_summmary_MLmodel.R")
+
+# Apply the function to each species and store the results
+results <- list()
+unique_species <- unique(joint_data_total$species)
+
+for (species_name in unique_species) {
+  results[[species_name]] <- analyze_species(joint_data_total, species_name)
+}
+
+# Combine all summary rows into a single data frame
+summary_results <- bind_rows(lapply(results, function(res) res$summary))
+
+write.csv(summary_results, "../data/species_summary_total.csv", row.names = FALSE)
+```
+
+
+
+```{r}
+# try to plot the result and add star but too complex because lack of equal column for now
+summary_results <- read.csv("../data/species_summary_total.csv")
+
+```
+
+```{r}
+# try to test certain speices
+
+  species_data <- joint_data_total %>% filter(species == "Fraxinus americana")
+  
+  # Fit the linear model
+  model <- MASS::rlm(doy ~ anom + yeart, data = species_data,  maxit = 30)
+  
+    model_summary <- broom::tidy(model, conf.int = TRUE)
+  
+  # Extract coefficients and confidence intervals for anom and norm
+  coef_anom <- model_summary %>% filter(term == "anom")
+  coef_yeart <- model_summary %>% filter(term == "yeart")
+  
+  coef_anom
+```
+
+
 ## try HMM 
 ```{r}
 library(rstan)

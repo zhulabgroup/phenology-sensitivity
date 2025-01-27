@@ -401,6 +401,7 @@ print(combined_plot)
 ```
 
 # two sample figure
+
 ```{r}
 joint_data_total <- readRDS("../data/phylogenetics/joint_data_total.rds")
 library(MASS)
@@ -458,7 +459,6 @@ ggplot(acer_ma, aes(x = yeart, y = doy,color = dataset)) +
 ```{r}
 ```
 
-
 ```{r}
 acer_ma <- joint_data_total %>% 
   filter(species == "Acer macrophyllum")
@@ -467,6 +467,7 @@ rlm(doy ~ anom+yeart, data = acer_ma) %>%
 ```
 
 ## check whether the data itself is consistent
+
 ```{r}
 joint_data_total %>% 
   group_by(species) %>%
@@ -482,6 +483,7 @@ joint_data_total %>%
 # show PMM and HMM result together
 
 ## HMM
+
 ```{r}
 library(ape)
 library(ggtree)
@@ -537,8 +539,8 @@ HMM <- diff_sensitivity_HMM %>%
 print(HMM)
 ```
 
-
 ## PMM
+
 ```{r}
 PMM <- readRDS("../data/phylogenetics/fit_model_PMM_all.rds")
 # summarize the results
@@ -577,7 +579,6 @@ print(PMM)
 
 ```
 
-
 ## Tree
 
 ### with label version
@@ -604,6 +605,7 @@ print(tree_plot_full)
 ```
 
 ### condense version
+
 ```{r fig.width=5, fig.height=15}
 tree$tip.label <- tree$tip.label %>% gsub("_", " ", .)
 
@@ -648,6 +650,7 @@ print(tree_plot)
 ```
 
 ### another color
+
 ```{r}
 tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
   geom_tree() + 
@@ -660,6 +663,7 @@ print(tree_plot)
 ```
 
 ### PMM reorder
+
 ```{r fig.width=5, fig.height=15}
 # Load necessary libraries
 library(ggtree)
@@ -681,20 +685,24 @@ diff_sensitivity_PMM$species <- factor(diff_sensitivity_PMM$species, levels = ti
 PMM <- diff_sensitivity_PMM %>% 
   ggplot(aes(x = mean_diff, y = species, color = mean_diff)) +  
   geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff, color = mean_diff), width = 0.2) +
-    scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
-                        name = "Difference\n(Temporal - Spatial,\ndays/°C)") +  # Darker color gradient
+  geom_errorbar(aes(xmin = lower_diff, xmax = upper_diff), width = 0.2) + # Removed redundant color
+  scale_color_gradient2(
+    low = "blue", mid = "black", high = "red", midpoint = 0, 
+    name = "Difference\n(Temporal - Spatial,\ndays/°C)"
+  ) +  
   geom_vline(xintercept = 0, linetype = "dashed") +
   labs(
-    title = "",
-    y = " ",
-    x = "Difference (Temporal - Spatial, days/°C)",
+    title = NULL, # Clearer to use NULL for an empty title
+    y = NULL,     # Clearer to use NULL for an empty y-axis label
+    x = "Difference (Temporal - Spatial, days/°C)"
   ) +
-  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") +
+  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
   theme_classic() +
-  theme(legend.position = "none",     
-        axis.text.y = element_text(face = "italic"),  # Changed to y-axis text
-    legend.text = element_markdown())
+  theme(
+    legend.position = "none",
+    axis.text.y = element_text(face = "italic"), # Ensure italics for species names
+    legend.text = element_text() # Use element_text instead of element_markdown
+  )
 # +
 #   theme(
 #     axis.text.y = element_blank(),
@@ -706,7 +714,9 @@ PMM <- diff_sensitivity_PMM %>%
 
 print(PMM)
 ```
+
 ### combined figure
+
 ```{r fig.width=9, fig.height=15}
 combined_plot <- plot_grid(tree_plot, PMM, ncol=2)
 
@@ -715,6 +725,7 @@ print(combined_plot)
 ```
 
 ### HMM reorder
+
 ```{r fig.width=5, fig.height=15}
 diff_sensitivity_HMM$species <- factor(diff_sensitivity_HMM$species, levels = tip_order)
 
@@ -784,6 +795,7 @@ print(p2)
 ```
 
 ## sensitivity
+
 ```{r}
 PMM_app <- readRDS("../data/phylogenetics/fit_model_PMM_all_app.rds")
 # summarize the results
@@ -800,6 +812,7 @@ diff_sensitivity_PMM_app <- PMM_app_group[grepl("b_force", rownames(PMM_app_grou
 ```
 
 ### sensitivity
+
 ```{r fig.width=9, fig.height=30}
 diff_sensitivity_PMM_app$species <- factor(diff_sensitivity_PMM_app$species, levels = tip_order)
 
@@ -890,6 +903,7 @@ print(tree_plot_full)
 ```
 
 ### condense version
+
 ```{r fig.width=3, fig.height=10}
 
 
@@ -913,7 +927,6 @@ guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.p
 print(tree_plot)
 ```
 
-
 ```{r}
 tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on lambda
   geom_tree() + 
@@ -924,7 +937,6 @@ tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Color the edges based on
 
 print(tree_plot)
 ```
-
 
 ```{r fig.width=9, fig.height=30}
 # Load necessary libraries
@@ -1010,7 +1022,6 @@ print(p2)
 ```{r}
 
 ```
-
 
 # figure to show the data spatial and temporal coverage of the three datasets
 
@@ -1110,8 +1121,6 @@ p1 / p2 +
   plot_layout(heights = c(2, 1)) +
   plot_annotation(tag_levels = "a")
 ```
-
-
 
 ```{r}
 ```

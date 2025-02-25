@@ -5,23 +5,141 @@ editor: visual
 ---
 
 ```{r}
-library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+my_theme <- function() {
+  theme_classic(base_size = 14) +
+  theme(
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+   #plot.title = element_text(size = 18, face = "bold"),
+    #plot.subtitle = element_text(size = 16),
+    #legend.title = element_text(size = 14, face = "bold"),
+    #legend.text = element_text(size = 12)
+  )
+}
+
+theme_set(my_theme())
 ```
 
 # Figure 1 SFTS concept
+
+## figure 1a
+
+```{r}
+# Create a double y-axis plot
+double_y_plot <- ggplot() +
+  # First dataset: Temperature anomaly
+  geom_line(data = results, aes(x = year, y = avg_anomaly), color = "purple") +
+  geom_point(data = results, aes(x = year, y = avg_anomaly), color = "purple") +
+  # Second dataset: Number of records
+  geom_col(data = npn_tem, aes(x = year, y = n / 500), fill = "forestgreen", alpha = 0.5) + # Scale n down for alignment
+  geom_col(data = herb_tem, aes(x = year, y = n / 500), fill = "chocolate4", alpha = 0.5) +
+  # Primary and secondary y-axes
+  scale_y_continuous(
+    name = "Temperature\nanomaly (°C)", # Primary axis label
+    sec.axis = sec_axis(~ . * 500, name = "Number of records") # Secondary axis label and scaling
+  ) +
+  labs(x = "Year") +
+  theme(
+    axis.text.y = element_text(color = "purple"), # Primary axis text color
+    axis.title.y = element_text(color = "purple"), # Primary axis title color
+    axis.text.y.right = element_text(color = "black"), # Secondary axis text color
+    axis.title.y.right = element_text(color = "black") # Secondary axis title color
+  )
+
+
+
+# Display the plot
+print(double_y_plot)
+```
+
+## figure 1b
+### get latidude temperature normality data
+
+```{r}
+# Load necessary libraries
+library(sf)
+library(raster)
+# Set the path to your downloaded PRISM data
+
+# Read the PRISM data as a raster
+prism_raster <- raster("/Volumes/seas-zhukai/proj-phenology-sensitivity/prism/complete_period_springmean.tif")
+
+# Extract temperature values by latitude
+lat_values <- seq(24, 50, by = 0.5)  # Adjust range as needed
+long_values <- rep(-98, length(lat_values))  # Use a central longitude
+
+temp_by_lat <- raster::extract(prism_raster, cbind(long_values, lat_values))
+
+# Create a data frame with latitude and temperature
+result <- data.frame(latitude = lat_values, temperature = temp_by_lat)
+
+
+# Optional: Create a plot of temperature by latitude
+normality_plot <- ggplot(result, aes(x = temperature, y = latitude)) +
+  geom_line(color = "red") +
+  theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    plot.margin = margin(t = 20, r = 5, b = 40, l = 0, unit = "pt")  ) +
+  labs(
+    x = "Temperature normality (°C)"
+  ) +
+  scale_y_continuous(limits = c(24, 50))
+
+print(normality_plot)
+```
+
+
+```{r}
+# Load and prepare datasets
+npn <- read.csv("../data/npn_temperature_data.csv") %>%
+  distinct(lat, lon) %>%
+  mutate(dataset = "NPN")
+
+herb <- read.csv("../data/herb_temperature_data.csv") %>%
+  distinct(lat, lon) %>%
+  mutate(dataset = "HERB")
+
+# Load US states as sf object
+us_states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
+
+
+map_plot <- ggplot() +
+  geom_point(data = herb, aes(x = lon, y = lat, color = "Herbarium"), alpha = 0.5, size = 0.5) +
+  geom_point(data = npn, aes(x = lon, y = lat, color = "Field observation"), alpha = 0.5, size = 0.5) +
+  geom_sf(data = us_states, fill = NA, color = "grey") +
+  xlim(-127, -66) + ylim(24, 50) +
+  theme(
+    legend.position = c(0.15, 0.15),
+  ) +
+  scale_color_manual(values = c("Herbarium" = "chocolate4", "Field observation" = "forestgreen")) +
+  labs(
+    color = "Data source",
+    x = "Longitude",
+    y = "Latitude",
+    title = " "
+  )
+
+print(map_plot)
+```
+
+## figure 1c
+
 ```{r}
 black <- data.frame(x = c(0, 1), y = c(1, 0), color = "black")
 purple_center <- data.frame(x = seq(0.2, 0.8, by = 0.2), y = 1 - seq(0.2, 0.8, by = 0.2))
 
 ```
 
-## figure 1a
 ```{r}
-library(ggtext)
-figure_1a <- ggplot(data = black) + 
+tem_sen <- ggplot(data = black) + 
   # geom_point(aes(x = x, y = y)) +
-  geom_line(mapping = aes(x = x, y = y), color = "red") +
-  theme_classic() + 
+  geom_line(mapping = aes(x = x, y = y), color = "purple", size = 2) +
   theme(axis.text.x = element_blank(), 
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
@@ -29,50 +147,53 @@ figure_1a <- ggplot(data = black) +
   xlim(-0.3, 1) +
   ylim(-0.1, 1) +
 labs(
-  x = expression("Temperature normality" ~ t[norm]), 
-  y = expression("Flowering day normality" ~ d[norm]), 
-  title = "a."
-) + 
-theme(
-  axis.title.x = element_text(size = 18), 
-  axis.title.y = element_text(size = 18), 
-  plot.title = element_text(size = 25, hjust = -0.05) # Adjust title size here
-) +
-  annotate("text", x = -0.12 , y = 0.02,, label = "Early flowering", size = 6, hjust = 0.7) +
-  annotate("text",  x = -0.12 , y = 1, label = "Late flowering", size = 6, hjust = 0.7) +
-  annotate("text", x = 0.1 , y = -0.1, label = "Cold place", size = 6, vjust = 0.2) +
-  annotate("text", x = 0.9 , y = -0.1, label = "Hot place", size = 6,  vjust = 0.2) 
+  # x = expression("Temperature anomaly" ~ t[anom]), 
+  # y = expression("Flowering day anomaly" ~ d[anom]), 
+  x = "Temperature anomaly",
+  y = "Flowering day anomaly",
+  title = " ") +
+annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +  annotate("text",  x = -0.12 , y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
+  annotate("text", x = 0.1 , y = -0.1, label = "Cold year", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.9 , y = -0.1, label = "Hot year", size = 4,  vjust = 0.2)  +
+  # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
+  geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  annotate("text", x = 0.65, y = 0.6, label = "(0, 0)", size = 4)
+
+print(tem_sen)
 ```
 
 
-## figure 1b
+## figure 1d
 ```{r}
-figure_1b <- ggplot(data = black) + 
+library(ggtext)
+spa_sen <- ggplot(data = black) + 
   # geom_point(aes(x = x, y = y)) +
-  geom_line(mapping = aes(x = x, y = y), color = "purple", size = 2) +
-  theme_classic() + 
+  geom_line(mapping = aes(x = x, y = y), color = "red") +
   theme(axis.text.x = element_blank(), 
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         axis.line = element_line(color = "black")) +
   xlim(-0.3, 1) +
   ylim(-0.1, 1) +
-labs(x = expression("Temperature anomaly" ~ t[anom]), y = expression("Flowering day anomaly" ~ d[anom]), title = "b.") +
-  theme(axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18), plot.title = element_text(size = 25, hjust = -0.05) # Adjust title size here
-) +
-  annotate("text", x = -0.12 , y = 0.02,, label = "Early flowering", size = 6, hjust = 0.7) +
-  annotate("text",  x = -0.12 , y = 1, label = "Late flowering", size = 6, hjust = 0.7) +
-  annotate("text", x = 0.1 , y = -0.1, label = "Cold year", size = 6, vjust = 0.2) +
-  annotate("text", x = 0.9 , y = -0.1, label = "Hot year", size = 6,  vjust = 0.2)  +
-  # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
-  geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  geom_vline(xintercept = 0.5, linetype = "dashed") +
-  annotate("text", x = 0.55, y = 0.55, label = "(0, 0)", size = 5)
+labs(
+  # x = expression("Temperature normality" ~ t[norm]), 
+  # y = expression("Flowering day normality" ~ d[norm]), 
+  x = "Temperature normality",
+  y = "Flowering day normality",
+  title = " "
+) + 
+annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +  annotate("text",  x = -0.12 , y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
+  annotate("text", x = 0.1 , y = -0.1, label = "Cold place", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.85 , y = -0.1, label = "Hot place", size = 4,  vjust = 0.2) 
+
+print(spa_sen)
 ```
 
 
-## figure 1c
+
+## figure 1e
 
 ```{r}
 #
@@ -98,31 +219,95 @@ segments_3 <- bind_rows(lapply(1:nrow(purple_center), function(i)
 plot
 ```{r}
 # Plot
-figure_1c <- ggplot(mapping = aes(x = x, y = y)) + 
+spa_tem <- ggplot(mapping = aes(x = x, y = y)) + 
   geom_line(data = black, aes(group = 1), color = "red") +
   geom_point(data = purple_center, color = "purple", size = 3) +
   geom_segment(data = segments_2, aes(x = start_x, y = start_y, xend = end_x, yend = end_y), color = "purple", size = 2) +  
   # geom_hline(yintercept = 0.4, linetype = "dashed") +
   # geom_vline(xintercept = 0.6, linetype = "dashed") +
-  labs(x = expression(t[observe]), y = expression(d[observe]), title = "c.") + 
-  theme_classic() + 
+  labs(
+    # x = expression(t[observe]), 
+    #    y = expression(d[observe]), 
+    x = "Temperature observed",
+    y = "Flowering day observed",
+       title = " ") + 
   theme(axis.text.x = element_blank(), 
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
-        axis.line = element_line(color = "black"),
-        axis.title.x = element_text(size = 18), axis.title.y = element_text(size = 18),
-          plot.title = element_text(size = 25, hjust = -0.025) # Adjust title size here
+        axis.line = element_line(color = "black")
 )
+print(spa_tem)
 ```
 
-## figure 1 (failed to put them together properly)
+## figure 1
 
-```{r fig.width=15, fig.height=9}
+```{r}
+plot(layout)
+```
+
+
+```{r fig.width=18, fig.height=10}
 library(patchwork)
 
-# Combine the plots
-final_plot <- (figure_1a + figure_1b) / figure_1c  
+layout <- c(
+  area(t=1,l=1,b=1,r=6),
+  area(t=2,l=1,b=3,r=5),
+  area(t=2,l=6,b=3,r=6),
+  area(t=1,l=7,b=1,r=8),
+  area(t=2,l=7,b=2,r=8),
+  area(t=3,l=7,b=3,r=8)
+)
 
+# Adjust the margins and layout
+combined_plot <- double_y_plot + map_plot + normality_plot +
+                 tem_sen + spa_sen + spa_tem +
+  plot_layout(design = layout) +
+  plot_annotation(tag_levels = "a") 
+  
+  
+
+
+# Print the combined plot
+print(combined_plot)
+```
+
+
+```{r fig.width=11, fig.height=8}
+library(patchwork)
+
+design <- "
+  1111
+  2223
+  2223
+"
+
+# Adjust the margins and layout
+combined_plot <- double_y_plot / map_plot +
+                 normality_plot +
+  plot_layout(design = design) 
+
+
+# Print the combined plot
+print(combined_plot)
+```
+
+
+```{r fig.width=11, fig.height=8}
+library(patchwork)
+
+
+# Adjust the margins and layout
+combined_plot_2 <- double_y_plot / combined_plot 
+
+
+# Print the combined plot
+print(combined_plot_2)
+```
+
+
+```{r fig.width=7, fig.height=12}
+# Combine the plots
+final_plot <- figure_1b / figure_1a / figure_1c 
 # Print the combined plot
 print(final_plot)
 ```
@@ -587,7 +772,7 @@ joint_data %>%
   geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1) +
   labs(
     title = " ",
-    x = "Year",
+    x = "Spring average temperature (°C)",
     y = "Day of year",
     color = "Dataset" # Legend title corresponds to color aesthetic
   ) +

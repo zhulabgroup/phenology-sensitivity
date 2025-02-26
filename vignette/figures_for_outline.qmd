@@ -26,9 +26,55 @@ theme_set(my_theme())
 
 # Figure 1 SFTS concept
 
+## get anomaly data I remember I plot it and sompare it with oneline data, should be able to find it somewhere? Yes, I found it
+```{r eval=FALSE}
+base_path <- "/Volumes/seas-zhukai/proj-phenology-sensitivity/prism/"
+normality_file <- paste0(base_path, "complete_period_springmean.tif")
+
+# Load the normality raster and calculate its mean
+normality_raster <- raster(normality_file)
+normality_mean <- cellStats(normality_raster, mean, na.rm = TRUE)
+
+# Initialize a data frame to store results
+results <- data.frame(year = 1895:2023, avg_anomaly = NA)
+
+# Loop through the years
+for (year in 1895:2023) {
+  yearly_file <- paste0(base_path, year, "_springmean.tif")
+  
+  # Load the yearly raster and calculate its mean
+  yearly_raster <- raster(yearly_file)
+  yearly_mean <- cellStats(yearly_raster, mean, na.rm = TRUE)
+  
+  # Calculate anomaly
+  anomaly <- yearly_mean - normality_mean
+  
+  # Store the result
+  results$avg_anomaly[results$year == year] <- anomaly
+}
+
+# Plot the average anomaly over time
+ggplot(results, aes(x = year, y = avg_anomaly)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Average Spring Mean Temperature Anomaly",
+       x = "Year",
+       y = "Average Temperature Anomaly (°C)")
+```
+
+
+```{r}
+yearly_anomaly_normality <- rbind(results, c("0000", 10.42731))
+write.csv(yearly_anomaly_normality, paste0(base_path, "yearly_anomaly_normality.csv"), row.names = FALSE)
+```
+
 ## figure 1a
 
 ```{r}
+results <- read.csv(paste0(base_path, "yearly_anomaly_normality.csv")) |> 
+           slice(1:(n() - 1))
+
 # Create a double y-axis plot
 double_y_plot <- ggplot() +
   # First dataset: Temperature anomaly
@@ -57,6 +103,7 @@ print(double_y_plot)
 ```
 
 ## figure 1b
+
 ### get latidude temperature normality data
 
 ```{r}
@@ -76,6 +123,10 @@ temp_by_lat <- raster::extract(prism_raster, cbind(long_values, lat_values))
 
 # Create a data frame with latitude and temperature
 result <- data.frame(latitude = lat_values, temperature = temp_by_lat)
+
+```
+
+```{r}
 
 
 # Optional: Create a plot of temperature by latitude

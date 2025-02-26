@@ -9,6 +9,8 @@ library(raster)
 num_cores <- parallel::detectCores() - 1
 cl <- makeCluster(num_cores)
 
+startyear <- 1895
+endyear <- 2024
 # Export necessary variables to the cluster
 clusterExport(cl, c("startyear", "endyear", "prism_archive_subset", "pd_stack", "writeRaster"))
 

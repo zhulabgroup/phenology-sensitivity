@@ -64,7 +64,7 @@ ggplot(results, aes(x = year, y = avg_anomaly)) +
 ```
 
 
-```{r}
+```{r eval=FALSE}
 yearly_anomaly_normality <- rbind(results, c("0000", 10.42731))
 write.csv(yearly_anomaly_normality, paste0(base_path, "yearly_anomaly_normality.csv"), row.names = FALSE)
 ```
@@ -72,30 +72,46 @@ write.csv(yearly_anomaly_normality, paste0(base_path, "yearly_anomaly_normality.
 ## figure 1a
 
 ```{r}
+base_path <- "/Volumes/seas-zhukai/proj-phenology-sensitivity/prism/"
 results <- read.csv(paste0(base_path, "yearly_anomaly_normality.csv")) |> 
            slice(1:(n() - 1))
 
+herb_tem <- read.csv("../data/herb_temperature_data.csv") %>%
+  group_by(year) %>%
+  summarise(count = n()) %>%
+  mutate(dataset = "HERB")
+
+npn_tem <- read.csv("../data/npn_temperature_data.csv") %>%
+  group_by(year) %>%
+  summarise(count = n()) %>%
+  mutate(dataset = "NPN")
+
+```
+
+```{r}
+library(patchwork)
+
 # Create a double y-axis plot
-double_y_plot <- ggplot() +
-  # First dataset: Temperature anomaly
+temperature_plot <- ggplot() +
   geom_line(data = results, aes(x = year, y = avg_anomaly), color = "purple") +
   geom_point(data = results, aes(x = year, y = avg_anomaly), color = "purple") +
-  # Second dataset: Number of records
-  geom_col(data = npn_tem, aes(x = year, y = n / 500), fill = "forestgreen", alpha = 0.5) + # Scale n down for alignment
-  geom_col(data = herb_tem, aes(x = year, y = n / 500), fill = "chocolate4", alpha = 0.5) +
-  # Primary and secondary y-axes
-  scale_y_continuous(
-    name = "Temperature\nanomaly (°C)", # Primary axis label
-    sec.axis = sec_axis(~ . * 500, name = "Number of records") # Secondary axis label and scaling
+  labs(
+    x = "Year",
+    y = "Temperature\nanomaly (°C)"
   ) +
-  labs(x = "Year") +
-  theme(
-    axis.text.y = element_text(color = "purple"), # Primary axis text color
-    axis.title.y = element_text(color = "purple"), # Primary axis title color
-    axis.text.y.right = element_text(color = "black"), # Secondary axis text color
-    axis.title.y.right = element_text(color = "black") # Secondary axis title color
-  )
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black")  # Add dashed horizontal line
+  
+# Second plot: Number of records
+records_plot <- ggplot() +
+  geom_col(data = npn_tem, aes(x = year, y = count), fill = "forestgreen", alpha = 0.5) +
+  geom_col(data = herb_tem, aes(x = year, y = count), fill = "chocolate4", alpha = 0.5) +
+  labs(
+    x = "Year",
+    y = "Number of\nrecords"
+  ) 
 
+# Combine the two plots with a shared x-axis using patchwork
+double_y_plot <- temperature_plot / records_plot
 
 
 # Display the plot
@@ -293,21 +309,39 @@ print(spa_tem)
 ## figure 1
 
 ```{r}
+library(patchwork)
+layout <- c(
+   patchwork::area(t=1,l=1,b=1,r=6),
+   patchwork::area(t=1,l=1,b=1,r=6),
+   patchwork::area(t=2,l=1,b=3,r=5),
+   patchwork::area(t=2,l=6,b=3,r=6),
+   patchwork::area(t=1,l=7,b=1,r=8),
+   patchwork::area(t=2,l=7,b=2,r=8),
+   patchwork::area(t=3,l=7,b=3,r=8)
+ )
+ 
+ plot(layout)
+```
+
+
+```{r}
+library(patchwork)
+layout <- c(
+  patchwork::area(t=1,l=1,b=1,r=12),
+  patchwork::area(t=2,l=1,b=2,r=12),
+  patchwork::area(t=3,l=1,b=6,r=10),
+  patchwork::area(t=3,l=11,b=6,r=12),
+  patchwork::area(t=1,l=13,b=2,r=16),
+  patchwork::area(t=3,l=13,b=4,r=16),
+  patchwork::area(t=5,l=13,b=6,r=16)
+)
+
 plot(layout)
 ```
 
 
-```{r fig.width=18, fig.height=10}
-library(patchwork)
+```{r fig.width=18, fig.height=11}
 
-layout <- c(
-  area(t=1,l=1,b=1,r=6),
-  area(t=2,l=1,b=3,r=5),
-  area(t=2,l=6,b=3,r=6),
-  area(t=1,l=7,b=1,r=8),
-  area(t=2,l=7,b=2,r=8),
-  area(t=3,l=7,b=3,r=8)
-)
 
 # Adjust the margins and layout
 combined_plot <- double_y_plot + map_plot + normality_plot +
@@ -323,45 +357,7 @@ print(combined_plot)
 ```
 
 
-```{r fig.width=11, fig.height=8}
-library(patchwork)
 
-design <- "
-  1111
-  2223
-  2223
-"
-
-# Adjust the margins and layout
-combined_plot <- double_y_plot / map_plot +
-                 normality_plot +
-  plot_layout(design = design) 
-
-
-# Print the combined plot
-print(combined_plot)
-```
-
-
-```{r fig.width=11, fig.height=8}
-library(patchwork)
-
-
-# Adjust the margins and layout
-combined_plot_2 <- double_y_plot / combined_plot 
-
-
-# Print the combined plot
-print(combined_plot_2)
-```
-
-
-```{r fig.width=7, fig.height=12}
-# Combine the plots
-final_plot <- figure_1b / figure_1a / figure_1c 
-# Print the combined plot
-print(final_plot)
-```
 
 # Figure 2: the by group result from the two datasets
 ## herbairum
@@ -416,7 +412,7 @@ herb_byspecies_plot <- summary_results_wtaxa_combined %>%
   geom_errorbar(aes(ymin = conf_low_combined, ymax = conf_high_combined), 
                 width = 0, position = position_dodge(width = 0.5)) +
   
-  geom_text(aes(y = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
+  geom_text(aes(y = -26, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
   
   # Add horizontal line at sensitivity = 0
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
@@ -425,7 +421,7 @@ herb_byspecies_plot <- summary_results_wtaxa_combined %>%
   facet_grid(. ~ taxa, scales = "free_x", space = "free_x") + 
 
   # Clip the plot to specific y-limits
-  coord_cartesian(ylim = c(-20, 10)) +
+  coord_cartesian(ylim = c(-25, 10)) +
   
   # Set axis labels, title, and color legend
   labs(
@@ -497,7 +493,7 @@ npn_byspecies_plot <- summary_results_wtaxa_combined %>%
   geom_errorbar(aes(ymin = conf_low_combined, ymax = conf_high_combined), 
                 width = 0, position = position_dodge(width = 0.5)) +
   
-  geom_text(aes(y = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
+  geom_text(aes(y = -26, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
   
   # Add horizontal line at sensitivity = 0
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
@@ -506,7 +502,7 @@ npn_byspecies_plot <- summary_results_wtaxa_combined %>%
   facet_grid(. ~ taxa, scales = "free_x", space = "free_x") + 
 
   # Clip the plot to specific y-limits
-  coord_cartesian(ylim = c(-20, 10)) +
+  coord_cartesian(ylim = c(-25, 10)) +
   
   # Set axis labels, title, and color legend
   labs(
@@ -524,7 +520,7 @@ npn_byspecies_plot <- summary_results_wtaxa_combined %>%
     legend.text = element_markdown(),
     legend.position = "none"
   )
-
+npn_byspecies_plot
 ```
 
 ## combine

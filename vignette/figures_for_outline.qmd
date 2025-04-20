@@ -102,9 +102,9 @@ temperature_plot <- ggplot() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black")  # Add dashed horizontal line
   
 # Second plot: Number of records
-records_plot <- ggplot() +
-  geom_col(data = npn_tem, aes(x = year, y = count), fill = "forestgreen", alpha = 0.5) +
-  geom_col(data = herb_tem, aes(x = year, y = count), fill = "chocolate4", alpha = 0.5) +
+records_plot <- ggplot() + #"Field observation" = "#0751f1", "Herbarium" = "#582800"
+  geom_col(data = npn_tem, aes(x = year, y = count), fill = "#0751f1", alpha = 0.5) +
+  geom_col(data = herb_tem, aes(x = year, y = count), fill = "#582800", alpha = 0.5) +
   labs(
     x = "Year",
     y = "Number of\nrecords"
@@ -183,8 +183,8 @@ map_plot <- ggplot() +
   xlim(-127, -66) + ylim(24, 50) +
   theme(
     legend.position = c(0.15, 0.15),
-  ) +
-  scale_color_manual(values = c("Herbarium" = "chocolate4", "Field observation" = "forestgreen")) +
+  ) + #"Field observation" = "#0751f1", "Herbarium" = "#582800"
+  scale_color_manual(values = c("Field observation" = "#0751f1", "Herbarium" = "#582800")) +
   labs(
     color = "Data source",
     x = "Longitude",
@@ -357,9 +357,72 @@ print(combined_plot)
 ```
 
 
+# Figure 2 compare two dataset sensitivity
+
+```{r}
+herbarium_data <- read.csv("../data/species_summary_herb.csv") %>% 
+  mutate(dataset = "Herbarium")
+npn_data <- read.csv("../data/species_summary_npn.csv") %>% 
+  mutate(dataset = "Field observation") 
+species_list <- inner_join(herbarium_data, npn_data, by = "species") %>%
+  dplyr::select(species) %>%
+  distinct()
 
 
-# Figure 2: the by group result from the two datasets
+
+temperature_data <- read.csv("../data/npn_temperature_data.csv")
+
+joint_data <- temperature_data %>% distinct(species, taxa) %>%
+  right_join(rbind(herbarium_data, npn_data), by = "species") %>% 
+  filter(species %in% species_list$species) 
+
+joint_data_long <- joint_data %>%
+  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
+  bind_rows(
+    joint_data %>%
+      mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
+  ) %>% 
+  dplyr::select(species, taxa, dataset, sensitivity_type, estimate_combined, conf_low_combined, conf_high_combined, residual) %>% 
+  group_by(species, sensitivity_type) %>%
+  mutate(equal = ifelse(max(conf_low_combined) < min(conf_high_combined), 1, 0)) %>%
+  arrange(taxa, species) %>%
+  mutate(species_name = forcats::fct_reorder(species, desc(species))) # Reorder species alphabetically within taxa
+
+
+```
+
+```{r fig.width=9, fig.height=10}
+
+
+joint_data_long %>% 
+  ggplot(aes(x = estimate_combined, y = species_name, color = dataset)) +
+    scale_color_manual(values = c("Field observation" = "#0751f1", "Herbarium" = "#582800")) +
+  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
+  coord_cartesian(xlim = c(-20, 10)) +  # This will clip the error bars instead of removing them
+  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined), width = 0, position = position_dodge(width = 0.5)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(aes(x = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
+  labs(
+    title = "",
+    x = "Sensitivity (days/°C)",
+    y = "Species",
+    color = "Dataset"
+  ) +
+  facet_grid(taxa ~ sensitivity_type, scales = "free_y", space = "free_y") + 
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    legend.text = element_markdown() # Italicize legend text
+  )  +
+  # Apply themes for classic look, italics, and markdown legend
+  theme_classic() +
+  theme(
+    axis.text.y = element_text(face = "italic"), 
+    legend.position = "top"
+  ) 
+```
+
+# Figure 3: the by group result from the two datasets
 ## herbairum
 prepare data
 ```{r}
@@ -513,7 +576,6 @@ npn_byspecies_plot <- summary_results_wtaxa_combined %>%
   ) +
   
   # Apply themes for classic look, italics, and markdown legend
-  theme_classic() +
   theme(
     axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5), 
     strip.text = element_text(face = "italic"),  # Italicize facet panel labels
@@ -527,11 +589,11 @@ npn_byspecies_plot
 ```{r fig.width=15, fig.height=12}
 herb_byspecies_plot / npn_byspecies_plot 
 ```
-# Figure 3: the HMM and PMM results
+# Figure 4: the HMM and PMM results
 ## HMM
 ```{r}
 library(ape)
-library(ggtree)
+# library(ggtree)
 library(phytools)
 library(rstan)
 library(ggplot2)
@@ -546,6 +608,13 @@ HMM_group <- as.data.frame(HMM_summary$summary)
 
 # get genus information
 taxa_info <- read.csv("../data/phylogenetics/total_species.csv")
+
+# get the phylo_species_id
+tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk") 
+tree_species <- rownames(vcv(tree, corr = TRUE)) %>% 
+  gsub("_", " ", .) 
+
+phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
 
 diff_sensitivity_HMM <- HMM_group[grepl("b_chill", rownames(HMM_group)), ] %>% 
   dplyr::select(mean, `2.5%`, `97.5%`) %>%
@@ -576,7 +645,7 @@ diff_sensitivity_PMM <- PMM_group[grepl("b_chill", rownames(PMM_group)), ] %>%
 ## combined plot
 
 combined density
-```{r}
+```{r fig.width= 4, fig.height=3}
 # Extract posterior samples and create combined data frame
 posterior_HMM <- as.data.frame(extract(HMM)$b_zc) %>%
   rename(Difference =  "extract(HMM)$b_zc") %>%
@@ -610,15 +679,10 @@ print(combined_density)
 
 
 
-# Figure 4: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
+# Figure 5: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
 
 ```{r}
-# get the phylo_species_id
-tree <- read.tree("../data/phylogenetics/PhyloMaker_tree_scenario1_total.nwk") 
-tree_species <- rownames(vcv(tree, corr = TRUE)) %>% 
-  gsub("_", " ", .) 
 
-phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
 
 ```
 
@@ -740,7 +804,7 @@ gridExtra::grid.arrange(tree_plot, sensitivity_plot, HMM_sensitivity_plot, nrow 
 
 ```
 
-# Supplementary Figure 1: sensitivity consistency among species
+# Supplementary Figure 4: sensitivity consistency among species
 
 ```{r}
 summary_results_herb <- read.csv("../data/species_summary_herb.csv") %>%
@@ -813,85 +877,77 @@ joint_data <- rbind(npn_data, herb_data) %>%
 
 ```{r fig.width=10, fig.height=8}
 joint_data %>%
-  ggplot(aes(x = yeart, y = doy, color = dataset)) +
-  scale_color_manual(values = c("Field observation" = "forestgreen", "Herbarium" = "brown")) + # Use scale_color_manual
+  ggplot(aes(x = yeart, y = as.Date(doy, origin = "2024-11-01"), color = dataset)) +
+  scale_color_manual(values = c("Field observation" = "#0751f1", "Herbarium" = "#582800")) +
   geom_point(alpha = 0.1) +
   geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1) +
   labs(
     title = " ",
     x = "Spring average temperature (°C)",
-    y = "Day of year",
-    color = "Dataset" # Legend title corresponds to color aesthetic
+    y = "Month",
+    color = "Dataset"
   ) +
   facet_wrap(~species) +
+  scale_y_date(date_labels = "%b") +  # Format y-axis as months
   theme_classic() +
   theme(
     legend.position = c(0.8, 0.05),
-    strip.text = element_text(face = "italic"),  # Italicize facet panel labels
-    legend.text = element_markdown() # Italicize legend text
+    strip.text = element_text(face = "italic"),
+    legend.text = element_markdown()
   )
+
 ```
-# Supplimentary Figure 3 compare two dataset sensitivity
+
+# Figure S3 speceis composition
 
 ```{r}
 herbarium_data <- read.csv("../data/species_summary_herb.csv") %>% 
   mutate(dataset = "Herbarium")
 npn_data <- read.csv("../data/species_summary_npn.csv") %>% 
   mutate(dataset = "Field observation") 
-species_list <- inner_join(herbarium_data, npn_data, by = "species") %>%
+species_list <- full_join(herbarium_data, npn_data, by = "species") %>%
   dplyr::select(species) %>%
   distinct()
+```
 
+```{r}
+npn_data <- read.csv("../data/npn_temperature_data.csv") %>% 
+  mutate(dataset = "Field observation") %>% 
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset)
+herb_data <- read.csv("../data/herb_temperature_data.csv") %>% 
+  mutate(dataset = "Herbarium") %>%
+  dplyr::select(yeart, norm, anom, doy, species, genus, dataset)
 
+taxa_info <- read.csv("../data/phylogenetics/total_species.csv") |> 
+  dplyr::select(species, taxa)
 
-temperature_data <- read.csv("../data/npn_temperature_data.csv")
-
-joint_data <- temperature_data %>% distinct(species, taxa) %>%
-  right_join(rbind(herbarium_data, npn_data), by = "species") %>% 
-  filter(species %in% species_list$species) 
-
-joint_data_long <- joint_data %>%
-  mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
-  bind_rows(
-    joint_data %>%
-      mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
-  ) %>% 
-  dplyr::select(species, taxa, dataset, sensitivity_type, estimate_combined, conf_low_combined, conf_high_combined, residual) %>% 
-  group_by(species, sensitivity_type) %>%
-  mutate(equal = ifelse(max(conf_low_combined) < min(conf_high_combined), 1, 0)) %>%
-  arrange(taxa, species) %>%
-  mutate(species_name = forcats::fct_reorder(species, desc(species))) # Reorder species alphabetically within taxa
+joint_data <- rbind(npn_data, herb_data) %>%
+  filter(species %in% species_list$species) %>%
+  mutate(dataset = factor(dataset, levels = c("Field observation", "Herbarium"))) |> 
+  inner_join(taxa_info) # only speceis included in the HMM and PMM model
 
 
 ```
 
-```{r fig.width=9, fig.height=10}
+```{r fig.width=10, fig.height=6}
 
-
-joint_data_long %>% 
-  ggplot(aes(x = estimate_combined, y = species_name, color = dataset)) +
-    scale_color_manual(values = c("Herbarium" = "brown", "Field observation" = "forestgreen")) +
-  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
-  coord_cartesian(xlim = c(-20, 10)) +  # This will clip the error bars instead of removing them
-  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined), width = 0, position = position_dodge(width = 0.5)) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_text(aes(x = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
+# Create the plot
+ggplot(joint_data, aes(x = species, fill = dataset)) +
+  geom_bar(position = "dodge", stat = "count") +  # Adjust bar width
+  scale_y_log10() +
+  facet_grid(. ~ taxa, scales = "free_x", space = "free_x") + 
+  scale_fill_manual(values = c("Field observation" = "#0751f1", "Herbarium" = "#582800")) +  # Specify custom colors
   labs(
-    title = "",
-    x = "Sensitivity (days/°C)",
-    y = "Species",
-    color = "Dataset"
+    x = "Species",
+    y = "Number of records",
+    fill = "Dataset"
   ) +
-  facet_grid(taxa ~ sensitivity_type, scales = "free_y", space = "free_y") + 
-  theme_minimal() +
+    theme_classic() +
   theme(
-    axis.text.y = element_text(face = "italic"),
-    legend.text = element_markdown() # Italicize legend text
-  )  +
-  # Apply themes for classic look, italics, and markdown legend
-  theme_classic() +
-  theme(
-    axis.text.y = element_text(face = "italic"), 
+    axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5), 
+    strip.text = element_text(face = "italic", angle = 90),  # Italicize facet panel labels
+    legend.text = element_markdown(),
     legend.position = "top"
-  ) 
+  )
 ```
+

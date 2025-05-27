@@ -27,6 +27,21 @@ knitr::opts_chunk$set(
   warning = FALSE
 )
 
+# set theme
+my_theme <- function() {
+  theme_classic(base_size = 14) +
+    theme(
+      axis.title = element_text(size = 16),
+      axis.text = element_text(size = 14),
+      #plot.title = element_text(size = 18, face = "bold"),
+      #plot.subtitle = element_text(size = 16),
+      #legend.title = element_text(size = 14, face = "bold"),
+      #legend.text = element_text(size = 12)
+    )
+}
+
+theme_set(my_theme())
+
 # link paths
 if (!dir.exists("data")) { # create symlink; final release needs to copy relevant files
   system("ln -s E:\\phenology data")

@@ -1,4 +1,3 @@
-library(tidyverse)
 library(rnpn)
 
 # download data

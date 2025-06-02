@@ -20,57 +20,55 @@ prism_download(type = "tmean", years = 1895:2023, mon = 1:12, keep_zip = FALSE)
 
 Aggregate monthly prism data to (year)_springmean.tif, (decade)_springmean.tif, complete_period_springmean.tif by doing pixel-wise average. Do this aggregation parallel and save the tif to save time for later extraction. (this part can be used to write a function for parallel do average, more like a optimizationd)
 ```{r aggregate_prism, eval=FALSE}
-source("scripts/aggregate_prism.R")
+source("scripts/prepare_prism.R")
 ```
 
 (output: yearly and complete period spring mean tifs)
 
 ## Herbarium data
 
-Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/) using [mvh](https://github.com/tncvasconcelos/mvh) package. Here we only use a small portion of images (8 specimens of red maple from the Ann Arbor, MI area and download the images.) as a test example. 
+### Download the images
+Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/). We selected the herbaium images following the following criteria and the downloading doi and link are provided here:
 
-```{r download_gbif, eval=FALSE}
-# use R to download the images and rename to "jpg format" (format requirement for leafmachine2)
+Citation
+When using this dataset please use the following citation:
 
-devtools::install_github("tncvasconcelos/mvh")
-library(mvh)
+GBIF.org (13 May 2024) GBIF Occurrence Download https://doi.org/10.15468/dl.uk96qu
 
-# Search for specimen metadata
-metadata <- search_specimen_metadata(
-  taxon_name = "Acer rubrum",
-  coordinates = c(42.28, -83.74),
-  limit = 8
-)
+Download Information
+DOI: https://doi.org/10.15468/dl.uk96qu (may take some hours before being active)
+Creation Date: 16:56:19 13 May 2024
+Records included: 259293 records from 307 published datasets
+Compressed data size: 122.9 MB
+Download format: DWCA
+Filter used:
 
-# Download specimen images
-download_specimen_images(
-  metadata,
-  dir_name = "Red_maple_in_AnnArbor_example/specimens",
-  result_file_name = "Red_maple_in_AnnArbor_example/result_download"
-)
+{
+  "and" : [
+    "BasisOfRecord is Specimen",
+    "Country is United States of America",
+    "HasCoordinate is true",
+    "HasGeospatialIssue is false",
+    "TaxonKey is one of (Acer L., Cupressaceae, Morus L., Pinaceae, Ulmus L., Fraxinus Tourn. ex L., Betula L., Populus L., Quercus L.)",
+    "Year 1895-2022"
+  ]
+}
 
-# after download_specimen_images(...)
-specimen_dir <- "Red_maple_in_AnnArbor_example/specimens"
+We also put the result in the internal_data. We added gbif.sh which can be used to download the GBIF images. It's aroun 600GB size so we won't provide the raw images here. Instead, we are providing the phenology
 
-# find all .jpeg files
-jpeg_files <- list.files(specimen_dir, pattern = "\\.jpeg$", full.names = TRUE)
+(output: occurrence.txt)
 
-# construct new names and rename
-new_names <- sub("\\.jpeg$", ".jpg", jpeg_files)
-file.rename(from = jpeg_files, to = new_names)
+### Process the image to get component
 
-write_csv2(metadata, "meta_data.csv")
-```
-
-Processing the downloaded image using [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2) can be tested through [colab](https://colab.research.google.com/drive/1LoE62SuiyNy8uar-eKn8qQJ3x_CVr4q_#scrollTo=9KTbaoXba2Qh) or on local machine.
+Processing the downloaded image using [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2) can be tested through [colab](https://colab.research.google.com/drive/1LoE62SuiyNy8uar-eKn8qQJ3x_CVr4q_#scrollTo=9KTbaoXba2Qh) or on local machine. We used LeafMachine2 v.2.1 version.
 
 After install Leafmachine2 in colab or local machine, we only need run DetectPhenology.py to generate the phenology table. Before run DetectPhenology.py, remember to change the corresponding DetectPhenology.yaml file lines to the corresponding places you put your image and where you want to store the output:
 dir_images_local: (input directory)
 dir_output: (output directory)
 
-Other potential adjustment please refer to [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2)
+Other potential adjustment please refer to [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2). One useful one is to set: do_save_prediction_overlay_images = True for a small test to see how well the phenology component is generated. (supplimentary figure 1).
 
-(output: meta_data.csv, phenology.csv)
+(output: phenology.csv)
 
 ## Field observation data
 ```{r download_prism, eval=FALSE}
@@ -79,19 +77,52 @@ source("scripts/download_npn.R")
 
 (output: genus.rds files)
 
+## Pylogenetic data
+```{r}
+source("scripts/download_phylo.R")
+```
+(output: PhyloMaker_tree_scenario1.nwk)
+
 # Analysis
 
 ## Herbarium
 ```{r}
-source("scripts/herbarium_analysis.R")
+source("scripts/prepare_herb.R")
 ```
+
+*If your meta_data.csv don't have the file_name column, you can use gbifid to join the meta data with phenology data.
+
+(output: herb_flower.csv) (with original doy)
 
 ## Field observations
 ```{r}
-source("scripts/field_observations_analysis.R")
+source("scripts/prepare_npn.R")
 ```
 
-## Hierachical model
+(output: npn_flower.csv) (with original doy)
+
+## Extract climate
 ```{r}
-source("scripts/hierarchical_model_analysis.R")
+source("scripts/prepare_flowerclimate.R")
 ```
+
+(output: temperature_data.csv) (with modified doy)
+
+## By species model
+```{r}
+source("scripts/model_byspecies.R")
+```
+
+(output: species_summary.csv) (only includes species with enough data to model)
+
+## HMM and PMM
+```{r}
+source("scripts/model_hierarchical.R")
+```
+
+(output: fit_model_HMM_all.rds, fit_model_PMM_all.rds)
+
+
+
+
+

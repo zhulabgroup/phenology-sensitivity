@@ -90,3 +90,34 @@ aggregate_decades <- function(decades) {
 
 # Aggregate decade files into a complete period average raster
 aggregate_decades(decades)
+
+# calculate national yearly anomaly and normality-------------
+base_path <- .path$prism
+normality_file <- paste0(base_path, "complete_period_springmean.tif")
+
+# Load the normality raster and calculate its mean
+normality_raster <- raster(normality_file)
+normality_mean <- cellStats(normality_raster, mean, na.rm = TRUE)
+
+# Initialize a data frame to store results
+results <- data.frame(year = 1895:2023, avg_anomaly = NA)
+
+# Loop through the years
+for (year in 1895:2023) {
+  yearly_file <- paste0(base_path, year, "_springmean.tif")
+  
+  # Load the yearly raster and calculate its mean
+  yearly_raster <- raster(yearly_file)
+  yearly_mean <- cellStats(yearly_raster, mean, na.rm = TRUE)
+  
+  # Calculate anomaly
+  anomaly <- yearly_mean - normality_mean
+  
+  # Store the result
+  results$avg_anomaly[results$year == year] <- anomaly
+}
+
+
+yearly_anomaly_normality <- rbind(results, c("0000", 10.42731))
+write.csv(yearly_anomaly_normality, paste0(base_path, "yearly_anomaly_normality.csv"), row.names = FALSE)
+

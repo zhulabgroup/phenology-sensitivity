@@ -1,9 +1,9 @@
 library(rnpn)
 
 # download data
-v_taxa <- c("Quercus", "Cupressaceae", "Ambrosia", "Morus", "Pinaceae", "Ulmus", "Fraxinus", "Betula", "Poaceae", "Acer", "Populus")
+v_taxa <- c("Quercus", "Cupressaceae", "Morus", "Pinaceae", "Ulmus", "Fraxinus", "Betula", "Acer", "Populus")
 
-path_npn <- "/nfs/turbo/seas-zhukai/phenology/NPN/individual_phenometrics/leaf_flower/with_climate/"
+path_npn <- ".path$npn" # path to save the downloaded data
 # npn_phenophases <- rnpn::npn_phenophases()
 npn_species <- rnpn::npn_species()
 

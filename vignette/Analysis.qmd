@@ -6,7 +6,7 @@ editor: visual
 
 
 ```{r setup, echo=FALSE, message=FALSE}
-source("scripts/_setup.R")
+source("../scripts/_setup_analysis.R")
 ```
 
 # Prepare data
@@ -77,17 +77,12 @@ source("scripts/download_npn.R")
 
 (output: genus.rds files)
 
-## Pylogenetic data
-```{r}
-source("scripts/download_phylo.R")
-```
-(output: PhyloMaker_tree_scenario1.nwk)
-
 # Analysis
+No need to run the downloading process since it will take a long time. All the required data is provided, you can start reproduce the analysis from here:
 
 ## Herbarium
 ```{r}
-source("scripts/prepare_herb.R")
+source("../scripts/prepare_herb.R")
 ```
 
 *If your meta_data.csv don't have the file_name column, you can use gbifid to join the meta data with phenology data.
@@ -96,33 +91,37 @@ source("scripts/prepare_herb.R")
 
 ## Field observations
 ```{r}
-source("scripts/prepare_npn.R")
+source("../scripts/prepare_npn.R")
 ```
 
 (output: npn_flower.csv) (with original doy)
 
 ## Extract climate
-```{r}
-source("scripts/prepare_flowerclimate.R")
+```{r warning=FALSE}
+source("../scripts/prepare_flowerclimate.R")
 ```
 
 (output: temperature_data.csv) (with modified doy)
 
 ## By species model
 ```{r}
-source("scripts/model_byspecies.R")
+source("../scripts/model_byspecies.R")
 ```
 
 (output: species_summary.csv) (only includes species with enough data to model)
 
 ## HMM and PMM
+### Download pylogenetic data
 ```{r}
-source("scripts/model_hierarchical.R")
+source("../scripts/download_phylo.R")
+```
+(output: PhyloMaker_tree_scenario1.nwk, taxa_info.csv)
+
+### Fit model
+```{r}
+source("../scripts/model_hierarchical.R")
 ```
 
-(output: fit_model_HMM_all.rds, fit_model_PMM_all.rds)
+(output: sample_HMM.rds, sample_PMM.rds)
 
-
-
-
-
+HMM:2723.19 s PMM 2965.14 s

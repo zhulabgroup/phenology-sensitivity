@@ -1,6 +1,6 @@
 # fit the model
 
-temperature_data <- read.csv("../data/temperature_data.csv")
+temperature_data <- read.csv(.path$temperature_data)
 
 
 ## get data for model by requiring 10 observations for each parameters --------
@@ -60,6 +60,8 @@ analyze_species_dataset <- function(data, species_name, dataset_name) {
   # Return as a tibble row
   tibble(
     species = species_name,
+    genus = unique(filtered_data$genus),
+    taxa = unique(filtered_data$taxa),
     dataset = dataset_name,
     anom_estimate = coef_anom$estimate,
     anom_conf_low = coef_anom$conf.low,
@@ -88,5 +90,5 @@ final_results <- bind_rows(results_list)
 
 
 
-write.csv(summary_results, "../data/species_summary.csv", row.names = FALSE)
+write.csv(final_results, .path$byspecies_summary, row.names = FALSE)
 

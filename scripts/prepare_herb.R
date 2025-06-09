@@ -1,10 +1,10 @@
 # adapted from complete_herbarium.qmd in the main branch
 
 ## link phenology to raw data --------
-raw <- read.csv("meta_data.csv") %>%
+raw <- read.csv(.path$herb_meta) %>%
   dplyr::select(day, month, year, startDayOfYear, decimalLongitude, decimalLatitude, filename_image, species, genus, family)
 
-phenology <- read.csv("../data/Herbarim_flower/phenology.csv") %>%
+phenology <- read.csv(.path$herb_pheno) %>%
   mutate(filename_image = gsub(".txt", "", file_name))
 
 joint_data <- left_join(phenology, raw, by = "filename_image")
@@ -24,4 +24,4 @@ joint_data_flower <- joint_data %>% # 116805
 # 1. completely the same ~300
 # 2. same specimen (different name) with different phenology (as long as the flower is consistent, we will keep them) ~2000
 
-write.csv(joint_data_flower, "herb_flower.csv")
+write.csv(joint_data_flower, .path$herb_flower)

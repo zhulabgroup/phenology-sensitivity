@@ -18,6 +18,7 @@ pacman::p_load(dplyr,
                stringr,
                ggdist,
                gghalves,
+               ggside,
                raster)
 
 

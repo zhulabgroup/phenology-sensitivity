@@ -7,13 +7,15 @@ format:
 editor: visual
 ---
 
+The equations are from: https://www.overleaf.com/project/65b42fb90c6d0147c620e820 
+
 ```{r setup, echo=FALSE, message=FALSE}
 source("../scripts/_setup_figures.R")
 ```
 
 # Figure 1 SFTS concept
 
-## Figure 1a
+## Figure 1a & b
 
 ```{r}
 anom <- read.csv(.path$norm_anom) %>%
@@ -38,25 +40,65 @@ temperature_plot <- ggplot() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black") # Add dashed horizontal line
 
 # Second plot: Number of records
-records_plot <- ggplot() + # "Field observation" = "#0751f1", "Herbarium" = "#582800"
-  geom_col(data = count_data %>% filter(dataset == "npn"), aes(x = year, y = count), fill = "#0751f1", alpha = 0.5) +
-  geom_col(data = count_data %>% filter(dataset == "herb"), aes(x = year, y = count), fill = "#582800", alpha = 0.5) +
+records_plot <- ggplot(count_data) + # "Field observation" = "#0751f1", "Herbarium" = "#582800"
+  geom_line(aes(x = year, y = count, color = dataset)) +
+    scale_color_manual(
+    values = c("npn" = "#0751f1", "herb" = "#582800"),
+    labels = c("npn" = "Field observation", "herb" = "Herbarium")
+  ) +
   labs(
     x = "Year",
-    y = "Number of\nrecords"
-  )
+    y = "Number of\nrecords",
+    color = "Dataset"
+  ) +
+  theme(
+  legend.position = c(0.5, 1),     # x, y coordinates (center-top)
+  legend.justification = c(0.5, 1),# align center of legend to top-center of plot
+  legend.box.just = "center",     # optional, keeps alignment centered
+    legend.direction = "horizontal",     # Make legend items go horizontally
+  legend.background = element_rect(fill = "white", color = NA), # optional, for visibility
+  legend.margin = margin(t = 5, r = 5, b = 5, l = 5)
+)
 
 # Combine the two plots with a shared x-axis using patchwork
-double_y_plot <- temperature_plot / records_plot
+double_y_plot <- temperature_plot / records_plot 
 
 
 # Display the plot
 print(double_y_plot)
 ```
 
-## Figure 1b
 
-### Get latidude temperature normality data
+
+## Figure 1c
+```{r}
+# Load US states as sf object
+us_states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
+
+
+map_plot <- ggplot() +
+  geom_sf(data = us_states, fill = NA, color = "grey") +
+  geom_point(data = temperature_data, aes(x = lon, y = lat, color = dataset), alpha = 0.5, size = 0.5) +
+  scale_color_manual(
+    values = c("herb" = "#582800", "npn" = "#0751f1"),
+    labels = c("herb" = "Herbarium", "npn" = "Field observation")
+  ) +
+  xlim(-127, -66) +
+  ylim(24, 50) +
+  theme(
+    legend.position = c(0.15, 0.15)
+  ) +
+  labs(
+    color = "Data source",
+    x = "Longitude",
+    y = "Latitude",
+    title = " "
+  )
+
+print(map_plot)
+```
+
+## Figure 1d
 
 ```{r}
 prism_raster <- raster(.path$prism_norm)
@@ -89,34 +131,7 @@ normality_plot <- ggplot(norm, aes(x = temperature, y = latitude)) +
 print(normality_plot)
 ```
 
-```{r}
-# Load US states as sf object
-us_states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
-
-
-map_plot <- ggplot() +
-  geom_sf(data = us_states, fill = NA, color = "grey") +
-  geom_point(data = temperature_data, aes(x = lon, y = lat, color = dataset), alpha = 0.5, size = 0.5) +
-  scale_color_manual(
-    values = c("herb" = "#582800", "npn" = "#0751f1"),
-    labels = c("herb" = "Herbarium", "npn" = "Field observation")
-  ) +
-  xlim(-127, -66) +
-  ylim(24, 50) +
-  theme(
-    legend.position = c(0.15, 0.15)
-  ) +
-  labs(
-    color = "Data source",
-    x = "Longitude",
-    y = "Latitude",
-    title = " "
-  )
-
-print(map_plot)
-```
-
-## Figure 1c
+## Figure 1e
 
 ```{r}
 black <- data.frame(x = c(0, 1), y = c(1, 0), color = "black")
@@ -144,8 +159,8 @@ tem_sen <- ggplot(data = black) +
   ) +
   annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +
   annotate("text", x = -0.12, y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
-  annotate("text", x = 0.1, y = -0.1, label = "Cold year", size = 4, vjust = 0.2) +
-  annotate("text", x = 0.9, y = -0.1, label = "Hot year", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.1, y = -0.1, label = "Cool year", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.9, y = -0.1, label = "Warm year", size = 4, vjust = 0.2) +
   # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
   geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
   geom_hline(yintercept = 0.5, linetype = "dashed") +
@@ -155,7 +170,7 @@ tem_sen <- ggplot(data = black) +
 print(tem_sen)
 ```
 
-## Figure 1d
+## Figure 1f
 
 ```{r}
 spa_sen <- ggplot(data = black) +
@@ -178,13 +193,13 @@ spa_sen <- ggplot(data = black) +
   ) +
   annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +
   annotate("text", x = -0.12, y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
-  annotate("text", x = 0.1, y = -0.1, label = "Cold place", size = 4, vjust = 0.2) +
-  annotate("text", x = 0.85, y = -0.1, label = "Hot place", size = 4, vjust = 0.2)
+  annotate("text", x = 0.1, y = -0.1, label = "Cool site", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.85, y = -0.1, label = "Warm site", size = 4, vjust = 0.2)
 
 print(spa_sen)
 ```
 
-## Figure 1e
+## Figure 1g
 
 ```{r}
 #
@@ -210,7 +225,6 @@ segments_3 <- bind_rows(lapply(1:nrow(purple_center), function(i) {
 }))
 ```
 
-plot
 
 ```{r}
 # Plot
@@ -287,6 +301,9 @@ by_species_wtaxa_combined_h <- by_species_wtaxa_combined %>%
   # Abbreviate genus names (e.g., Acer → A.)
   mutate(species_name = forcats::fct_inorder(simple_name))
 ```
+
+
+
 
 ## Figure 2a
 ```{r fig.width=15, fig.height=6}
@@ -398,6 +415,42 @@ byspecies_scatter <- by_species %>%
 
 print(byspecies_scatter)
 ```
+
+```{r}
+
+byspecies_scatter <- by_species %>%
+  ggplot(aes(x = norm_estimate, y = anom_estimate, color = dataset)) +
+  geom_point(alpha = 0.7) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  labs(
+    x = "Spatial Sensitivity (days/°C)",
+    y = "Temporal Sensitivity (days/°C)",
+    color = "Dataset"  # Shared legend title
+  ) +
+  geom_xsidedensity(aes(y = after_stat(density), fill = dataset), alpha = 0.5) +
+  geom_ysidedensity(aes(x = after_stat(density), fill = dataset), alpha = 0.5) +
+  scale_color_manual(
+    values = c("npn" = "#0751f1", "herb" = "#582800"),
+    labels = c("npn" = "Field observation", "herb" = "Herbarium")
+  ) +
+  scale_fill_manual(
+    values = c("npn" = "#0751f1", "herb" = "#582800"),
+    labels = c("npn" = "Field observation", "herb" = "Herbarium")  # Add labels here
+  ) +
+  guides(fill = "none") +  # Hide the fill legend
+  theme(legend.position = "top") +
+  theme(
+    ggside.panel.scale.x = 0.2,
+    ggside.panel.scale.y = 0.2,
+    ggside.axis.text = element_blank(),
+    ggside.axis.ticks = element_blank(),
+    ggside.axis.title = element_blank()
+  )
+
+print(byspecies_scatter)
+
+```
+
 
 
 ## Combined
@@ -528,6 +581,7 @@ HMM_density <- ggplot(HMM_samples_long) +
     labels = c(b_zs = "Spatial Sensitivity", b_zt = "Temporal Sensitivity")
   ) +
   labs(x = "Sensitivity (days/°C)", y = "", fill = "Sensitivity type") +
+    xlim(-10,2) +
   theme(legend.position = "none")
 
 HMM_scatter <- ggplot(HMM_species_data, aes(x = b_spatial, y = b_temporal)) +
@@ -609,6 +663,7 @@ PMM_density <- ggplot(PMM_samples_long) +
     values = c(b_zs = "red", b_zt = "purple"),
     labels = c(b_zs = "Spatial Sensitivity", b_zt = "Temporal Sensitivity")
   ) +
+  xlim(-10,2) +
   labs(x = "Sensitivity (days/°C)", y = "", fill = "Sensitivity type") +
   theme(legend.position = "none")
 
@@ -791,7 +846,7 @@ sensitivity_plot <- species_sensitivity_PMM %>%
     y = NULL, # Clearer to use NULL for an empty y-axis label
     x = "Difference (Spatial - Temporal, days/°C)"
   ) +
-  xlim(10, -10) + # Optional: adjust if needed
+  xlim(-10, 10) + # Optional: adjust if needed
   # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
   theme_classic() +
   theme(
@@ -818,7 +873,7 @@ HMM_sensitivity_plot <- species_sensitivity_HMM %>%
     y = NULL, # Clearer to use NULL for an empty y-axis label
     x = "Difference (Spatial - Temporal, days/°C)"
   ) +
-  xlim(10, -10) + # Optional: adjust if needed
+  xlim(-10, 10) + # Optional: adjust if needed
   # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
   theme_classic() +
   theme(
@@ -831,6 +886,37 @@ HMM_sensitivity_plot <- species_sensitivity_HMM %>%
 ## Combined
 ```{r fig.width=10, fig.height=15}
 gridExtra::grid.arrange(tree_plot, sensitivity_plot, HMM_sensitivity_plot, nrow = 1, widths = c(1, 2, 1.5))
+```
+
+
+# Table 1
+```{r}
+herb_table <- by_species_wtaxa_combined %>% 
+  filter(dataset=="herb") %>% 
+  group_by(taxa, sensitivity_type) %>% 
+  summarise(
+    count = n(),
+    equal = sum(equal),
+    neg = sum(conf_high_combined < 0),
+    .groups = "drop"
+  )
+
+head(herb_table)
+```
+
+# Table 2
+```{r}
+npn_table <- by_species_wtaxa_combined %>% 
+  filter(dataset=="npn", sensitivity_type == "spatial") %>% 
+  group_by(taxa) %>% 
+  summarise(
+    count = n(),
+    equal = sum(equal),
+    .groups = "drop"
+  ) %>% 
+  mutate(euql_pro = equal/count)
+
+head(npn_table)
 ```
 
 # Supplementary Figure 2: sensitivity consistency among species

@@ -23,8 +23,13 @@ lambda_all <- c(lambda_tips, lambda_nodes)
 # Step 4: Create the ggtree plot and color the tips and nodes based on their lambda values
 tree_plot <- ggtree(tree, aes(color = lambda_all)) +  # Shrink branch lengths with xscale
   geom_tree() + 
-  scale_color_gradient2(low = "blue", mid = "black", high = "red", midpoint = 0, 
-                        name = "Temporal sensitivity,\ndays/°C)") +  # Darker color gradient
+  scale_color_gradient2(
+    low = "#d7191c",     # Deep blue
+    mid = "#ffffbf",     # Bright yellow
+    high = "#2c7bb6",    # Deep red
+    midpoint = mean(lambda_all, na.rm = TRUE),
+    name = "Temporal sensitivity,\ndays/°C"
+  ) +
   theme_tree()+
   theme(
     plot.margin = margin(t = 5, r = 0, b = 30, l = 0),
@@ -54,17 +59,20 @@ sensitivity_plot <- species_sensitivity_PMM %>%
   ggplot(aes(x = mean_b_temporal, y = species, color = mean_b_temporal)) +  #################
   geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
   geom_errorbar(aes(xmin = `2.5%_b_temporal`, xmax = `97.5%_b_temporal`), width = 0.2) + # Removed redundant color ########
-  scale_color_gradient2(
-    low = "blue", mid = "black", high = "red", midpoint = 0, 
-    name = "Temporal sensitivity,\ndays/°C)"
-  ) +  
+scale_color_gradient2(
+  low = "#d7191c",     # Deep blue
+  mid = "#ffffbf",     # Bright yellow
+  high = "#2c7bb6",    # Deep red
+  midpoint = mean(lambda_all, na.rm = TRUE),
+  name = "Temporal sensitivity,\ndays/°C"
+) + 
   geom_vline(xintercept = 0, linetype = "dashed") +
   labs(
     title = NULL, # Clearer to use NULL for an empty title
     y = NULL,     # Clearer to use NULL for an empty y-axis label
     x = "Temporal sensitivity, days/°C"
   ) +
-  xlim(-10, 10) +  # Optional: adjust if needed
+  # xlim(-10, 10) +  # Optional: adjust if needed
   # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
   theme_classic() +
   theme(
@@ -75,24 +83,24 @@ sensitivity_plot <- species_sensitivity_PMM %>%
 
 
 # HMM
-species_sensitivity_HMM$species <- factor(species_sensitivity_HMM$species, levels = tip_order)
-
-
-HMM_sensitivity_plot <- species_sensitivity_HMM %>% 
-  ggplot(aes(x = mean_b_temporal, y = species, color = mean_b_temporal)) +  #################
-  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5), color = "black") +
-  geom_errorbar(aes(xmin = `2.5%_b_temporal`, xmax = `97.5%_b_temporal`), width = 0.2, color = "black") + # Removed redundant color ########
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(
-    title = NULL, # Clearer to use NULL for an empty title
-    y = NULL,     # Clearer to use NULL for an empty y-axis label
-    x = "Temporal sensitivity days/°C"
-  ) +
-  xlim(-10, 10) +  # Optional: adjust if needed
-  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
-  theme_classic() +
-  theme(
-    legend.position = "none",
-    axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
-    legend.text = element_text() # Use element_text instead of element_markdown
-  )
+# species_sensitivity_HMM$species <- factor(species_sensitivity_HMM$species, levels = tip_order)
+# 
+# 
+# HMM_sensitivity_plot <- species_sensitivity_HMM %>% 
+#   ggplot(aes(x = mean_b_temporal, y = species, color = mean_b_temporal)) +  #################
+#   geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5), color = "black") +
+#   geom_errorbar(aes(xmin = `2.5%_b_temporal`, xmax = `97.5%_b_temporal`), width = 0.2, color = "black") + # Removed redundant color ########
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   labs(
+#     title = NULL, # Clearer to use NULL for an empty title
+#     y = NULL,     # Clearer to use NULL for an empty y-axis label
+#     x = "Temporal sensitivity days/°C"
+#   ) +
+#   xlim(-10, 10) +  # Optional: adjust if needed
+#   # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
+#   theme_classic() +
+#   theme(
+#     legend.position = "none",
+#     axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+#     legend.text = element_text() # Use element_text instead of element_markdown
+#   )

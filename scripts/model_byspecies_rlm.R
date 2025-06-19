@@ -26,6 +26,8 @@ analyze_species_dataset <- function(data, species_name, dataset_name) {
   filtered_data <- data %>%
     filter(species == species_name, dataset == dataset_name)
   
+  count = nrow(filtered_data)
+  
   # Fit the linear model
   model <- MASS::rlm(doy ~ anom + norm, data = filtered_data, maxit = 30)
   
@@ -70,7 +72,8 @@ analyze_species_dataset <- function(data, species_name, dataset_name) {
     norm_conf_low = coef_norm$conf.low,
     norm_conf_high = coef_norm$conf.high,
     equal = equal,
-    residual = residual
+    residual = residual,
+    count = count
   )
 }
 

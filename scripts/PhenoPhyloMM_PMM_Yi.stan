@@ -95,6 +95,7 @@ model {
   a_z ~ normal(240, 10);        // Intercept prior: centered near empirical mean
   b_zs ~ normal(-4, 4);         // Spatial sensitivity prior: negative mean
   b_zt ~ normal(1.5, 4);        // Temporal sensitivity prior: positive mean
+
 }
 
 

@@ -105,7 +105,7 @@ source("../scripts/prepare_flowerclimate.R")
 
 ## By species model
 ```{r}
-source("../scripts/model_byspecies.R")
+source("../scripts/model_byspecies_lm.R")
 ```
 
 (output: species_summary.csv) (only includes species with enough data to model)

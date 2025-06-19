@@ -12,6 +12,7 @@ phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_sp
 
 # Join the species IDs from the tree with the temperature data
 temperature_data_model_phylo <- read.csv(.path$temperature_data)  %>% 
+  filter(dataset == "herb") %>% 
   dplyr::select(species, doy, norm, anom, yeart) %>% 
   right_join(phylo_species_id, by = "species")  # Join based on species names
 

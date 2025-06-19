@@ -15,165 +15,86 @@ source("../scripts/_setup_figures.R")
 
 # Figure 1 SFTS concept
 
-## Figure 1a & b
-
+## Figure 1a
 ```{r}
-anom <- read.csv(.path$norm_anom) %>%
-  slice(1:(n() - 1))
-
 temperature_data <- read.csv(.path$temperature_data)
 
-count_data <- temperature_data %>%
-  group_by(dataset, year) %>%
-  summarize(count = n())
-```
+red_maple <- temperature_data %>% filter(dataset == "herb",species == "Acer rubrum")
 
-```{r}
-# Create a double y-axis plot
-temperature_plot <- ggplot() +
-  geom_line(data = anom, aes(x = year, y = avg_anomaly), color = "purple") +
-  geom_point(data = anom, aes(x = year, y = avg_anomaly), color = "purple") +
-  labs(
-    x = "Year",
-    y = "Temperature\nanomaly (°C)"
-  ) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black") # Add dashed horizontal line
-
-# Second plot: Number of records
-records_plot <- ggplot(count_data) + # "Field observation" = "#0751f1", "Herbarium" = "#582800"
-  geom_line(aes(x = year, y = count, color = dataset)) +
-    scale_color_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")
-  ) +
-  labs(
-    x = "Year",
-    y = "Number of\nrecords",
-    color = "Dataset"
-  ) +
-  theme(
-  legend.position = c(0.5, 1),     # x, y coordinates (center-top)
-  legend.justification = c(0.5, 1),# align center of legend to top-center of plot
-  legend.box.just = "center",     # optional, keeps alignment centered
-    legend.direction = "horizontal",     # Make legend items go horizontally
-  legend.background = element_rect(fill = "white", color = NA), # optional, for visibility
-  legend.margin = margin(t = 5, r = 5, b = 5, l = 5)
-)
-
-# Combine the two plots with a shared x-axis using patchwork
-double_y_plot <- temperature_plot / records_plot 
-
-
-# Display the plot
-print(double_y_plot)
-```
-
-
-
-## Figure 1c
-```{r}
 # Load US states as sf object
 us_states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
 
 
 map_plot <- ggplot() +
   geom_sf(data = us_states, fill = NA, color = "grey") +
-  geom_point(data = temperature_data, aes(x = lon, y = lat, color = dataset), alpha = 0.5, size = 0.5) +
-  scale_color_manual(
-    values = c("herb" = "#582800", "npn" = "#0751f1"),
-    labels = c("herb" = "Herbarium", "npn" = "Field observation")
-  ) +
-  xlim(-127, -66) +
+  geom_point(data = red_maple, aes(x = lon, y = lat, color = lat), alpha = 0.5, size = 2) +
+  xlim(-97, -66) +
   ylim(24, 50) +
   theme(
-    legend.position = c(0.15, 0.15)
+    legend.position = c(0.9, 0.3),
+        plot.title = element_text(face = "italic")
   ) +
   labs(
-    color = "Data source",
+    color = "Latitude",
     x = "Longitude",
     y = "Latitude",
-    title = " "
+    title = "Acer rubrum"
   )
 
 print(map_plot)
 ```
 
-## Figure 1d
-
+## Figure 1b
 ```{r}
-prism_raster <- raster(.path$prism_norm)
-
-# Extract temperature values by latitude
-lat_values <- seq(24, 50, by = 0.5) # Adjust range as needed
-long_values <- rep(-98, length(lat_values)) # Use a central longitude
-
-temp_by_lat <- raster::extract(prism_raster, cbind(long_values, lat_values))
-
-# Create a data frame with latitude and temperature
-norm <- data.frame(latitude = lat_values, temperature = temp_by_lat)
-```
-
-```{r}
-# Optional: Create a plot of temperature by latitude
-normality_plot <- ggplot(norm, aes(x = temperature, y = latitude)) +
-  geom_line(color = "red") +
-  theme(
-    axis.text.y = element_blank(),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    plot.margin = margin(t = 20, r = 5, b = 40, l = 0, unit = "pt")
-  ) +
+normality_plot <- red_maple %>% 
+  ggplot(aes(x = norm, y = as.Date(doy, origin = "2024-11-01"), color = lat)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1, color = "red") +
   labs(
-    x = "Temperature normality (°C)"
+    title = " ",
+    x = "Temperature normality (°C)",
+    y = "Flowering day",
+    color = "Latitude"
   ) +
-  scale_y_continuous(limits = c(24, 50))
+  scale_y_date(date_labels = "%b") + # Format y-axis as months
+  theme(
+    legend.position = "none"
+  )
 
 print(normality_plot)
 ```
 
-## Figure 1e
-
+## Figure 1c
 ```{r}
-black <- data.frame(x = c(0, 1), y = c(1, 0), color = "black")
-purple_center <- data.frame(x = seq(0.2, 0.8, by = 0.2), y = 1 - seq(0.2, 0.8, by = 0.2))
-```
-
-```{r}
-tem_sen <- ggplot(data = black) +
-  # geom_point(aes(x = x, y = y)) +
-  geom_line(mapping = aes(x = x, y = y), color = "purple", size = 2) +
-  theme(
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) +
-  xlim(-0.3, 1) +
-  ylim(-0.1, 1) +
+anomaly_plot <- red_maple %>% 
+  ggplot(aes(x = anom, y = as.Date(doy, origin = "2024-11-01"), color = lat)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 2, color = "purple") +
   labs(
-    # x = expression("Temperature anomaly" ~ t[anom]),
-    # y = expression("Flowering day anomaly" ~ d[anom]),
-    x = "Temperature anomaly",
-    y = "Flowering day anomaly",
-    title = " "
+    title = " ",
+    x = "Temperature anomaly (°C)",
+    y = "Flowering day",
+    color = "Latitude"
   ) +
-  annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +
-  annotate("text", x = -0.12, y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
-  annotate("text", x = 0.1, y = -0.1, label = "Cool year", size = 4, vjust = 0.2) +
-  annotate("text", x = 0.9, y = -0.1, label = "Warm year", size = 4, vjust = 0.2) +
-  # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
-  geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  geom_vline(xintercept = 0.5, linetype = "dashed") +
-  annotate("text", x = 0.65, y = 0.6, label = "(0, 0)", size = 4)
+  scale_y_date(date_labels = "%b") + # Format y-axis as months
+  theme(
+    legend.position = "none"
+  )
 
-print(tem_sen)
+print(anomaly_plot)
 ```
 
-## Figure 1f
+## Figure 1d
 
 ```{r}
-spa_sen <- ggplot(data = black) +
+purple <- data.frame(x = c(0, 3), y = c(3, 0))/3
+red_co <- data.frame(x = c(1, 2), y = c(3, 0))/3
+red_counter <- data.frame(x = c(0, 3), y = c(2, 1))/3
+```
+
+
+```{r}
+spa_sen <- ggplot(data = purple) +
   # geom_point(aes(x = x, y = y)) +
   geom_line(mapping = aes(x = x, y = y), color = "red") +
   theme(
@@ -199,39 +120,49 @@ spa_sen <- ggplot(data = black) +
 print(spa_sen)
 ```
 
-## Figure 1g
+## Figure 1e
+
+
 
 ```{r}
-#
-# Function to calculate line segments
-calculate_segments <- function(center, slope, length) {
-  start_x <- center$x - length / 2 * cos(atan(slope))
-  start_y <- center$y - length / 2 * sin(atan(slope))
-  end_x <- center$x + length / 2 * cos(atan(slope))
-  end_y <- center$y + length / 2 * sin(atan(slope))
+tem_sen <- ggplot(data = purple) +
+  # geom_point(aes(x = x, y = y)) +
+  geom_line(mapping = aes(x = x, y = y), color = "purple", size = 2) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) +
+  xlim(-0.3, 1) +
+  ylim(-0.1, 1) +
+  labs(
+    # x = expression("Temperature anomaly" ~ t[anom]),
+    # y = expression("Flowering day anomaly" ~ d[anom]),
+    x = "Temperature anomaly",
+    y = "Flowering day anomaly",
+    title = " "
+  ) +
+  annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +
+  annotate("text", x = -0.12, y = 0.92, label = "Late\nflowering", size = 4, hjust = 0.7) +
+  annotate("text", x = 0.1, y = -0.1, label = "Cool year", size = 4, vjust = 0.2) +
+  annotate("text", x = 0.8, y = -0.1, label = "Warm year", size = 4, vjust = 0.2) +
+  # add a horizontal and vertical dash line cross 0,0 and label that they represent 0,0
+  geom_point(aes(x = 0.5, y = 0.5), color = "purple", size = 4) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  annotate("text", x = 0.65, y = 0.6, label = "(0, 0)", size = 4)
 
-  tibble(start_x = start_x, start_y = start_y, end_x = end_x, end_y = end_y)
-}
-
-# Apply the function to all centers
-segments_1 <- bind_rows(lapply(1:nrow(purple_center), function(i) {
-  calculate_segments(purple_center[i, ], -1.5, 0.18)
-}))
-segments_2 <- bind_rows(lapply(1:nrow(purple_center), function(i) {
-  calculate_segments(purple_center[i, ], -1, 0.18)
-}))
-segments_3 <- bind_rows(lapply(1:nrow(purple_center), function(i) {
-  calculate_segments(purple_center[i, ], -0.5, 0.18)
-}))
+print(tem_sen)
 ```
 
+## Figure 1f
 
 ```{r}
 # Plot
-spa_tem <- ggplot(mapping = aes(x = x, y = y)) +
-  geom_line(data = black, aes(group = 1), color = "red") +
-  geom_point(data = purple_center, color = "purple", size = 3) +
-  geom_segment(data = segments_2, aes(x = start_x, y = start_y, xend = end_x, yend = end_y), color = "purple", size = 2) +
+co_gradient <- ggplot(mapping = aes(x = x, y = y)) +
+  geom_line(data = purple, color = "purple", size = 3) +
+    geom_line(data = red_co, color = "red") +
   # geom_hline(yintercept = 0.4, linetype = "dashed") +
   # geom_vline(xintercept = 0.6, linetype = "dashed") +
   labs(
@@ -239,7 +170,32 @@ spa_tem <- ggplot(mapping = aes(x = x, y = y)) +
     #    y = expression(d[observe]),
     x = "Temperature observed",
     y = "Flowering day observed",
-    title = " "
+    title = "Co-gradient adaptation"
+  ) +
+    geom_text(aes(x = 0.9, y = 0.9, label = "+"), size = 10, color = "black") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  )
+print(co_gradient)
+```
+## Figure 1g
+
+```{r}
+# Plot
+no_adaptation <- ggplot(mapping = aes(x = x, y = y)) +
+  geom_line(data = purple, color = "purple", size = 3) +
+    geom_line(data = purple, aes(group = 1), color = "red") +
+  # geom_hline(yintercept = 0.4, linetype = "dashed") +
+  # geom_vline(xintercept = 0.6, linetype = "dashed") +
+  labs(
+    # x = expression(t[observe]),
+    #    y = expression(d[observe]),
+    x = "Temperature observed",
+    y = "Flowering day observed",
+    title = "No adaptation"
   ) +
   theme(
     axis.text.x = element_blank(),
@@ -247,35 +203,66 @@ spa_tem <- ggplot(mapping = aes(x = x, y = y)) +
     axis.ticks = element_blank(),
     axis.line = element_line(color = "black")
   )
-print(spa_tem)
+print(no_adaptation)
 ```
 
+## Figure 1h
+
+```{r}
+# Plot
+counter_gradient <- ggplot(mapping = aes(x = x, y = y)) +
+  geom_line(data = purple, color = "purple", size = 3) +
+    geom_line(data = red_counter, color = "red") +
+  # geom_hline(yintercept = 0.4, linetype = "dashed") +
+  # geom_vline(xintercept = 0.6, linetype = "dashed") +
+  labs(
+    # x = expression(t[observe]),
+    #    y = expression(d[observe]),
+    x = "Temperature observed",
+    y = "Flowering day observed",
+    title = "Counter-gradient adaptation"
+  ) +
+      geom_text(aes(x = 0.9, y = 0.9, label = "-"), size = 10, color = "black") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  )
+print(counter_gradient)
+```
 ## Combined
 
 ```{r}
 layout <- c(
-  patchwork::area(t = 1, l = 1, b = 1, r = 12),
-  patchwork::area(t = 2, l = 1, b = 2, r = 12),
-  patchwork::area(t = 3, l = 1, b = 6, r = 10),
-  patchwork::area(t = 3, l = 11, b = 6, r = 12),
-  patchwork::area(t = 1, l = 13, b = 2, r = 16),
-  patchwork::area(t = 3, l = 13, b = 4, r = 16),
-  patchwork::area(t = 5, l = 13, b = 6, r = 16)
+  patchwork::area(t = 1, l = 1, b = 6, r = 5),
+  patchwork::area(t = 1, l = 6, b = 3, r = 7),
+  patchwork::area(t = 4, l = 6, b = 6, r = 7),
+  patchwork::area(t = 1, l = 8, b = 3, r = 9),
+  patchwork::area(t = 4, l = 8, b = 6, r = 9),
+  patchwork::area(t = 7, l = 1, b = 9, r = 3),
+  patchwork::area(t = 7, l = 4, b = 9, r = 6),
+  patchwork::area(t = 7, l = 7, b = 9, r = 9)
 )
 
 plot(layout)
 ```
 
-```{r fig.width=18, fig.height=11}
+```{r fig.width=16, fig.height=12}
 # Adjust the margins and layout
-combined_plot <- double_y_plot + map_plot + normality_plot +
-  tem_sen + spa_sen + spa_tem +
+combined_plot <- map_plot + normality_plot + anomaly_plot + spa_sen + tem_sen + 
+   free(co_gradient) + free(no_adaptation) + free(counter_gradient) +
   plot_layout(design = layout) +
-  plot_annotation(tag_levels = "a")
+  plot_annotation(tag_levels = "a") 
+  
 
 # Print the combined plot
 print(combined_plot)
 ```
+
+
+
+
 
 # Figure 2: the by group result from the two datasets
 
@@ -285,333 +272,275 @@ print(combined_plot)
 by_species <- read_csv(.path$byspecies_summary)
 taxa_info <- read_csv(.path$taxa_info)
 
-by_species_wtaxa_combined <- by_species %>%
-  left_join(taxa_info) %>%
+by_species_wtaxa <- by_species %>%
+  left_join(taxa_info) 
+
+by_species_wtaxa_st <- by_species_wtaxa %>%
   mutate(sensitivity_type = "Spatial", estimate_combined = norm_estimate, conf_low_combined = norm_conf_low, conf_high_combined = norm_conf_high) %>%
   bind_rows(
-    by_species %>%
-      left_join(taxa_info) %>%
+    by_species_wtaxa %>% 
       mutate(sensitivity_type = "Temporal", estimate_combined = anom_estimate, conf_low_combined = anom_conf_low, conf_high_combined = anom_conf_high)
   ) %>%
-  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1."))
-
-by_species_wtaxa_combined_h <- by_species_wtaxa_combined %>%
+  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1.")) %>% 
   # Arrange alphabetically by taxa and species
   arrange(taxa, species) %>%
   # Abbreviate genus names (e.g., Acer → A.)
-  mutate(species_name = forcats::fct_inorder(simple_name))
+  mutate(species_name = forcats::fct_inorder(simple_name),
+    label = case_when(
+      equal == 0 & anom_estimate < norm_estimate ~ "-",
+      equal == 0 & anom_estimate > norm_estimate ~ "+",
+      TRUE ~ ""
+    )
+  )
 ```
 
 
+## Figure 2a & b
 
+```{r}
+# Example: split taxa into two groups (adjust as needed)
+taxa_levels <- unique(by_species_wtaxa_st$taxa)
+group1 <- taxa_levels[1:(length(taxa_levels)/2)]
+group2 <- taxa_levels[(length(taxa_levels)/2 + 1):length(taxa_levels)]
 
-## Figure 2a
-```{r fig.width=15, fig.height=6}
-herb_byspecies_plot <- by_species_wtaxa_combined_h %>%
-  # Fix: Remove desc() to maintain alphabetical order
-  filter(dataset == "herb") %>%
+plot1 <- by_species_wtaxa_st %>%
+  filter(dataset == "herb", taxa %in% group1) %>%
   ggplot(aes(x = species_name, y = estimate_combined, color = sensitivity_type)) +
   # define the color
   scale_color_manual(values = c("Spatial" = "red", "Temporal" = "purple")) +
 
   # Points with dodging for groups
-  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 3) +
+  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 20) +
 
   # Error bars with the same dodging as points
   geom_errorbar(aes(ymin = conf_low_combined, ymax = conf_high_combined),
     width = 0, position = position_dodge(width = 0.5)
   ) +
-  geom_text(aes(y = -26, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
-
-  # Add horizontal line at sensitivity = 0
+    geom_text(aes(y = -26, label = label), vjust = 0, color = "black", size = 8) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
-
-  # Facet by taxa to group species
   facet_grid(. ~ taxa, scales = "free_x", space = "free_x") +
-
-  # Clip the plot to specific y-limits
-  coord_cartesian(ylim = c(-25, 10)) +
-
-  # Set axis labels, title, and color legend
-  labs(
+    labs(
     title = "",
     x = "Species",
     y = "Sensitivity (days/°C)",
     color = "Sensitivity type"
   ) +
-
-  # Apply themes for classic look, italics, and markdown legend
-  theme(
+  coord_cartesian(ylim = c(-25, 10)) +
+    theme(
     axis.text.x = element_text(face = "italic", angle = 45, hjust = 1),
     strip.text = element_text(face = "italic"), # Italicize facet panel labels
     legend.text = element_markdown(),
     legend.position = "top"
   )
 
-print(herb_byspecies_plot)
-```
-
-## Figure 2b
-```{r fig.width=15, fig.height=6}
-npn_byspecies_plot <- by_species_wtaxa_combined_h %>%
-  filter(dataset == "npn") %>%
+plot2 <- by_species_wtaxa_st %>%
+  filter(dataset == "herb", taxa %in% group2) %>%
   ggplot(aes(x = species_name, y = estimate_combined, color = sensitivity_type)) +
   # define the color
   scale_color_manual(values = c("Spatial" = "red", "Temporal" = "purple")) +
 
   # Points with dodging for groups
-  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 3) +
+  geom_point(size = 2, position = position_dodge(width = 0.5), shape = 20) +
 
   # Error bars with the same dodging as points
   geom_errorbar(aes(ymin = conf_low_combined, ymax = conf_high_combined),
     width = 0, position = position_dodge(width = 0.5)
   ) +
-  geom_text(aes(y = -26, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
-
+    geom_text(aes(y = -26, label = label), vjust = 0, color = "black", size = 8) +
   # Add horizontal line at sensitivity = 0
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
-
-  # Facet by taxa to group species
   facet_grid(. ~ taxa, scales = "free_x", space = "free_x") +
-
-  # Clip the plot to specific y-limits
-  coord_cartesian(ylim = c(-25, 10)) +
-
-  # Set axis labels, title, and color legend
-  labs(
-    title = " ",
+    labs(
+    title = "",
     x = "Species",
     y = "Sensitivity (days/°C)",
     color = "Sensitivity type"
   ) +
-
-  # Apply themes for classic look, italics, and markdown legend
-  theme(
+  coord_cartesian(ylim = c(-25, 10)) +
+    theme(
     axis.text.x = element_text(face = "italic", angle = 45, hjust = 1),
     strip.text = element_text(face = "italic"), # Italicize facet panel labels
     legend.text = element_markdown(),
-    legend.position = "none"
+    legend.position = "top"
   )
 
-print(npn_byspecies_plot)
+print(plot1)
+print(plot2)
+
 ```
+
 
 ## Figure 2c
 ```{r}
-byspecies_scatter <- by_species %>%
-  ggplot() +
-  geom_point(aes(x = norm_estimate, y = anom_estimate, color = dataset), alpha = 0.7) +
-  scale_color_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")
-  ) +
+# Plot
+byspecies_scatter <- by_species_wtaxa_st%>%
+  filter(dataset == "herb") %>%
+  ggplot(aes(x = norm_estimate, y = anom_estimate)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_text(aes(label = label), vjust = -1, color = "black", size = 7) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
   labs(
     x = "Spatial Sensitivity (days/°C)",
     y = "Temporal Sensitivity (days/°C)",
     color = "Dataset"
   ) +
+  ylim(-25,10) +
+  xlim(-25,3) +
   theme(legend.position = "top")
 
-print(byspecies_scatter)
-```
-
-```{r}
-
-byspecies_scatter <- by_species %>%
-  ggplot(aes(x = norm_estimate, y = anom_estimate, color = dataset)) +
-  geom_point(alpha = 0.7) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  labs(
-    x = "Spatial Sensitivity (days/°C)",
-    y = "Temporal Sensitivity (days/°C)",
-    color = "Dataset"  # Shared legend title
-  ) +
-  geom_xsidedensity(aes(y = after_stat(density), fill = dataset), alpha = 0.5) +
-  geom_ysidedensity(aes(x = after_stat(density), fill = dataset), alpha = 0.5) +
-  scale_color_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")
-  ) +
-  scale_fill_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")  # Add labels here
-  ) +
-  guides(fill = "none") +  # Hide the fill legend
-  theme(legend.position = "top") +
-  theme(
-    ggside.panel.scale.x = 0.2,
-    ggside.panel.scale.y = 0.2,
-    ggside.axis.text = element_blank(),
-    ggside.axis.ticks = element_blank(),
-    ggside.axis.title = element_blank()
-  )
 
 print(byspecies_scatter)
-
 ```
-
 
 
 ## Combined
 
 ```{r}
 layout <- c(
-  patchwork::area(t = 1, l = 1, b = 1, r = 4),
-  patchwork::area(t = 2, l = 1, b = 2, r = 3),
-  patchwork::area(t = 2, l = 4, b = 2, r = 4)
+  patchwork::area(t = 1, l = 1, b = 1, r = 1),
+  patchwork::area(t = 1, l = 2, b = 1, r = 4),
+  patchwork::area(t = 2, l = 1, b = 2, r = 4)
 )
 
 plot(layout)
 ```
 
+
 ```{r fig.width=20, fig.height=12}
 # Adjust the margins and layout
-Figure_2 <- herb_byspecies_plot + npn_byspecies_plot + byspecies_scatter +
+Figure_2 <- free(byspecies_scatter, type = "space", side = "b") + plot1 + plot2 +
   plot_layout(design = layout, guides = "collect") + # Example: change heights as needed
   plot_annotation(tag_levels = "a") &
   theme(legend.position = "top")
-
 
 # Print the combined plot
 print(Figure_2)
 ```
 
 
+# Table 1
+```{r}
+table1 <- by_species_wtaxa_st %>% 
+  filter(dataset=="herb") %>% 
+  group_by(genus) %>% 
+  summarise(
+    count = n()/2,
+    equal = sum(equal)/2,
+    pro_euqal = equal/count,
+    neg = sum(label=="-")/2,
+    pos = sum(label=="+")/2)
+
+print(table1)
+```
+
+
 # Figure 3 compare two dataset sensitivity
 
 ```{r}
-by_species_wtaxa_combined_dataset <- by_species_wtaxa_combined %>%
-  # Arrange alphabetically by taxa and species
-  arrange(taxa, species) %>%
-  # Abbreviate genus names (e.g., Acer → A.)
-  mutate(species_name = forcats::fct_reorder(simple_name, desc(simple_name))) %>%
-  # Fix spelling and filter species present in both datasets
+by_species_wtaxa_dataset <- by_species_wtaxa_st %>%
   group_by(species) %>%
   filter(all(c("herb", "npn") %in% dataset)) %>%
-  # Group by species and sensitivity type
   group_by(species, sensitivity_type) %>%
-  # Calculate overlap indicator
   mutate(
-    equal = as.integer(max(conf_low_combined) < min(conf_high_combined))
+    # Indicator for non-overlapping confidence intervals
+    equal = as.integer(max(conf_low_combined) < min(conf_high_combined)),
+    # Extract estimates for each dataset
+    npn_estimate = estimate_combined[dataset == "npn"],
+    herb_estimate = estimate_combined[dataset == "herb"],
+    # Assign label: "+" if npn < herb, "-" if herb < npn, "" otherwise
+    dataset_label = case_when(
+      equal == 0 & npn_estimate < herb_estimate ~ "+",
+      equal == 0 & herb_estimate < npn_estimate ~ "-",
+      TRUE ~ ""
+    )
   )
+
 ```
 
-```{r fig.width=9, fig.height=10}
-by_species_wtaxa_combined_dataset %>%
-  ggplot(aes(x = estimate_combined, y = species_name, color = dataset)) +
+
+```{r fig.width=15, fig.height=9}
+by_species_wtaxa_dataset %>%
+  ggplot(aes(y = estimate_combined, x = species_name, color = dataset)) +
   scale_color_manual(
     values = c("npn" = "#0751f1", "herb" = "#582800"),
     labels = c("npn" = "Field observation", "herb" = "Herbarium")
   ) +
-  geom_point(shape = 3, size = 2, position = position_dodge(width = 0.5)) + # Adjust width as needed
-  coord_cartesian(xlim = c(-20, 10)) + # This will clip the error bars instead of removing them
-  geom_errorbar(aes(xmin = conf_low_combined, xmax = conf_high_combined), width = 0, position = position_dodge(width = 0.5)) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_text(aes(x = -21, label = ifelse(equal == 0, "*", "")), vjust = 0.75, color = "black") +
+  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
+  coord_cartesian(ylim = c(-20, 10)) + # Now set limits for y-axis
+  geom_errorbar(aes(ymin = conf_low_combined, ymax = conf_high_combined), width = 0, position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 0, linetype = "dashed") + # Horizontal line at y=0
+      geom_text(aes(y = -19, label = dataset_label), vjust = 0, color = "black", size = 8) +
   labs(
     title = "",
-    x = "Sensitivity (days/°C)",
-    y = "Species",
+    y = "Sensitivity (days/°C)",  # y and x labels swapped
+    x = "Species",
     color = "Dataset"
   ) +
-  facet_grid(taxa ~ sensitivity_type, scales = "free_y", space = "free_y") +
+  facet_grid(sensitivity_type ~ taxa , scales = "free_x", space = "free_x") + # free_x instead of free_y
   theme(
-    axis.text.y = element_text(face = "italic"),
-    legend.text = element_markdown() # Italicize legend text
-  ) +
-  # Apply themes for classic look, italics, and markdown legend
-  theme(
-    axis.text.y = element_text(face = "italic"),
+    axis.text.x = element_text(face = "italic", angle = 45, hjust = 1), # Now italicize x-axis labels
+    legend.text = element_markdown(),
     legend.position = "top"
   )
+
+
 ```
+
+# Table 2
+```{r}
+table2_sp <- by_species_wtaxa_dataset %>% 
+  filter(sensitivity_type=="Spatial") %>% 
+  group_by(genus) %>% 
+  summarise(
+    count = n()/2,
+    equal = sum(equal)/2,
+    pro_euqal = equal/count,
+    neg = sum(dataset_label=="-")/2,
+    pos = sum(dataset_label=="+")/2)
+
+print(table2_sp)
+```
+
+```{r}
+table2_te <- by_species_wtaxa_dataset %>% 
+  filter(sensitivity_type=="Temporal") %>% 
+  group_by(genus) %>% 
+  summarise(
+    count = n()/2,
+    equal = sum(equal)/2,
+    pro_euqal = equal/count,
+    neg = sum(dataset_label=="-")/2,
+    pos = sum(dataset_label=="+")/2)
+
+print(table2_te)
+```
+
 
 # Figure 4: the HMM and PMM results
 
-## HMM
+## Figure 4a: byspeceis boxplot
 ```{r}
-# Load HMM object
-HMM <- read_rds(.path$sample_hmm)
+by_species_herb <- by_species %>%
+  filter(dataset == "herb")
 
-# Summarize results
-HMM_summary <- summary(HMM)
-HMM_group <- as.data.frame(HMM_summary$summary)
+byspecies_boxplot_spatial <- by_species_herb %>% 
+  ggplot() +
+  geom_boxplot(aes(x = norm_estimate))
+# remove y axis
+# label mean and sd
 
-# Calculate parameter differences
-HMM_samples <- as.data.frame(HMM)
-n_groups <- 82
+PMM_mean_spatial <- PMM_samples %>% 
+  ggplot() +
+  geom_density(aes(x = b_zs), alpha = 0.5) 
 
-HMM_b_diff <- sapply(1:n_groups, function(i) {
-  HMM_samples[[paste0("b_spatial[", i, "]")]] - HMM_samples[[paste0("b_temporal[", i, "]")]]
-})
+PMM_variance_spatial <- PMM_samples %>% 
+  ggplot() +
+  geom_density(aes(x = sigma_interceptsbs), alpha = 0.5) 
+  
 
-HMM_b_diff_summary <- apply(HMM_b_diff, 2, function(x) {
-  c(mean = mean(x), sd = sd(x), quantile(x, c(0.025, 0.5, 0.975)))
-})
-HMM_b_diff_summary <- t(HMM_b_diff_summary)
 
-# Reshape for spatial/temporal comparison
-HMM_species_data <- HMM_group %>%
-  tibble::rownames_to_column("parameter") %>%
-  filter(grepl("b_spatial\\[|b_temporal\\[", parameter)) %>%
-  mutate(
-    param_type = gsub("\\[\\d+\\]", "", parameter),
-    group = as.numeric(gsub(".*\\[(\\d+)\\]", "\\1", parameter))
-  ) %>%
-  dplyr::select(group, param_type, mean) %>%
-  tidyr::pivot_wider(
-    names_from = param_type,
-    values_from = mean
-  )
-
-# Create plots
-HMM_samples_long <- HMM_samples %>%
-  dplyr::select(b_zs, b_zt) %>%
-  pivot_longer(
-    cols = c(b_zs, b_zt),
-    names_to = "sensitivity_type",
-    values_to = "value"
-  )
-
-HMM_density <- ggplot(HMM_samples_long) +
-  geom_density(aes(x = value, fill = sensitivity_type), alpha = 0.5) +
-  scale_fill_manual(
-    values = c(b_zs = "red", b_zt = "purple"),
-    labels = c(b_zs = "Spatial Sensitivity", b_zt = "Temporal Sensitivity")
-  ) +
-  labs(x = "Sensitivity (days/°C)", y = "", fill = "Sensitivity type") +
-    xlim(-10,2) +
-  theme(legend.position = "none")
-
-HMM_scatter <- ggplot(HMM_species_data, aes(x = b_spatial, y = b_temporal)) +
-  geom_point(alpha = 0.7, color = "black") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  labs(x = "Spatial Sensitivity (days/°C)", y = "Temporal Sensitivity (days/°C)")
-
-HMM_samples_diff <- data.frame(diff = HMM_samples$b_zs - HMM_samples$b_zt)
-
-ci <- quantile(HMM_samples_diff$diff, probs = c(0.025, 0.975))
-
-HMM_diff <- ggplot(HMM_samples_diff, aes(x = diff)) +
-  geom_density(fill = "grey", alpha = 0.5) +
-  geom_vline(xintercept = ci, linetype = "dashed", color = "black") +
-  annotate("text",
-    x = mean(ci),
-    y = Inf,
-    label = paste0("95% CI: [", round(ci[1], 2), ", ", round(ci[2], 2), "]"),
-    vjust = 1.5,
-    color = "black"
-  ) +
-  labs(x = "Difference (Spatial - Temporal, days/°C)", y = "") +
-  xlim(-6, 4)
-
-print(HMM_density)
-print(HMM_scatter)
-print(HMM_diff)
 ```
 
-## PMM
 ```{r}
 # Load PMM object
 PMM <- read_rds(.path$sample_pmm)
@@ -622,7 +551,7 @@ PMM_group <- as.data.frame(PMM_summary$summary)
 
 # Calculate parameter differences
 PMM_samples <- as.data.frame(PMM)
-n_groups <- 82
+n_groups <- 74#82
 
 PMM_b_diff <- sapply(1:n_groups, function(i) {
   PMM_samples[[paste0("b_spatial[", i, "]")]] - PMM_samples[[paste0("b_temporal[", i, "]")]]
@@ -647,104 +576,6 @@ PMM_species_data <- PMM_group %>%
     values_from = mean
   )
 
-# Create plots
-PMM_samples_long <- PMM_samples %>%
-  dplyr::select(b_zs, b_zt) %>%
-  pivot_longer(
-    cols = c(b_zs, b_zt),
-    names_to = "sensitivity_type",
-    values_to = "value"
-  )
-
-
-PMM_density <- ggplot(PMM_samples_long) +
-  geom_density(aes(x = value, fill = sensitivity_type), alpha = 0.5) +
-  scale_fill_manual(
-    values = c(b_zs = "red", b_zt = "purple"),
-    labels = c(b_zs = "Spatial Sensitivity", b_zt = "Temporal Sensitivity")
-  ) +
-  xlim(-10,2) +
-  labs(x = "Sensitivity (days/°C)", y = "", fill = "Sensitivity type") +
-  theme(legend.position = "none")
-
-PMM_scatter <- ggplot(PMM_species_data, aes(x = b_spatial, y = b_temporal)) +
-  geom_point(alpha = 0.7, color = "black") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  labs(x = "Spatial Sensitivity (days/°C)", y = "Temporal Sensitivity (days/°C)")
-
-PMM_samples_diff <- data.frame(diff = PMM_samples$b_zs - PMM_samples$b_zt)
-
-PMM_ci <- quantile(PMM_samples_diff$diff, probs = c(0.025, 0.975))
-
-PMM_diff <- ggplot(PMM_samples_diff, aes(x = diff)) +
-  geom_density(fill = "grey", alpha = 0.5) +
-  geom_vline(xintercept = PMM_ci, linetype = "dashed", color = "black") +
-  annotate("text",
-    x = mean(PMM_ci),
-    y = Inf,
-    label = paste0("95% CI: [", round(PMM_ci[1], 2), ", ", round(PMM_ci[2], 2), "]"),
-    vjust = 1.5,
-    color = "black"
-  ) +
-  labs(x = "Difference (Spatial - Temporal, days/°C)", y = "") +
-  xlim(-6, 4)
-
-print(PMM_density)
-print(PMM_scatter)
-print(PMM_diff)
-```
-
-
-## Combined
-
-```{r fig.width=14, fig.height=9}
-combined_hier <- HMM_density + HMM_diff + HMM_scatter +
-  PMM_density + PMM_diff + PMM_scatter +
-  plot_annotation(tag_levels = "a")
-
-print(combined_hier)
-```
-
-# Figure 5: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
-
-
-## Tree
-
-```{r}
-tree <- read.tree(.path$tree)
-
-tree_species <- rownames(vcv(tree, corr = TRUE)) %>%
-  gsub("_", " ", .)
-
-phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
-
-
-# Reshape for spatial/temporal comparison (but not only mean, but also 2.5% and 97.5%)
-HMM_species_data_wci <- HMM_group %>%
-  tibble::rownames_to_column("parameter") %>%
-  filter(grepl("b_spatial\\[|b_temporal\\[", parameter)) %>%
-  mutate(
-    param_type = gsub("\\[\\d+\\]", "", parameter),
-    group = as.numeric(gsub(".*\\[(\\d+)\\]", "\\1", parameter))
-  ) %>%
-  dplyr::select(group, param_type, mean, `2.5%`, `97.5%`) %>%
-  tidyr::pivot_longer(
-    cols = c(mean, `2.5%`, `97.5%`),
-    names_to = "statistic",
-    values_to = "value"
-  ) %>%
-  tidyr::pivot_wider(
-    names_from = c(statistic, param_type),
-    values_from = value,
-    names_glue = "{statistic}_{param_type}"
-  ) %>%
-  cbind(HMM_b_diff_summary %>% as.data.frame() %>% dplyr::select("mean", "2.5%", "97.5%"))
-
-
-species_sensitivity_HMM <- HMM_species_data_wci %>%
-  cbind(phylo_species_id) %>%
-  left_join(taxa_info, by = "species") %>%
-  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1."))
 ```
 
 ```{r}
@@ -775,149 +606,319 @@ species_sensitivity_PMM <- PMM_species_data_wci %>%
 ```
 
 
-```{r fig.width=5, fig.height=15}
-tree$tip.label <- tree$tip.label %>% gsub("_", " ", .)
+```{r}
+# Boxplot: Spatial sensitivity by species (herb only), mean & SD labeled
+mean_norm <- mean(by_species_herb$norm_estimate, na.rm = TRUE)
+sd_norm <- sd(by_species_herb$norm_estimate, na.rm = TRUE)
 
-diff_color <- data.frame(
-  species = species_sensitivity_PMM$species,
-  diff = species_sensitivity_PMM$mean
+byspecies_boxplot_spatial <- by_species_herb %>%
+  ggplot(aes(x = norm_estimate)) +
+  geom_boxplot() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  labs(
+    x = "Spatial sensitivity (days/°C)",
+    title = " "
+  ) +
+  geom_vline(xintercept = mean_norm, color = "red", linetype = "dashed") +
+  annotate("text", x = mean_norm, y = 0.6, 
+           label = paste0("Mean = ", round(mean_norm, 2)), 
+           vjust = 0, hjust = -0.1, size = 3) +
+  annotate("text", x = mean_norm, y = 0.5, 
+           label = paste0("SD = ", round(sd_norm, 2)), 
+           vjust = 0, hjust = -0.1, size = 3)
+
+print(byspecies_boxplot_spatial)
+```
+
+```{r}
+# Calculate mean
+mean_b <- mean(PMM_samples$b_zs, na.rm = TRUE)
+
+# Calculate mode (for continuous data, use kernel density estimate)
+find_mode <- function(x) {
+  d <- density(x, na.rm = TRUE)
+  d$x[which.max(d$y)]
+}
+mode_b <- find_mode(PMM_samples$b_zs)
+
+# Calculate 95% credible interval (2.5% and 97.5% quantiles)
+ci_lower <- quantile(PMM_samples$b_zs, 0.025, na.rm = TRUE)
+ci_upper <- quantile(PMM_samples$b_zs, 0.975, na.rm = TRUE)
+
+ggplot(PMM_samples, aes(x = b_zs)) +
+  geom_density() +
+  # Add mean line
+  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
+  # Add 95% credible interval lines
+  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
+  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
+  labs(
+    x = "Posterior of spatial sensitivity mean",
+    y = "Density",
+    title = ""
+  ) +
+  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
+  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
+  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 0, color = "darkgreen")
+
+```
+
+```{r}
+# Calculate mean
+mean_b <- mean(PMM_samples$sigma_interceptsbs, na.rm = TRUE)
+
+# Calculate mode (for continuous data, use kernel density estimate)
+find_mode <- function(x) {
+  d <- density(x, na.rm = TRUE)
+  d$x[which.max(d$y)]
+}
+mode_b <- find_mode(PMM_samples$sigma_interceptsbs)
+
+# Calculate 95% credible interval (2.5% and 97.5% quantiles)
+ci_lower <- quantile(PMM_samples$sigma_interceptsbs, 0.025, na.rm = TRUE)
+ci_upper <- quantile(PMM_samples$sigma_interceptsbs, 0.975, na.rm = TRUE)
+
+ggplot(PMM_samples, aes(x = sigma_interceptsbs)) +
+  geom_density() +
+  # Add mean line
+  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = mode_b, color = "blue", linetype = "dashed", size = 1) +
+  # Add 95% credible interval lines
+  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
+  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
+  labs(
+    x = "Posterior of spatial sensitivity standard deviation",
+    y = "Density",
+    title = ""
+  ) +
+  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
+  annotate("text", x = mode_b, y = 0, label = paste0("Mode = ", round(mode_b, 2)), hjust = 0, vjust = -1, color = "blue") +
+  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
+  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 0, color = "darkgreen")
+
+```
+
+```{r}
+# Calculate mean
+mean_b <- mean(PMM_samples$lam_interceptsbs, na.rm = TRUE)
+
+# Calculate mode (for continuous data, use kernel density estimate)
+find_mode <- function(x) {
+  d <- density(x, na.rm = TRUE)
+  d$x[which.max(d$y)]
+}
+mode_b <- find_mode(PMM_samples$lam_interceptsbs)
+
+# Calculate 95% credible interval (2.5% and 97.5% quantiles)
+ci_lower <- quantile(PMM_samples$lam_interceptsbs, 0.025, na.rm = TRUE)
+ci_upper <- quantile(PMM_samples$lam_interceptsbs, 0.975, na.rm = TRUE)
+
+ggplot(PMM_samples, aes(x = lam_interceptsbs)) +
+  geom_density() +
+  # Add mean line
+  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = mode_b, color = "blue", linetype = "dashed", size = 1) +
+  # Add 95% credible interval lines
+  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
+  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
+  labs(
+    x = "Posterior of spatial sensitivity standard deviation",
+    y = "Density",
+    title = ""
+  ) +
+  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
+  annotate("text", x = mode_b, y = 0, label = paste0("Mode = ", round(mode_b, 2)), hjust = 1, vjust = -1, color = "blue") +
+  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
+  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 1, vjust = -2, color = "darkgreen")
+
+```
+
+
+```{r}
+byspecies_PMM <- by_species_herb %>%
+  select(species, anom_estimate, norm_estimate, count) %>%
+  inner_join(
+    species_sensitivity_PMM %>%
+      select(species, mean_b_spatial, mean_b_temporal),
+    by = "species"
+  ) %>%
+  inner_join(
+    species_sensitivity_HMM %>%
+      select(species, mean_b_spatial, mean_b_temporal) %>%
+      rename(
+        norm_estimate_HMM = mean_b_spatial,
+        anom_estimate_HMM = mean_b_temporal
+      ),
+    by = "species"
+  )
+
+ggplot(byspecies_PMM) +
+  # Draw segments with arrows
+  geom_segment(
+    aes(
+      x = norm_estimate,
+      y = anom_estimate,
+      xend = mean_b_spatial,
+      yend = mean_b_temporal,
+          size = count
+
+    ),
+    arrow = arrow(length = unit(0.2, "cm")),
+    color = "gray40",
+    alpha = 0.2
+  ) +
+  # Start points (e.g., blue)
+  geom_point(
+    aes(x = norm_estimate, y = anom_estimate),
+    color = "blue",
+    size = 3
+  ) +
+  # End points (e.g., red)
+  geom_point(
+    aes(x = mean_b_spatial, y = mean_b_temporal),
+    color = "red",
+    size = 3
+  ) +
+    labs(
+    x = "Spatial sensitivity (days/°C)",
+    y = "Temporal sensitivity (days/°C)",
+    title = "From by-speceis model (blue) to PMM (red)"
+  )
+  
+```
+
+
+```{r}
+ggplot(byspecies_PMM) +
+  # Draw segments with arrows
+  geom_segment(
+    aes(
+      x = norm_estimate_HMM,
+      y = anom_estimate_HMM,
+      xend = mean_b_spatial,
+      yend = mean_b_temporal,
+          size = count
+
+    ),
+    arrow = arrow(length = unit(0.2, "cm")),
+    color = "gray40",
+    alpha = 0.2
+  ) +
+  # Start points (e.g., blue)
+  geom_point(
+    aes(x = norm_estimate_HMM, y = anom_estimate_HMM),
+    color = "blue",
+    size = 3
+  ) +
+  # End points (e.g., red)
+  geom_point(
+    aes(x = mean_b_spatial, y = mean_b_temporal),
+    color = "red",
+    size = 3
+  )+
+    labs(
+    x = "Spatial sensitivity (days/°C)",
+    y = "Temporal sensitivity (days/°C)",
+    title = "From HMM (blue) to PMM (red)"
+  )
+```
+
+
+## Combined
+
+```{r fig.width=14, fig.height=9}
+combined_hier <- HMM_density + HMM_diff + HMM_scatter +
+  PMM_density + PMM_diff + PMM_scatter +
+  plot_annotation(tag_levels = "a")
+
+print(combined_hier)
+```
+
+
+## Table
+
+```{r}
+# Temporal table
+temporal_table <- data.frame(
+  Model = c("By Species", "HMM", "PMM"),
+  Mean = c(
+    mean(by_species_herb$anom_estimate, na.rm = TRUE),
+    HMM_group["b_zt", "mean"],
+    PMM_group["b_zt", "mean"]
+  ),
+  SD = c(
+    sd(by_species_herb$anom_estimate, na.rm = TRUE),
+    HMM_group["sigma_interceptsbt", "mean"],
+    PMM_group["sigma_interceptsbt", "mean"]
+  )
 )
-# Assuming `tree` is a phylogenetic tree object and `lam_bc_pmm` contains the lambda values for the leaves
-# You can use the `phytools` package to compute ancestral node values by averaging over descendant leaves.
+
+# Spatial table
+spatial_table <- data.frame(
+  Model = c("By Species", "HMM", "PMM"),
+  Mean = c(
+    mean(by_species_herb$norm_estimate, na.rm = TRUE),
+    HMM_group["b_zs", "mean"],
+    PMM_group["b_zs", "mean"]
+  ),
+  SD = c(
+    sd(by_species_herb$norm_estimate, na.rm = TRUE),
+    HMM_group["sigma_interceptsbs", "mean"],
+    PMM_group["sigma_interceptsbs", "mean"]
+  )
+)
+
+print(temporal_table)
+print(spatial_table)
 
 
-
-# Step 1: Create a named vector for the lambda values (`lam_bc_pmm`), with species names as names
-lambda_tips <- setNames(diff_color$diff, tree$tip.label) # Assuming `lam_bc_pmm` contains species' lambda values
-
-# Step 2: Use `fastAnc` to calculate ancestral states (lambda values) for internal nodes
-lambda_nodes <- fastAnc(tree, diff_color$diff) # Computes the ancestral values by averaging the lambda values of descendants
-
-# Step 3: Combine tip and node lambda values into one vector for plotting
-lambda_all <- c(lambda_tips, lambda_nodes)
-
-# Step 4: Create the ggtree plot and color the tips and nodes based on their lambda values
-tree_plot <- ggtree(tree, aes(color = lambda_all)) + # Shrink branch lengths with xscale
-  geom_tree() +
-  scale_color_gradient2(
-    low = "blue", mid = "black", high = "red", midpoint = 0,
-    name = "Difference\n(Temporal - Spatial,\ndays/°C)"
-  ) + # Darker color gradient
-  theme_tree() +
-  theme(
-    plot.margin = margin(t = 5, r = 0, b = 30, l = 0),
-    legend.position = c(0.05, 0.95), # Position legend inside plot area
-    legend.justification = c(0, 1), # Align legend to top-left
-    legend.direction = "horizontal", # Display legend vertically
-    legend.background = element_rect(fill = "white", color = NA), # Optional: add background
-    legend.title = element_text(size = 10), # Adjust title size if needed
-    legend.key = element_rect(color = NA), # Remove key borders
-    legend.margin = margin(0, 0, 0, 0) # Remove legend margins
-  ) +
-  guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, label.position = "bottom"))
-
-print(tree_plot)
 ```
 
-## PMM
+
+# Figure 5: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
+
+## Prepare data
 
 ```{r}
-# Extract the order of tip labels as they are plotted
-tip_order <- tree_plot$data %>%
-  filter(isTip) %>%
-  arrange(y) %>%
-  pull(label)
+tree <- read.tree(.path$tree)
 
-# Use this order to reorder your species in the second figure
-species_sensitivity_PMM$species <- factor(species_sensitivity_PMM$species, levels = tip_order)
+tree_species <- rownames(vcv(tree, corr = TRUE)) %>%
+  gsub("_", " ", .)
 
-
-sensitivity_plot <- species_sensitivity_PMM %>%
-  ggplot(aes(x = mean, y = species, color = mean)) +
-  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(xmin = `2.5%`, xmax = `97.5%`), width = 0.2) + # Removed redundant color
-  scale_color_gradient2(
-    low = "blue", mid = "black", high = "red", midpoint = 0,
-    name = "Difference\n(Spatial - Temporal,\ndays/°C)"
-  ) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(
-    title = NULL, # Clearer to use NULL for an empty title
-    y = NULL, # Clearer to use NULL for an empty y-axis label
-    x = "Difference (Spatial - Temporal, days/°C)"
-  ) +
-  xlim(-10, 10) + # Optional: adjust if needed
-  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
-  theme_classic() +
-  theme(
-    legend.position = "none",
-    axis.text.y = element_text(face = "italic"), # Ensure italics for species names
-    legend.text = element_text() # Use element_text instead of element_markdown
-  )
+phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
 ```
 
-## HMM
-
-```{r}
-# Use this order to reorder your species in the second figure
-species_sensitivity_HMM$species <- factor(species_sensitivity_HMM$species, levels = tip_order)
 
 
-HMM_sensitivity_plot <- species_sensitivity_HMM %>%
-  ggplot(aes(x = mean, y = species, color = mean)) +
-  geom_point(shape = 20, size = 2, position = position_dodge(width = 0.5), color = "black") +
-  geom_errorbar(aes(xmin = `2.5%`, xmax = `97.5%`), width = 0.2, color = "black") + # Removed redundant color
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(
-    title = NULL, # Clearer to use NULL for an empty title
-    y = NULL, # Clearer to use NULL for an empty y-axis label
-    x = "Difference (Spatial - Temporal, days/°C)"
-  ) +
-  xlim(-10, 10) + # Optional: adjust if needed
-  # facet_grid(genus ~ ., scales = "free_y", space = "free_y") + # Optional facet
-  theme_classic() +
-  theme(
-    legend.position = "none",
-    axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
-    legend.text = element_text() # Use element_text instead of element_markdown
-  )
+## Figure 5a: temporal tree
+
+```{r fig.width=6, fig.height=15}
+source("../scripts/plot_temporal_tree.R")
+temporal_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
+```
+
+## Figure 5b: spatial tree
+
+```{r fig.width=6, fig.height=15}
+source("../scripts/plot_spatial_tree.R")
+spatial_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
 ```
 
 ## Combined
-```{r fig.width=10, fig.height=15}
-gridExtra::grid.arrange(tree_plot, sensitivity_plot, HMM_sensitivity_plot, nrow = 1, widths = c(1, 2, 1.5))
+
+```{r fig.width=12, fig.height=15}
+Figure_5 <- spatial_tree + temporal_tree
+  plot_annotation(tag_levels = "a") 
+
+# Print the combined plot
+print(Figure_5)
 ```
 
 
-# Table 1
-```{r}
-herb_table <- by_species_wtaxa_combined %>% 
-  filter(dataset=="herb") %>% 
-  group_by(taxa, sensitivity_type) %>% 
-  summarise(
-    count = n(),
-    equal = sum(equal),
-    neg = sum(conf_high_combined < 0),
-    .groups = "drop"
-  )
-
-head(herb_table)
-```
-
-# Table 2
-```{r}
-npn_table <- by_species_wtaxa_combined %>% 
-  filter(dataset=="npn", sensitivity_type == "spatial") %>% 
-  group_by(taxa) %>% 
-  summarise(
-    count = n(),
-    equal = sum(equal),
-    .groups = "drop"
-  ) %>% 
-  mutate(euql_pro = equal/count)
-
-head(npn_table)
-```
 
 # Supplementary Figure 2: sensitivity consistency among species
 
@@ -1002,17 +1003,4 @@ temperature_data %>%
     legend.text = element_markdown(),
     legend.position = "top"
   )
-```
-# Supplimentary Figure 5: temporal tree
-
-```{r fig.width=10, fig.height=15}
-source("../scripts/plot_temporal_tree.R")
-gridExtra::grid.arrange(tree_plot, sensitivity_plot, HMM_sensitivity_plot, nrow = 1, widths = c(1, 2, 1.5))
-```
-
-# Supplimentary Figure 6: spatial tree
-
-```{r fig.width=10, fig.height=15}
-source("../scripts/plot_spatial_tree.R")
-gridExtra::grid.arrange(tree_plot, sensitivity_plot, HMM_sensitivity_plot, nrow = 1, widths = c(1, 2, 1.5))
 ```

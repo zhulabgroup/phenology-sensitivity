@@ -9,9 +9,10 @@ taxa_info <- read.csv(.path$herb_meta) %>%
 
 # Load npn_flower data
 joint_data <- read.csv(.path$byspecies_summary) %>%
+  filter(dataset == "herb") %>% # to only keep herb species
   distinct(species) %>%
-  left_join(taxa_info %>% dplyr::select(species, genus) %>% distinct(), by = "species") %>% 
-  left_join(taxa_info %>% dplyr::select(genus, family) %>% distinct(), by = "genus") %>% 
+  left_join(taxa_info %>% dplyr::select(species, genus) %>% distinct(), by = "species") %>%
+  left_join(taxa_info %>% dplyr::select(genus, family) %>% distinct(), by = "genus") %>%
   mutate(taxa = ifelse(family %in% c("Cupressaceae", "Pinaceae"), family, genus))
 
 write.csv(joint_data, .path$taxa_info, row.names = FALSE)

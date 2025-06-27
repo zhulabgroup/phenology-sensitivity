@@ -125,3 +125,204 @@ source("../scripts/model_hierarchical.R")
 (output: sample_HMM.rds, sample_PMM.rds)
 
 HMM:2723.19 s PMM 2965.14 s
+
+
+# check flower synchrony
+```{r}
+# adapted from complete_npn.qmd in the main branch
+
+## combine genus data --------
+folder_path <- .path$npn
+
+# Get list of RDS files in the folder
+rds_files <- list.files(path = folder_path, pattern = "\\.rds$", full.names = TRUE)
+
+# Initialize an empty data frame to store the combined data
+combined_data <- data.frame()
+
+# Loop through each RDS file and combine the data
+for (i in seq_along(rds_files)) {
+  # Read the RDS file and append to the combined_data
+  data <- read_rds(rds_files[i]) %>%
+    mutate(taxa = sub(".*\\/([^/]+)\\.rds$", "\\1", rds_files[i]))
+  combined_data <- rbind(combined_data, data)
+}
+
+## clean the combined data --------
+complete_npn_data <- combined_data %>%
+  filter(pheno_class_id == 7) %>% # 22979  # flower
+  filter(observed_status_conflict_flag == "-9999") %>% # 20489   # Remove rows with status conflicts
+  group_by(individual_id, first_yes_year) %>%
+  arrange(first_yes_doy) %>% # Keep only the earlist first yes doy for each individual in each year
+  slice(1) %>% # 16086
+  ungroup() %>%
+  filter(numdays_since_prior_no <= 7 & numdays_since_prior_no > 0) %>% # 8563  #only keep observation with a no observation within 7 days in advance
+  dplyr::select(individual_id, first_yes_year, first_yes_doy, species, genus, dataset_id, pheno_class_id, longitude, latitude, taxa, site_id) %>%
+  rename(lat = latitude, lon = longitude, year = first_yes_year, doy = first_yes_doy) %>%
+  mutate(species = paste(genus, species, sep = " ")) 
+
+```
+
+```{r}
+complete_npn_data %>% 
+  mutate(doy = doy + 61) %>%
+  mutate(
+    year = ifelse(doy > 365, year + 1, year),
+    doy = ifelse(doy > 365, doy - 365, doy)
+  ) %>% 
+  group_by(site_id, year, species) %>% 
+  summarise(
+    count = n_distinct(individual_id),
+    variance = var(doy),
+    .groups = "drop"
+  ) %>% 
+  filter(count > 10)
+# select speceis with more than two years observations
+# do a boxplot showing by species by year doy distribution
+
+```
+
+
+```{r}
+
+result <- complete_npn_data %>%
+  mutate(doy = doy + 61) %>%
+  mutate(
+    year = ifelse(doy > 365, year + 1, year),
+    doy = ifelse(doy > 365, doy - 365, doy)
+  ) %>%
+  group_by(site_id, year, species) %>%
+  summarise(
+    count = n_distinct(individual_id),
+    variance = var(doy, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(count > 10) %>%
+  # Add species-level filtering
+  group_by(species) %>%
+  filter(
+    n_distinct(year) > 2 |  # Species has >2 distinct years
+    n_distinct(site_id) > 2  # OR species has >2 distinct sites
+  ) %>%
+  ungroup()
+
+# Generate boxplot
+ggplot(result, aes(x = factor(species), y = doy, fill = factor(year))) +
+  geom_boxplot() +
+  labs(title = " ",
+       x = "Species",
+       y = "Day of Year since Nov 1st",
+       fill = "Year") +
+  scale_fill_viridis_d() + # Color palette for better distinction
+    theme(
+    axis.text.x = element_text(face = "italic", angle = 45, hjust = 1)
+  )
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Prepare data with filtering criteria
+filtered_data <- complete_npn_data %>%
+  mutate(doy = doy + 61) %>%
+  mutate(
+    year = ifelse(doy > 365, year + 1, year),
+    doy = ifelse(doy > 365, doy - 365, doy)
+  ) %>%
+  # Filter groups with >10 observations
+  group_by(site_id, year, species) %>%
+  filter(n_distinct(individual_id) > 10) %>%
+  ungroup() %>%
+  # Filter species with >2 years OR >2 sites
+  group_by(species) %>%
+  filter(n_distinct(year) > 2 | n_distinct(site_id) > 2) %>%
+  ungroup()
+
+# 2. Create boxplot with aesthetics
+ggplot(filtered_data, aes(x = species, y = doy)) +
+  geom_boxplot(
+    aes(fill = factor(site_id), color = factor(year)),
+    position = position_dodge(width = 0.8),
+    alpha = 0.7
+  ) +
+  scale_fill_viridis_d(name = "Site ID") +
+  scale_color_brewer(palette = "Set1", name = "Year") +
+  labs(
+    title = " ",
+    subtitle = " ",
+    x = "Species",
+    y = "Day of Year (doy)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+```
+
+```{r}
+filtered_data %>% 
+  filter(species == "Quercus montana") %>% 
+  group_by(year, site_id) %>% 
+  summarise(count = n())
+```
+
+```{r}
+filtered_data %>% 
+  filter(species == "Quercus montana", year ==2018) 
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Create modified site IDs per species
+filtered_data <- complete_npn_data %>%
+  mutate(doy = doy + 61) %>%
+  mutate(
+    year = ifelse(doy > 365, year + 1, year),
+    doy = ifelse(doy > 365, doy - 365, doy)
+  ) %>%
+  group_by(site_id, year, species) %>%
+  filter(n_distinct(individual_id) > 10) %>%
+  ungroup() %>%
+  group_by(species) %>%
+  filter(n_distinct(year) > 2 | n_distinct(site_id) > 2) %>%
+  # Create sequential site IDs per species
+  mutate(site_num = as.integer(factor(site_id, levels = unique(site_id)))) %>%
+  ungroup()
+
+```
+
+
+```{r fig.width=15, fig.height=15}
+# Create boxplot
+ggplot(filtered_data, aes(x = species, y = doy)) +
+  geom_boxplot(
+    aes(color = factor(site_num),fill = factor(year)),  # Use sequential site numbers
+    position = position_dodge(width = 0.8),
+    alpha = 0.8
+  ) +
+    facet_wrap(~ genus, scales = "free", ncol = 2) +  # 3 columns for species panels
+  scale_fill_viridis_d(
+    name = "Year",
+    option = "D",
+    begin = 0.2,
+    end = 0.8
+  ) +
+  labs(
+    title = " ",
+    subtitle = " ",
+    x = "Species",
+    y = "Day of Year (doy)",
+    color = "Site"
+  ) +
+    theme(
+    axis.text.x = element_text(face = "italic"),
+    strip.text = element_text(face = "italic"), # Italicize facet panel labels
+    legend.text = element_markdown(),
+    legend.position = "top"
+  )
+```
+

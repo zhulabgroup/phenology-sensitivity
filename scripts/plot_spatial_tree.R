@@ -83,7 +83,7 @@ scale_color_gradient2(
 
 
 # HMM
-species_sensitivity_HMM$species <- factor(species_sensitivity_HMM$species, levels = tip_order)
+# species_sensitivity_HMM$species <- factor(species_sensitivity_HMM$species, levels = tip_order)
 
 
 # HMM_sensitivity_plot <- species_sensitivity_HMM %>% 

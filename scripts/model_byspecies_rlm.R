@@ -39,7 +39,7 @@ analyze_species_dataset <- function(data, species_name, dataset_name) {
   cov_norm_anom <- cov_matrix["norm", "anom"]
 
   # Compute the variance of the difference between the coefficients
-  var_diff <- var_norm + var_anom - 2 * cov_norm_anom
+  # var_diff <- var_norm + var_anom - 2 * cov_norm_anom
   #
   lh_test <- car::linearHypothesis(model, "norm - anom = 0")
 

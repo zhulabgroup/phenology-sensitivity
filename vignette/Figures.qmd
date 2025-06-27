@@ -122,8 +122,6 @@ print(spa_sen)
 
 ## Figure 1e
 
-
-
 ```{r}
 tem_sen <- ggplot(data = purple) +
   # geom_point(aes(x = x, y = y)) +
@@ -185,9 +183,9 @@ print(co_gradient)
 
 ```{r}
 # Plot
-no_adaptation <- ggplot(mapping = aes(x = x, y = y)) +
-  geom_line(data = purple, color = "purple", size = 3) +
-    geom_line(data = purple, aes(group = 1), color = "red") +
+no_adaptation <- ggplot() +
+  geom_line(data = purple, aes(x = x, y = y), color = "purple", size = 3) +
+    geom_line(data = purple, aes(x = x, y = y+0.04), color = "red") +
   # geom_hline(yintercept = 0.4, linetype = "dashed") +
   # geom_vline(xintercept = 0.6, linetype = "dashed") +
   labs(
@@ -259,9 +257,6 @@ combined_plot <- map_plot + normality_plot + anomaly_plot + spa_sen + tem_sen +
 # Print the combined plot
 print(combined_plot)
 ```
-
-
-
 
 
 # Figure 2: the by group result from the two datasets
@@ -486,7 +481,7 @@ by_species_wtaxa_dataset %>%
 
 ```
 
-# Table 2
+# Table 2 & 3
 ```{r}
 table2_sp <- by_species_wtaxa_dataset %>% 
   filter(sensitivity_type=="Spatial") %>% 
@@ -515,31 +510,10 @@ table2_te <- by_species_wtaxa_dataset %>%
 print(table2_te)
 ```
 
-
-# Figure 4: the HMM and PMM results
-
-## Figure 4a: byspeceis boxplot
-```{r}
-by_species_herb <- by_species %>%
-  filter(dataset == "herb")
-
-byspecies_boxplot_spatial <- by_species_herb %>% 
-  ggplot() +
-  geom_boxplot(aes(x = norm_estimate))
-# remove y axis
-# label mean and sd
-
-PMM_mean_spatial <- PMM_samples %>% 
-  ggplot() +
-  geom_density(aes(x = b_zs), alpha = 0.5) 
-
-PMM_variance_spatial <- PMM_samples %>% 
-  ggplot() +
-  geom_density(aes(x = sigma_interceptsbs), alpha = 0.5) 
-  
+# Table 4
 
 
-```
+## Prepare PMM data
 
 ```{r}
 # Load PMM object
@@ -555,293 +529,45 @@ n_groups <- 74#82
 
 PMM_b_diff <- sapply(1:n_groups, function(i) {
   PMM_samples[[paste0("b_spatial[", i, "]")]] - PMM_samples[[paste0("b_temporal[", i, "]")]]
-})
+}) # spatial-temporal, negative number means co
 
 PMM_b_diff_summary <- apply(PMM_b_diff, 2, function(x) {
   c(mean = mean(x), sd = sd(x), quantile(x, c(0.025, 0.5, 0.975)))
 })
 PMM_b_diff_summary <- t(PMM_b_diff_summary)
-
-# Reshape for spatial/temporal comparison
-PMM_species_data <- PMM_group %>%
-  tibble::rownames_to_column("parameter") %>%
-  filter(grepl("b_spatial\\[|b_temporal\\[", parameter)) %>%
-  mutate(
-    param_type = gsub("\\[\\d+\\]", "", parameter),
-    group = as.numeric(gsub(".*\\[(\\d+)\\]", "\\1", parameter))
-  ) %>%
-  dplyr::select(group, param_type, mean) %>%
-  tidyr::pivot_wider(
-    names_from = param_type,
-    values_from = mean
-  )
-
 ```
+
+## Prepare HMM data
 
 ```{r}
-PMM_species_data_wci <- PMM_group %>%
-  tibble::rownames_to_column("parameter") %>%
-  filter(grepl("b_spatial\\[|b_temporal\\[", parameter)) %>%
-  mutate(
-    param_type = gsub("\\[\\d+\\]", "", parameter),
-    group = as.numeric(gsub(".*\\[(\\d+)\\]", "\\1", parameter))
-  ) %>%
-  dplyr::select(group, param_type, mean, `2.5%`, `97.5%`) %>%
-  tidyr::pivot_longer(
-    cols = c(mean, `2.5%`, `97.5%`),
-    names_to = "statistic",
-    values_to = "value"
-  ) %>%
-  tidyr::pivot_wider(
-    names_from = c(statistic, param_type),
-    values_from = value,
-    names_glue = "{statistic}_{param_type}"
-  ) %>%
-  cbind(PMM_b_diff_summary %>% as.data.frame() %>% dplyr::select("mean", "2.5%", "97.5%"))
+# Load HMM data
+HMM <- read_rds(.path$sample_hmm)
 
-species_sensitivity_PMM <- PMM_species_data_wci %>%
-  cbind(phylo_species_id) %>%
-  left_join(taxa_info, by = "species") %>%
-  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1."))
+# Summarize results
+HMM_summary <- summary(HMM)
+HMM_group <- as.data.frame(HMM_summary$summary)
+
+# Calculate parameter differences
+HMM_samples <- as.data.frame(HMM)
+n_groups <- 74  # Adjust group count as needed
+
+HMM_b_diff <- sapply(1:n_groups, function(i) {
+  HMM_samples[[paste0("b_spatial[", i, "]")]] - HMM_samples[[paste0("b_temporal[", i, "]")]]
+})
+
+HMM_b_diff_summary <- apply(HMM_b_diff, 2, function(x) {
+  c(mean = mean(x), sd = sd(x), quantile(x, c(0.025, 0.5, 0.975)))
+})
+HMM_b_diff_summary <- t(HMM_b_diff_summary)
+
 ```
 
+
+## generate table
 
 ```{r}
-# Boxplot: Spatial sensitivity by species (herb only), mean & SD labeled
-mean_norm <- mean(by_species_herb$norm_estimate, na.rm = TRUE)
-sd_norm <- sd(by_species_herb$norm_estimate, na.rm = TRUE)
-
-byspecies_boxplot_spatial <- by_species_herb %>%
-  ggplot(aes(x = norm_estimate)) +
-  geom_boxplot() +
-  theme(
-    axis.title.y = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank()
-  ) +
-  labs(
-    x = "Spatial sensitivity (days/°C)",
-    title = " "
-  ) +
-  geom_vline(xintercept = mean_norm, color = "red", linetype = "dashed") +
-  annotate("text", x = mean_norm, y = 0.6, 
-           label = paste0("Mean = ", round(mean_norm, 2)), 
-           vjust = 0, hjust = -0.1, size = 3) +
-  annotate("text", x = mean_norm, y = 0.5, 
-           label = paste0("SD = ", round(sd_norm, 2)), 
-           vjust = 0, hjust = -0.1, size = 3)
-
-print(byspecies_boxplot_spatial)
-```
-
-```{r}
-# Calculate mean
-mean_b <- mean(PMM_samples$b_zs, na.rm = TRUE)
-
-# Calculate mode (for continuous data, use kernel density estimate)
-find_mode <- function(x) {
-  d <- density(x, na.rm = TRUE)
-  d$x[which.max(d$y)]
-}
-mode_b <- find_mode(PMM_samples$b_zs)
-
-# Calculate 95% credible interval (2.5% and 97.5% quantiles)
-ci_lower <- quantile(PMM_samples$b_zs, 0.025, na.rm = TRUE)
-ci_upper <- quantile(PMM_samples$b_zs, 0.975, na.rm = TRUE)
-
-ggplot(PMM_samples, aes(x = b_zs)) +
-  geom_density() +
-  # Add mean line
-  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
-  # Add 95% credible interval lines
-  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
-  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
-  labs(
-    x = "Posterior of spatial sensitivity mean",
-    y = "Density",
-    title = ""
-  ) +
-  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
-  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
-  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 0, color = "darkgreen")
-
-```
-
-```{r}
-# Calculate mean
-mean_b <- mean(PMM_samples$sigma_interceptsbs, na.rm = TRUE)
-
-# Calculate mode (for continuous data, use kernel density estimate)
-find_mode <- function(x) {
-  d <- density(x, na.rm = TRUE)
-  d$x[which.max(d$y)]
-}
-mode_b <- find_mode(PMM_samples$sigma_interceptsbs)
-
-# Calculate 95% credible interval (2.5% and 97.5% quantiles)
-ci_lower <- quantile(PMM_samples$sigma_interceptsbs, 0.025, na.rm = TRUE)
-ci_upper <- quantile(PMM_samples$sigma_interceptsbs, 0.975, na.rm = TRUE)
-
-ggplot(PMM_samples, aes(x = sigma_interceptsbs)) +
-  geom_density() +
-  # Add mean line
-  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = mode_b, color = "blue", linetype = "dashed", size = 1) +
-  # Add 95% credible interval lines
-  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
-  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
-  labs(
-    x = "Posterior of spatial sensitivity standard deviation",
-    y = "Density",
-    title = ""
-  ) +
-  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
-  annotate("text", x = mode_b, y = 0, label = paste0("Mode = ", round(mode_b, 2)), hjust = 0, vjust = -1, color = "blue") +
-  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
-  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 0, color = "darkgreen")
-
-```
-
-```{r}
-# Calculate mean
-mean_b <- mean(PMM_samples$lam_interceptsbs, na.rm = TRUE)
-
-# Calculate mode (for continuous data, use kernel density estimate)
-find_mode <- function(x) {
-  d <- density(x, na.rm = TRUE)
-  d$x[which.max(d$y)]
-}
-mode_b <- find_mode(PMM_samples$lam_interceptsbs)
-
-# Calculate 95% credible interval (2.5% and 97.5% quantiles)
-ci_lower <- quantile(PMM_samples$lam_interceptsbs, 0.025, na.rm = TRUE)
-ci_upper <- quantile(PMM_samples$lam_interceptsbs, 0.975, na.rm = TRUE)
-
-ggplot(PMM_samples, aes(x = lam_interceptsbs)) +
-  geom_density() +
-  # Add mean line
-  geom_vline(xintercept = mean_b, color = "red", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = mode_b, color = "blue", linetype = "dashed", size = 1) +
-  # Add 95% credible interval lines
-  geom_vline(xintercept = ci_lower, color = "darkgreen", linetype = "dotdash", size = 1) +
-  geom_vline(xintercept = ci_upper, color = "darkgreen", linetype = "dotdash", size = 1) +
-  labs(
-    x = "Posterior of spatial sensitivity standard deviation",
-    y = "Density",
-    title = ""
-  ) +
-  annotate("text", x = mean_b, y = 0, label = paste0("Mean = ", round(mean_b, 2)), hjust = 0, color = "red") +
-  annotate("text", x = mode_b, y = 0, label = paste0("Mode = ", round(mode_b, 2)), hjust = 1, vjust = -1, color = "blue") +
-  annotate("text", x = ci_lower, y = 0, label = paste0("2.5% = ", round(ci_lower, 2)), hjust = 0, color = "darkgreen") +
-  annotate("text", x = ci_upper, y = 0, label = paste0("97.5% = ", round(ci_upper, 2)), hjust = 1, vjust = -2, color = "darkgreen")
-
-```
-
-
-```{r}
-byspecies_PMM <- by_species_herb %>%
-  select(species, anom_estimate, norm_estimate, count) %>%
-  inner_join(
-    species_sensitivity_PMM %>%
-      select(species, mean_b_spatial, mean_b_temporal),
-    by = "species"
-  ) %>%
-  inner_join(
-    species_sensitivity_HMM %>%
-      select(species, mean_b_spatial, mean_b_temporal) %>%
-      rename(
-        norm_estimate_HMM = mean_b_spatial,
-        anom_estimate_HMM = mean_b_temporal
-      ),
-    by = "species"
-  )
-
-ggplot(byspecies_PMM) +
-  # Draw segments with arrows
-  geom_segment(
-    aes(
-      x = norm_estimate,
-      y = anom_estimate,
-      xend = mean_b_spatial,
-      yend = mean_b_temporal,
-          size = count
-
-    ),
-    arrow = arrow(length = unit(0.2, "cm")),
-    color = "gray40",
-    alpha = 0.2
-  ) +
-  # Start points (e.g., blue)
-  geom_point(
-    aes(x = norm_estimate, y = anom_estimate),
-    color = "blue",
-    size = 3
-  ) +
-  # End points (e.g., red)
-  geom_point(
-    aes(x = mean_b_spatial, y = mean_b_temporal),
-    color = "red",
-    size = 3
-  ) +
-    labs(
-    x = "Spatial sensitivity (days/°C)",
-    y = "Temporal sensitivity (days/°C)",
-    title = "From by-speceis model (blue) to PMM (red)"
-  )
-  
-```
-
-
-```{r}
-ggplot(byspecies_PMM) +
-  # Draw segments with arrows
-  geom_segment(
-    aes(
-      x = norm_estimate_HMM,
-      y = anom_estimate_HMM,
-      xend = mean_b_spatial,
-      yend = mean_b_temporal,
-          size = count
-
-    ),
-    arrow = arrow(length = unit(0.2, "cm")),
-    color = "gray40",
-    alpha = 0.2
-  ) +
-  # Start points (e.g., blue)
-  geom_point(
-    aes(x = norm_estimate_HMM, y = anom_estimate_HMM),
-    color = "blue",
-    size = 3
-  ) +
-  # End points (e.g., red)
-  geom_point(
-    aes(x = mean_b_spatial, y = mean_b_temporal),
-    color = "red",
-    size = 3
-  )+
-    labs(
-    x = "Spatial sensitivity (days/°C)",
-    y = "Temporal sensitivity (days/°C)",
-    title = "From HMM (blue) to PMM (red)"
-  )
-```
-
-
-## Combined
-
-```{r fig.width=14, fig.height=9}
-combined_hier <- HMM_density + HMM_diff + HMM_scatter +
-  PMM_density + PMM_diff + PMM_scatter +
-  plot_annotation(tag_levels = "a")
-
-print(combined_hier)
-```
-
-
-## Table
-
-```{r}
+by_species_herb <- by_species%>%
+  filter(dataset == "herb") 
 # Temporal table
 temporal_table <- data.frame(
   Model = c("By Species", "HMM", "PMM"),
@@ -875,13 +601,14 @@ spatial_table <- data.frame(
 print(temporal_table)
 print(spatial_table)
 
-
 ```
 
 
-# Figure 5: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
 
-## Prepare data
+# Figure 4: Estimated sensitivity for wind pollinated trees flower time with their phylogenetic signal
+
+
+## Prepare phylogeny data
 
 ```{r}
 tree <- read.tree(.path$tree)
@@ -892,16 +619,43 @@ tree_species <- rownames(vcv(tree, corr = TRUE)) %>%
 phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
 ```
 
+## Prepare PMM data
+```{r}
+PMM_species_data_wci <- PMM_group %>%
+  tibble::rownames_to_column("parameter") %>%
+  filter(grepl("b_spatial\\[|b_temporal\\[", parameter)) %>%
+  mutate(
+    param_type = gsub("\\[\\d+\\]", "", parameter),
+    group = as.numeric(gsub(".*\\[(\\d+)\\]", "\\1", parameter))
+  ) %>%
+  dplyr::select(group, param_type, mean, `2.5%`, `97.5%`) %>%
+  tidyr::pivot_longer(
+    cols = c(mean, `2.5%`, `97.5%`),
+    names_to = "statistic",
+    values_to = "value"
+  ) %>%
+  tidyr::pivot_wider(
+    names_from = c(statistic, param_type),
+    values_from = value,
+    names_glue = "{statistic}_{param_type}"
+  ) %>%
+  cbind(PMM_b_diff_summary %>% as.data.frame() %>% dplyr::select("mean", "2.5%", "97.5%"))
+
+species_sensitivity_PMM <- PMM_species_data_wci %>%
+  cbind(phylo_species_id) %>%
+  left_join(taxa_info, by = "species") %>%
+  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1."))
+```
 
 
-## Figure 5a: temporal tree
+## Figure 4a: temporal tree
 
 ```{r fig.width=6, fig.height=15}
 source("../scripts/plot_temporal_tree.R")
 temporal_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
 ```
 
-## Figure 5b: spatial tree
+## Figure 4b: spatial tree
 
 ```{r fig.width=6, fig.height=15}
 source("../scripts/plot_spatial_tree.R")
@@ -919,88 +673,34 @@ print(Figure_5)
 ```
 
 
+# Supplementary Table 1 (simple linear regression):
 
-# Supplementary Figure 2: sensitivity consistency among species
-
+need to prepare the simple linear regression data later if necessary
 ```{r}
-by_species_wtaxa_combined %>%
-  ggplot(aes(x = sensitivity_type, y = estimate_combined, fill = sensitivity_type)) +
-  geom_half_boxplot(side = "l", alpha = 0.6, width = 0.3) + # From ggpol
-  geom_half_violin(side = "r", alpha = 0.6, width = 1) + # From ggdist
-  facet_grid(~dataset,
-    scales = "free",
-    labeller = labeller(dataset = c(herb = "Herbarium", npn = "Field observations"))
-  ) +
-  scale_fill_manual(values = c("Spatial" = "red", "Temporal" = "purple")) +
-  labs(x = "Sensitivity type", y = "Sensitivity (days/°C)") +
-  theme_classic() +
-  theme(legend.position = "none")
+table1 <- by_species_wtaxa_st %>% 
+  filter(dataset=="herb") %>% 
+  group_by(genus) %>% 
+  summarise(
+    count = n()/2,
+    equal = sum(equal)/2,
+    pro_euqal = equal/count,
+    neg = sum(label=="-")/2,
+    pos = sum(label=="+")/2)
+
+print(table1)
 ```
 
-
-# Supplimentary Figure 3: compare two dataset raw data
+# Supplementary Table 2 (PMM):
 
 ```{r}
-raw_compare <- temperature_data %>%
-  group_by(species) %>%
-  filter(
-    all(c("herb", "npn") %in% dataset) & # Both datasets present
-      sum(dataset == "herb") > 30 & # >30 herb records
-      sum(dataset == "npn") > 30 # >30 npn records
-  ) %>%
-  ungroup()
-```
-
-```{r fig.width=10, fig.height=8}
-raw_compare %>%
-  ggplot(aes(x = yeart, y = as.Date(doy, origin = "2024-11-01"), color = dataset)) +
-  scale_color_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")
-  ) +
-  geom_point(alpha = 0.1) +
-  geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1) +
-  labs(
-    title = " ",
-    x = "Spring average temperature (°C)",
-    y = "Month",
-    color = "Dataset"
-  ) +
-  facet_wrap(~species) +
-  scale_y_date(date_labels = "%b") + # Format y-axis as months
-  theme_classic() +
-  theme(
-    legend.position = "top", # c(0.8, 0.05),
-    strip.text = element_text(face = "italic"),
-    legend.text = element_markdown()
+species_sensitivity_PMM %>%
+  group_by(genus) %>%
+  summarise(
+    count = n(),
+    equal = sum(`2.5%` * `97.5%` < 0),
+    pro_equal = equal / count,
+    counter = sum(`2.5%` * `97.5%` > 0 & `2.5%` > 0),
+    co = sum(`2.5%` * `97.5%` > 0 & `2.5%` < 0)
   )
 ```
 
-# Supplimentary Figure 4: speceis composition
-
-```{r fig.width=10, fig.height=6}
-# Create the plot
-temperature_data %>%
-  filter(species %in% taxa_info$species) %>%
-  mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1.")) %>%
-  ggplot(aes(x = simple_name, fill = dataset)) +
-  geom_bar(position = "dodge", stat = "count") + # Adjust bar width
-  scale_y_log10() +
-  facet_grid(. ~ taxa, scales = "free_x", space = "free_x") +
-  scale_fill_manual(
-    values = c("npn" = "#0751f1", "herb" = "#582800"),
-    labels = c("npn" = "Field observation", "herb" = "Herbarium")
-  ) +
-  labs(
-    x = "Species",
-    y = "Number of records",
-    fill = "Dataset"
-  ) +
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(face = "italic", angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(face = "italic", angle = 90), # Italicize facet panel labels
-    legend.text = element_markdown(),
-    legend.position = "top"
-  )
-```

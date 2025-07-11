@@ -52,7 +52,7 @@ normality_plot <- red_maple %>%
   geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1, color = "red") +
   labs(
     title = " ",
-    x = "Temperature normality (°C)",
+    x = "Temperature norm (°C)",
     y = "Flowering day",
     color = "Latitude"
   ) +
@@ -108,8 +108,8 @@ spa_sen <- ggplot(data = purple) +
   labs(
     # x = expression("Temperature normality" ~ t[norm]),
     # y = expression("Flowering day normality" ~ d[norm]),
-    x = "Temperature normality",
-    y = "Flowering day normality",
+    x = "Temperature norm",
+    y = "Flowering day norm",
     title = " "
   ) +
   annotate("text", x = -0.12, y = 0.1, label = "Early\nflowering", size = 4, hjust = 0.7) +
@@ -381,10 +381,18 @@ byspecies_scatter <- by_species_wtaxa_st%>%
   ) +
   ylim(-25,10) +
   xlim(-25,3) +
-  theme(legend.position = "top")
+  theme(legend.position = "top",
+            panel.border = element_rect(color = "black", fill = NA, size = 2)  
+        )
 
 
 print(byspecies_scatter)
+```
+
+
+```{r}
+
+sum((by_species_wtaxa_st %>% filter(dataset == "herb"))$norm_estimate < (by_species_wtaxa_st %>% filter(dataset == "herb"))$anom_estimate)/2
 ```
 
 
@@ -475,7 +483,8 @@ by_species_wtaxa_dataset %>%
   theme(
     axis.text.x = element_text(face = "italic", angle = 45, hjust = 1), # Now italicize x-axis labels
     legend.text = element_markdown(),
-    legend.position = "top"
+    legend.position = "top",
+    strip.text.x = element_text(face = "italic")  # Targets column strips (taxa)
   )
 
 
@@ -509,6 +518,17 @@ table2_te <- by_species_wtaxa_dataset %>%
 
 print(table2_te)
 ```
+
+```{r}
+by_species_wtaxa_dataset %>%
+  filter(sensitivity_type == "Spatial", npn_estimate > herb_estimate) %>%
+  nrow()/2 #decreasing sensitivity
+
+by_species_wtaxa_dataset %>%
+  filter(sensitivity_type == "Temporal", npn_estimate < herb_estimate) %>%
+  nrow()/2
+```
+
 
 # Table 4
 
@@ -647,29 +667,46 @@ species_sensitivity_PMM <- PMM_species_data_wci %>%
   mutate(simple_name = str_replace(species, "^([A-Za-z])[^ ]+", "\\1."))
 ```
 
+##Plot tree
+```{r fig.height=10, fig.width=12}
+tree$tip.label <- tree$tip.label %>% gsub("_", " ", .)
 
-## Figure 4a: temporal tree
+diff_color <- data.frame(
+  species = species_sensitivity_PMM$species,
+  diff = species_sensitivity_PMM$mean_b_spatial ##################
+) 
 
-```{r fig.width=6, fig.height=15}
-source("../scripts/plot_temporal_tree.R")
-temporal_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
-```
+# Step 1: Create a named vector for the lambda values (`lam_bc_pmm`), with species names as names
+lambda_tips <- setNames(diff_color$diff, tree$tip.label) # Assuming `lam_bc_pmm` contains species' lambda values
 
-## Figure 4b: spatial tree
+# Step 2: Use `fastAnc` to calculate ancestral states (lambda values) for internal nodes
+lambda_nodes <- fastAnc(tree, diff_color$diff) # Computes the ancestral values by averaging the lambda values of descendants
 
-```{r fig.width=6, fig.height=15}
-source("../scripts/plot_spatial_tree.R")
-spatial_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
-```
+# Step 3: Combine tip and node lambda values into one vector for plotting
+lambda_all <- c(lambda_tips, lambda_nodes)
 
-## Combined
 
-```{r fig.width=12, fig.height=15}
-Figure_5 <- spatial_tree + temporal_tree
-  plot_annotation(tag_levels = "a") 
+tree_plot <- ggtree(tree, aes(color = lambda_all), layout = "circular") + 
+  geom_tree() +
+  scale_color_gradient2(
+    low = "#d7191c",     # Deep red
+    mid = "#fee08b",     # Brighter yellow
+    high = "#2c7bb6",     # Deep blue
+    midpoint = mean(lambda_all, na.rm = TRUE),
+    name = "Spatial sensitivity \ndays/°C",
+    na.value = "grey50"   # Color for internal nodes
+  ) +
+  geom_tiplab(aes(label = label),   # Now uses attached data
+              color = "black",
+    offset = 0.02,       # Distance from tips
+        fontface = "italic",  # Added italic directly here
+    align = TRUE          # Radial alignment
+  ) + 
+  theme_tree() +
+    theme(legend.position = c(1.05, 0.1),
+              plot.margin = margin(30, 60, 35, 60))  # top, right, bottom, left (in "pt" by default))       # Adjust legend placement
 
-# Print the combined plot
-print(Figure_5)
+print(tree_plot)
 ```
 
 
@@ -704,3 +741,17 @@ species_sensitivity_PMM %>%
   )
 ```
 
+
+#Supplementary Figure 4a: temporal tree
+
+```{r fig.width=6, fig.height=15}
+source("../scripts/plot_temporal_tree.R")
+temporal_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
+```
+
+#Supplementary Figure 4b: spatial tree
+
+```{r fig.width=6, fig.height=15}
+source("../scripts/plot_spatial_tree.R")
+spatial_tree <- gridExtra::grid.arrange(tree_plot, sensitivity_plot, nrow = 1, widths = c(1, 2))
+```

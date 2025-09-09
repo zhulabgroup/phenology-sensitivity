@@ -12,4 +12,4 @@ Figures.qmd – workflow for generating all manuscript figures.
 
 ## `scripts/` – contains all detailed code called within the `.qmd` files.
 
-## `data/` – contains all raw and processed data.
+## `data/` – contains all raw and processed data. Can be downloaded from [Zenodo](https://doi.org/10.5281/zenodo.17087426).

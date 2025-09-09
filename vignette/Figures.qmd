@@ -48,12 +48,13 @@ print(map_plot)
 normality_plot <- red_maple %>% 
   ggplot(aes(x = norm, y = as.Date(doy, origin = "2024-11-01"))) +
   geom_point(alpha = 0.5) +
-  geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 1, color = "red") +
+  geom_smooth(aes(group = dataset), method = "lm", se = TRUE, size = 1, color = "red") +
   labs(
     title = " ",
     x = "Temperature norm (°C)",
     y = "Flowering day"
   ) +
+    xlim(0,25) +
   scale_y_date(date_labels = "%b") + # Format y-axis as months
   theme(
     legend.position = "none"
@@ -67,7 +68,8 @@ print(normality_plot)
 anomaly_plot <- red_maple %>% 
   ggplot(aes(x = anom, y = as.Date(doy, origin = "2024-11-01"))) +
   geom_point(alpha = 0.5) +
-  geom_smooth(aes(group = dataset), method = "lm", se = FALSE, size = 2, color = "purple") +
+  geom_smooth(aes(group = dataset), method = "lm", se = TRUE, size = 2, color = "purple") +
+  xlim(-12.5,12.5) +
   labs(
     title = " ",
     x = "Temperature anomaly (°C)",
@@ -164,7 +166,7 @@ co_gradient <- ggplot(mapping = aes(x = x, y = y)) +
     #    y = expression(d[observe]),
     x = "Temperature observed",
     y = "Flowering day observed",
-    title = "Co-gradient adaptation"
+    title = "Plasticity + Co-gradient adaptation"
   ) +
     geom_text(aes(x = 0.9, y = 0.9, label = "+"), size = 10, color = "black") +
   theme(
@@ -189,7 +191,7 @@ no_adaptation <- ggplot() +
     #    y = expression(d[observe]),
     x = "Temperature observed",
     y = "Flowering day observed",
-    title = "No adaptation"
+    title = "Plasticity dominance"
   ) +
   theme(
     axis.text.x = element_blank(),
@@ -214,7 +216,7 @@ counter_gradient <- ggplot(mapping = aes(x = x, y = y)) +
     #    y = expression(d[observe]),
     x = "Temperature observed",
     y = "Flowering day observed",
-    title = "Counter-gradient adaptation"
+    title = "Plasticity + Counter-gradient adaptation"
   ) +
       geom_text(aes(x = 0.9, y = 0.9, label = "−"), size = 10, color = "black") +
   theme(
@@ -381,7 +383,7 @@ print(plot2)
 byspecies_scatter <- by_species_wtaxa_st%>%
   filter(dataset == "herb") %>%
   ggplot(aes(x = norm_estimate, y = anom_estimate)) +
-  geom_point(alpha = 0.7, size = 3) +
+  geom_point(alpha = 0.7, size = 2) +
   geom_text(aes(label = label), vjust = -1, color = "black", size = 7) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
   labs(
@@ -420,7 +422,7 @@ plot(layout)
 ```
 
 
-```{r fig.width=15, fig.height=9}
+```{r fig.width=18, fig.height=10}
 # Adjust the margins and layout
 Figure_2 <- free(byspecies_scatter, type = "space", side = "b") + plot1 + plot2 +
   plot_layout(design = layout, guides = "collect") + # Example: change heights as needed
@@ -469,6 +471,14 @@ by_species_wtaxa_dataset <- by_species_wtaxa_st %>%
     )
   )
 
+```
+
+```{r}
+by_species_wtaxa_dataset %>% 
+  group_by(dataset, sensitivity_type) %>% 
+  summarise(mean = mean(estimate_combined),
+            sd = sd(estimate_combined
+                    ))
 ```
 
 

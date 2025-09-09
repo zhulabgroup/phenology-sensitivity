@@ -4,14 +4,13 @@ format: html
 editor: visual
 ---
 
-
 ```{r setup, echo=FALSE, message=FALSE}
 source("scripts/_setup.R")
 ```
- 
-If you would like to test the herbarium part easily, you can:
 
-Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/) using [mvh](https://github.com/tncvasconcelos/mvh) package. Here we only use a small portion of images (8 specimens of red maple from the Ann Arbor, MI area and download the images.) as a test example. 
+If you would like to test the herbarium part easily, you can onlly download
+
+Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/) using [mvh](https://github.com/tncvasconcelos/mvh) package. Here we only use a small portion of images (8 specimens of red maple from the Ann Arbor, MI area and download the images.) as a test example.
 
 ```{r download_gbif, eval=FALSE}
 source("scripts/download_GBIF.R")
@@ -19,11 +18,8 @@ source("scripts/download_GBIF.R")
 
 Processing the downloaded image using [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2) can be tested through [colab](https://colab.research.google.com/drive/1LoE62SuiyNy8uar-eKn8qQJ3x_CVr4q_#scrollTo=9KTbaoXba2Qh) or on local machine.
 
-After install Leafmachine2 in colab or local machine, we only need run DetectPhenology.py to generate the phenology table. Before run DetectPhenology.py, remember to change the corresponding DetectPhenology.yaml file lines to the corresponding places you put your image and where you want to store the output:
-dir_images_local: (input directory)
-dir_output: (output directory)
+After install Leafmachine2 in colab or local machine, we only need run DetectPhenology.py to generate the phenology table. Before run DetectPhenology.py, remember to change the corresponding DetectPhenology.yaml file lines to the corresponding places you put your image and where you want to store the output: dir_images_local: (input directory) dir_output: (output directory)
 
 Other potential adjustment please refer to [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2). One useful one is to set: do_save_prediction_overlay_images = True for a small test to see how well the phenology component is generated. (supplimentary figure 1).
 
-test: (output: meta_data.csv, phenology.csv)
-full: (output: meta_data.csv, phenology.csv)
+test: (output: meta_data.csv, phenology.csv) full: (output: meta_data.csv, phenology.csv)

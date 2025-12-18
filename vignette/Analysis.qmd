@@ -4,7 +4,6 @@ format: html
 editor: visual
 ---
 
-
 ```{r setup, echo=FALSE, message=FALSE}
 source("../scripts/_setup_analysis.R")
 ```
@@ -12,13 +11,15 @@ source("../scripts/_setup_analysis.R")
 # Prepare data
 
 ## Climate data
+
 ```{r download_prism, eval=FALSE}
 library(prism)
 prism_set_dl_dir("~/prismtmp")
 prism_download(type = "tmean", years = 1895:2023, mon = 1:12, keep_zip = FALSE)
 ```
 
-Aggregate monthly prism data to (year)_springmean.tif, (decade)_springmean.tif, complete_period_springmean.tif by doing pixel-wise average. Do this aggregation parallel and save the tif to save time for later extraction. (this part can be used to write a function for parallel do average, more like a optimizationd)
+Aggregate monthly prism data to (year)\_springmean.tif, (decade)\_springmean.tif, complete_period_springmean.tif by doing pixel-wise average. Do this aggregation parallel and save the tif to save time for later extraction. (this part can be used to write a function for parallel do average, more like a optimizationd)
+
 ```{r aggregate_prism, eval=FALSE}
 source("scripts/prepare_prism.R")
 ```
@@ -28,31 +29,16 @@ source("scripts/prepare_prism.R")
 ## Herbarium data
 
 ### Download the images
+
 Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/). We selected the Herbarium images following the following criteria and the downloading doi and link are provided here:
 
-Citation
-When using this dataset please use the following citation:
+Citation When using this dataset please use the following citation:
 
 GBIF.org (13 May 2024) GBIF Occurrence Download https://doi.org/10.15468/dl.uk96qu
 
-Download Information
-DOI: https://doi.org/10.15468/dl.uk96qu (may take some hours before being active)
-Creation Date: 16:56:19 13 May 2024
-Records included: 259293 records from 307 published datasets
-Compressed data size: 122.9 MB
-Download format: DWCA
-Filter used:
+Download Information DOI: https://doi.org/10.15468/dl.uk96qu (may take some hours before being active) Creation Date: 16:56:19 13 May 2024 Records included: 259293 records from 307 published datasets Compressed data size: 122.9 MB Download format: DWCA Filter used:
 
-{
-  "and" : [
-    "BasisOfRecord is Specimen",
-    "Country is United States of America",
-    "HasCoordinate is true",
-    "HasGeospatialIssue is false",
-    "TaxonKey is one of (Acer L., Cupressaceae, Morus L., Pinaceae, Ulmus L., Fraxinus Tourn. ex L., Betula L., Populus L., Quercus L.)",
-    "Year 1895-2022"
-  ]
-}
+{ "and" : \[ "BasisOfRecord is Specimen", "Country is United States of America", "HasCoordinate is true", "HasGeospatialIssue is false", "TaxonKey is one of (Acer L., Cupressaceae, Morus L., Pinaceae, Ulmus L., Fraxinus Tourn. ex L., Betula L., Populus L., Quercus L.)", "Year 1895-2022" \] }
 
 We also put the result in the internal_data. We added gbif.sh which can be used to batch download the GBIF images. It's around 600GB size so we won't provide the raw images here. Instead, we are providing the phenology summary file
 
@@ -62,15 +48,14 @@ We also put the result in the internal_data. We added gbif.sh which can be used 
 
 Processing the downloaded image using [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2) can be tested through [colab](https://colab.research.google.com/drive/1LoE62SuiyNy8uar-eKn8qQJ3x_CVr4q_#scrollTo=9KTbaoXba2Qh) or on local machine. We used LeafMachine2 v.2.1 version.
 
-After install Leafmachine2 in colab or local machine, we only need run DetectPhenology.py to generate the phenology table. Before run DetectPhenology.py, remember to change the corresponding DetectPhenology.yaml file lines to the corresponding places you put your image and where you want to store the output:
-dir_images_local: (input directory)
-dir_output: (output directory)
+After install Leafmachine2 in colab or local machine, we only need run DetectPhenology.py to generate the phenology table. Before run DetectPhenology.py, remember to change the corresponding DetectPhenology.yaml file lines to the corresponding places you put your image and where you want to store the output: dir_images_local: (input directory) dir_output: (output directory)
 
 Other potential adjustment please refer to [Leafmachine2](https://github.com/Gene-Weaver/LeafMachine2). One useful one is to set: do_save_prediction_overlay_images = True for a small test to see how well the phenology component is generated. (supplimentary figure 1).
 
 (output: phenology.csv)
 
 ## Field observation data
+
 ```{r download_prism, eval=FALSE}
 source("scripts/download_npn.R")
 ```
@@ -78,18 +63,21 @@ source("scripts/download_npn.R")
 (output: genus.rds files)
 
 # Analysis
+
 No need to run the downloading process since it will take a long time. All the required data is provided, you can start reproduce the analysis from here:
 
 ## Herbarium
+
 ```{r}
 source("../scripts/prepare_herb.R")
 ```
 
-*If your meta_data.csv don't have the file_name column, you can use gbifid to join the meta data with phenology data.
+\*If your meta_data.csv don't have the file_name column, you can use gbifid to join the meta data with phenology data.
 
 (output: herb_flower.csv) (with original doy)
 
 ## Field observations
+
 ```{r}
 source("../scripts/prepare_npn.R")
 ```
@@ -97,6 +85,7 @@ source("../scripts/prepare_npn.R")
 (output: npn_flower.csv) (with original doy)
 
 ## Extract climate
+
 ```{r warning=FALSE}
 source("../scripts/prepare_flowerclimate.R")
 ```
@@ -104,6 +93,7 @@ source("../scripts/prepare_flowerclimate.R")
 (output: temperature_data.csv) (with modified doy)
 
 ## By species model
+
 ```{r}
 source("../scripts/model_byspecies_lm.R")
 ```
@@ -111,13 +101,17 @@ source("../scripts/model_byspecies_lm.R")
 (output: species_summary.csv) (only includes species with enough data to model)
 
 ## HMM and PMM
+
 ### Download pylogenetic data
+
 ```{r}
 source("../scripts/download_phylo.R")
 ```
+
 (output: PhyloMaker_tree_scenario1.nwk, taxa_info.csv)
 
 ### Fit model
+
 ```{r}
 source("../scripts/model_hierarchical.R")
 ```
@@ -125,4 +119,3 @@ source("../scripts/model_hierarchical.R")
 (output: sample_HMM.rds, sample_PMM.rds)
 
 HMM:2723.19 s PMM 2965.14 s
-

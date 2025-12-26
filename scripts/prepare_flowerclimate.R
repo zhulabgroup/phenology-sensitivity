@@ -32,7 +32,7 @@ joint_data_flower_anormality <- data.frame()
 # Loop through the specified years
 for (fo_year in 1895:2023) {
   # Load the yearly raster file
-  yearly_raster <- raster(paste0(.path$prism_anom, fo_year, "_springmean.tif"))
+  yearly_raster <- raster(paste0(.path$prism_anom, fo_year, "_wintermean.tif"))
   
   # Process the joint_data_flower for the current year
   yearly_data <- joint_data_flower %>%

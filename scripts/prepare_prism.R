@@ -7,37 +7,81 @@ library(raster)
 startyear <- 1895
 endyear <- 2024
 
-# first from month to yearly spring average temperature --------------------------------------------
+# ---- Yearly winter (Dec prev year + Jan–Feb current year) ------------
+# ---- First year: Jan–Feb only
 
-# Initialize the cluster with the number of available cores
+library(parallel)
+
+# Initialize the cluster
 num_cores <- parallel::detectCores() - 1
 cl <- makeCluster(num_cores)
 
-# Export necessary variables to the cluster
-clusterExport(cl, c("startyear", "endyear", "prism_archive_subset", "pd_stack", "writeRaster"))
+# Export necessary objects
+clusterExport(
+  cl,
+  c("startyear", "endyear", "prism_archive_subset", "pd_stack", "writeRaster")
+)
 
-# Load libraries and set the prism download directory on each worker node
+# Load libraries and set PRISM directory on workers
 clusterEvalQ(cl, {
   library(prism)
   library(raster)
-  prism_set_dl_dir("data/prism")
+  prism_set_dl_dir("prism_data")
 })
 
 # Function to process each year
 process_year <- function(focal_year) {
-  tmean_rast_yr_mo <- prism_archive_subset(temp_period = "monthly", type = "tmean", years = focal_year, mon = 3:5)
-  tmean_rast2_yr_mo <- pd_stack(tmean_rast_yr_mo)
-  r_mean <- raster::calc(tmean_rast2_yr_mo, mean)
-  writeRaster(r_mean, paste0("data/prism/", focal_year, "_springmean.tif"))
+  
+  if (focal_year == startyear) {
+    # First year: January–February only
+    tmean_all <- prism_archive_subset(
+      temp_period = "monthly",
+      type = "tmean",
+      resolution = "4km",
+      years = focal_year,
+      mon = 1:2
+    )
+    
+  } else {
+    # Other years: December (prev year) + Jan–Feb (current year)
+    tmean_dec_prev <- prism_archive_subset(
+      temp_period = "monthly",
+      type = "tmean",
+      resolution = "4km",
+      years = focal_year - 1,
+      mon = 12
+    )
+    
+    tmean_jf_curr <- prism_archive_subset(
+      temp_period = "monthly",
+      type = "tmean",
+      resolution = "4km",
+      years = focal_year,
+      mon = 1:2
+    )
+    
+    tmean_all <- c(tmean_dec_prev, tmean_jf_curr)
+  }
+  
+  # Stack and calculate mean
+  tmean_stack <- pd_stack(tmean_all)
+  r_mean <- raster::calc(tmean_stack, mean, na.rm = TRUE)
+  
+  # Write output
+  writeRaster(
+    r_mean,
+    paste0("data/prism/", focal_year, "_wintermean.tif"),
+    overwrite = TRUE
+  )
 }
 
-# Apply the function in parallel
+# Apply in parallel
 parLapply(cl, startyear:endyear, process_year)
 
-# Stop the cluster
+# Stop cluster
 stopCluster(cl)
 
-# second from yearly to decade spring average temperature: be careful the last group is 2015-2023 inclusing 9 years --------------------------------------------
+# ---- Then from yearly to decade winter mean ------------
 
 # Re-initialize the cluster for decadal aggregation
 cl <- makeCluster(num_cores)
@@ -54,7 +98,7 @@ clusterEvalQ(cl, {
 process_decade <- function(decade_start) {
   decade_years <- seq(decade_start, decade_start + 9)
   yearly_rasters <- lapply(decade_years, function(year) {
-    raster_path <- paste0("data/prism/", year, "_springmean.tif")
+    raster_path <- paste0("data/prism/", year, "_wintermean.tif")
     if (file.exists(raster_path)) {
       raster(raster_path)
     } else {
@@ -65,7 +109,7 @@ process_decade <- function(decade_start) {
   yearly_rasters <- Filter(Negate(is.null), yearly_rasters)
   if (length(yearly_rasters) > 0) {
     decade_mean <- raster::calc(stack(yearly_rasters), mean)
-    writeRaster(decade_mean, paste0("data/prism/", decade_start, "-", decade_start + 9, "_springmean.tif"))
+    writeRaster(decade_mean, paste0("data/prism/", decade_start, "-", decade_start + 9, "_wintermean.tif"))
   }
 }
 
@@ -78,46 +122,16 @@ parLapply(cl, decades, process_decade)
 # Stop the cluster
 stopCluster(cl)
 
-# third from decade to full-period spring average temperature: be careful the last group is 2015-2023 inclusing 9 years --------------------------------------------
+# third from decade to full-period spring average temperature: be careful the last group is 2015-2023 including 9 years --------------------------------------------
 
 aggregate_decades <- function(decades) {
   decade_rasters <- lapply(decades, function(decade_start) {
-    raster_path <- paste0("data/prism/", decade_start, "-", decade_start + 9, "_springmean.tif")
+    raster_path <- paste0("data/prism/", decade_start, "-", decade_start + 9, "_wintermean.tif")
   })
   period_mean <- raster::calc(stack(decade_rasters), mean)
-  writeRaster(period_mean, "data/prism/complete_period_springmean.tif")
+  writeRaster(period_mean, "data/prism/complete_period_wintermean.tif")
 }
 
 # Aggregate decade files into a complete period average raster
 aggregate_decades(decades)
-
-# calculate national yearly anomaly and normality-------------
-base_path <- .path$prism
-normality_file <- paste0(base_path, "complete_period_springmean.tif")
-
-# Load the normality raster and calculate its mean
-normality_raster <- raster(normality_file)
-normality_mean <- cellStats(normality_raster, mean, na.rm = TRUE)
-
-# Initialize a data frame to store results
-results <- data.frame(year = 1895:2023, avg_anomaly = NA)
-
-# Loop through the years
-for (year in 1895:2023) {
-  yearly_file <- paste0(base_path, year, "_springmean.tif")
-  
-  # Load the yearly raster and calculate its mean
-  yearly_raster <- raster(yearly_file)
-  yearly_mean <- cellStats(yearly_raster, mean, na.rm = TRUE)
-  
-  # Calculate anomaly
-  anomaly <- yearly_mean - normality_mean
-  
-  # Store the result
-  results$avg_anomaly[results$year == year] <- anomaly
-}
-
-
-yearly_anomaly_normality <- rbind(results, c("0000", 10.42731))
-write.csv(yearly_anomaly_normality, paste0(base_path, "yearly_anomaly_normality.csv"), row.names = FALSE)
 

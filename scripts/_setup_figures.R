@@ -45,20 +45,20 @@ theme_set(my_theme())
 
 # link paths
 if (!dir.exists("data")) { # create symlink; final release needs to copy relevant files
-  system("ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity/to_release data")
+  system("ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity/review_np ../data")
 }
 
 
 .path <- list( # hidden variable won't be removed
-  norm_anom = "data/prism/yearly_anomaly_normality.csv",
-  prism_norm = "data/prism/complete_period_springmean.tif",
+  norm_anom = "../data/prism/yearly_anomaly_normality.csv",
+  prism_norm = "../data/prism/complete_period_springmean.tif",
   
-  temperature_data = "data/temperature_data.csv",
-  taxa_info = "data/taxa_info.csv",
-  byspecies_summary = "data/species_summary.csv",
+  temperature_data = "../data/temperature_data.csv",
+  taxa_info = "../data/taxa_info.csv",
+  byspecies_summary = "../data/species_summary.csv",
 
-  tree = "data/PhyloMaker_tree_scenario1_total.nwk",
+  tree = "../data/PhyloMaker_tree_scenario1_total.nwk",
   
-  sample_hmm = "data/sample_HMM.rds",
-  sample_pmm = "data/sample_PMM.rds"
+  sample_hmm = "../data/sample_HMM.rds",
+  sample_pmm = "../data/sample_PMM.rds"
   )

@@ -12,7 +12,7 @@ pacman::p_load_gh("jinyizju/V.PhyloMaker2")
 
 # link paths
 if (!dir.exists("data")) { # create symlink; final release needs to copy relevant files
-  system("ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity/to_release data")
+  system("ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity/review_np ../data")
 }
 
 # data path tags are
@@ -29,15 +29,15 @@ if (!dir.exists("data")) { # create symlink; final release needs to copy relevan
   npn = "data/NPN/",
   npn_flower = "data/NPN/npn_flower.csv",
   
-  prism_norm = "data/prism/complete_period_springmean.tif",
+  prism_norm = "data/prism/complete_period_wintermean.tif",
   prism_anom = "data/prism/",
   
   temperature_data = "data/temperature_data.csv",
   taxa_info = "data/taxa_info.csv",
   byspecies_summary = "data/species_summary.csv",
   
-  model_hmm = "../scripts/PhenoPhyloMM_HMM_Yi.stan",
-  model_pmm = "../scripts/PhenoPhyloMM_PMM_Yi.stan",
+  model_hmm = "scripts/PhenoPhyloMM_HMM_Yi.stan",
+  model_pmm = "scripts/PhenoPhyloMM_PMM_Yi.stan",
   tree = "data/PhyloMaker_tree_scenario1_total.nwk",
   
   sample_hmm = "data/sample_HMM.rds",

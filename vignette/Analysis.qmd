@@ -10,6 +10,8 @@ source("../scripts/_setup_analysis.R")
 
 # Prepare data
 
+No need to run the downloading process since it will take a long time. All the required data is provided, you can start reproduce the "Analysis" part directly.
+
 ## Climate data
 
 ```{r download_prism, eval=FALSE}
@@ -63,8 +65,6 @@ source("scripts/download_npn.R")
 (output: genus.rds files)
 
 # Analysis
-
-No need to run the downloading process since it will take a long time. All the required data is provided, you can start reproduce the analysis from here:
 
 ## Herbarium
 

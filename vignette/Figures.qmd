@@ -56,7 +56,7 @@ normality_plot <- red_maple %>%
     x = "Temperature norm (°C)",
     y = "Flowering day"
   ) +
-    xlim(-15,20) +
+    # xlim(-1,2) +
   scale_y_date(date_labels = "%b") + # Format y-axis as months
   theme(
     legend.position = "none"
@@ -72,6 +72,7 @@ anomaly_plot <- red_maple %>%
   ggplot(aes(x = anom, y = as.Date(doy, origin = "2024-11-01"))) +
   geom_point(alpha = 0.5) +
   geom_smooth(aes(group = dataset), method = "lm", se = TRUE, size = 2, color = "purple") +
+      xlim(-10,20) +
   labs(
     title = " ",
     x = "Temperature anomaly (°C)",
@@ -394,8 +395,8 @@ byspecies_scatter <- by_species_wtaxa_st%>%
     y = "Temporal Sensitivity (days/°C)",
     color = "Dataset"
   ) +
-  ylim(-10,10) +
-  xlim(-10,10) +
+  ylim(-12,10) +
+  xlim(-12,10) +
   theme(legend.position = "top",
             panel.border = element_rect(color = "black", fill = NA, size = 2)  
         )+ 

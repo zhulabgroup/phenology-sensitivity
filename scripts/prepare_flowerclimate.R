@@ -9,16 +9,102 @@ herb_flower <- read.csv(.path$herb_flower) %>%
          dataset = "herb")
 joint_data_flower <- rbind(npn_flower, herb_flower) 
 
+# choose locations
+locations <- dplyr::select(joint_data_flower, lat, lon) %>%
+  distinct() 
 
-# extract the climate normality ---------
-complete_period_raster <- raster(.path$prism_norm)
+locations$site_id <- seq_len(length(locations))
 
-joint_data_flower_normality <- joint_data_flower %>%
-  dplyr::select(lat, lon) %>%
-  distinct() %>%
-  mutate(complete_period_temp = raster::extract(complete_period_raster, cbind(lon, lat)))
+prism_dir <- "prism_data"
 
-# extract the climate anormality
+# list ALL monthly tmean bil files
+bil_files <- list.files(
+  prism_dir,
+  pattern = "PRISM_tmean_.*_4kmM3_\\d{6}_bil$",
+  full.names = TRUE
+)
+
+# extract year and month from folder name
+file_index <- tibble(
+  path = bil_files,
+  yyyymm = gsub(".*_(\\d{6})_bil$", "\\1", bil_files),
+  year = as.integer(substr(yyyymm, 1, 4)),
+  month = as.integer(substr(yyyymm, 5, 6))
+) |>
+  filter(
+    year >= 1895,
+    year <= 2023,
+    month %in% c(2, 3)
+  ) |>
+  arrange(year, month)
+
+extract_one_file <- function(i, index_df, sites_sp) {
+  
+  bil_path <- index_df$path[i]
+  
+  bil_file <- list.files(
+    bil_path,
+    pattern = "\\.bil$",
+    full.names = TRUE
+  )
+  
+  if (length(bil_file) == 0) return(NULL)
+  
+  r <- raster(bil_file)
+  
+  vals <- raster::extract(r, sites_sp)
+  
+  data.frame(
+    site_id = sites_sp$site_id,
+    year    = index_df$year[i],
+    month   = index_df$month[i],
+    tmean   = vals
+  )
+}
+
+
+n_cores <- detectCores() - 1
+cl <- makeCluster(n_cores)
+
+clusterEvalQ(cl, library(raster))
+clusterExport(cl, c("extract_one_file", "file_index", "locations"))
+
+results <- parLapply(
+  cl,
+  seq_len(nrow(file_index)),
+  extract_one_file,
+  index_df = file_index,
+  sites_sp = locations
+)
+
+stopCluster(cl)
+
+prism_feb_mar <- bind_rows(results) 
+
+prism_feb_mar$tmean <- prism_feb_mar$tmean
+
+coords <- as.data.frame(coordinates(locations))
+coords$site_id <- locations$site_id
+names(coords) <- c("lon", "lat", "site_id")
+
+final_out <- prism_feb_mar |>
+  left_join(coords, by = "site_id") |>
+  group_by(lat, lon, year) |>
+  summarise(
+    feb_mar_tmean = mean(tmean, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(year, lat)
+
+head(final_out)
+
+# now calculate by location the average over the full period and make name it norm and also calcualte the deviation off norm for each year
+norms <- final_out |>
+  group_by(lat, lon) |>
+  summarise(
+    norm = mean(feb_mar_tmean, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 ## reshape doy to number of days since Nov 1st ------
 
@@ -26,30 +112,12 @@ joint_data_flower_reframe <- joint_data_flower %>%
   mutate(doy = doy + 61) %>%
   mutate(year = ifelse(doy > 365, year+1, year),
          doy = ifelse(doy > 365, doy - 365, doy)) 
-# Initialize an empty data frame to store the results
-joint_data_flower_anormality <- data.frame()
-
-# Loop through the specified years
-for (fo_year in 1895:2023) {
-  # Load the yearly raster file
-  yearly_raster <- raster(paste0(.path$prism_anom, fo_year, "_wintermean.tif"))
-  
-  # Process the joint_data_flower for the current year
-  yearly_data <- joint_data_flower %>%
-    dplyr::select(year, lat, lon) %>%
-    distinct() %>%
-    filter(year == fo_year) %>%
-    mutate(yearly_temp = raster::extract(yearly_raster, cbind(lon, lat)))
-  
-  # Append the yearly data to the cumulative data frame
-  joint_data_flower_anormality <- rbind(joint_data_flower_anormality, yearly_data)
-}
 
 # Combine the normality and anormality data
 temperature_data <- joint_data_flower_reframe %>%
-  right_join(joint_data_flower_normality, by = c("lat", "lon")) %>%
-  right_join(joint_data_flower_anormality, by = c("lat", "lon","year")) %>%
-  rename(norm = complete_period_temp, yeart = yearly_temp) %>%
+  right_join(norms, by = c("lat", "lon")) %>%
+  right_join(final_out, by = c("lat", "lon","year")) %>%
+  rename(yeart = feb_mar_tmean) %>%
   mutate(anom = yeart - norm) %>%
   filter(!is.na(anom)) 
 

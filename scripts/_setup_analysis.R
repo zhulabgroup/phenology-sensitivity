@@ -32,14 +32,14 @@ if (!dir.exists("data")) { # create symlink; final release needs to copy relevan
   prism_norm = "data/prism/complete_period_wintermean.tif",
   prism_anom = "data/prism/",
   
-  temperature_data = "data/temperature_data.csv",
+  temperature_data = "data/Feb_Mar/temperature_data.csv",
   taxa_info = "data/taxa_info.csv",
-  byspecies_summary = "data/species_summary.csv",
+  byspecies_summary = "data/Feb_Mar/species_summary.csv",
   
   model_hmm = "scripts/PhenoPhyloMM_HMM_Yi.stan",
   model_pmm = "scripts/PhenoPhyloMM_PMM_Yi.stan",
   tree = "data/PhyloMaker_tree_scenario1_total.nwk",
   
-  sample_hmm = "data/sample_HMM.rds",
-  sample_pmm = "data/sample_PMM.rds"
+  sample_hmm = "data/Feb_Mar/sample_HMM.rds",
+  sample_pmm = "data/Feb_Mar/sample_PMM.rds"
 )

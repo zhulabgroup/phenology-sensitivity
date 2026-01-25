@@ -1,8 +1,5 @@
 # fit the model
 
-temperature_data <- read.csv(.path$temperature_data)
-
-
 ## get data for model by requiring 10 observations for each parameters --------
 
 temperature_data_model <- temperature_data %>%
@@ -90,8 +87,4 @@ for (i in seq_len(nrow(unique_combos))) {
 
 # Combine all into a single data frame
 final_results <- bind_rows(results_list)
-
-
-
-write.csv(final_results, .path$byspecies_summary, row.names = FALSE)
 

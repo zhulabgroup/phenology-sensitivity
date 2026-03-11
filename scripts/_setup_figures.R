@@ -53,9 +53,10 @@ if (!dir.exists("data")) { # create symlink; final release needs to copy relevan
   norm_anom = "../data/prism/yearly_anomaly_normality.csv",
   prism_norm = "../data/prism/complete_period_springmean.tif",
   
-  temperature_data = "../data/winter/temperature_data.csv",
-  taxa_info = "../data/taxa_info.csv",
-  byspecies_summary = "../data/winter/species_summary.csv",
+  temperature_data = "../data/spring/temperature_data.csv",
+  taxa_info = "data/taxa_info.csv",
+  byspecies_summary_winter = "data/winter/species_summary.csv",
+  byspecies_summary_spring = "data/spring/species_summary.csv",
 
   tree = "../data/PhyloMaker_tree_scenario1_total.nwk",
   

@@ -96,6 +96,9 @@ source("../scripts/prepare_flowerclimate.R")
 ### Spring
 
 ```{r}
+setwd("../")
+getwd()
+
 temperature_data <- read.csv(.path$temperature_data_spring)
 
 source("../scripts/model_byspecies_lm.R")
@@ -177,123 +180,14 @@ HMM:2723.19 s PMM 2965.14 s
 
 # Compare winter and spring
 
-```{r}
-# ln -s /Volumes/seas-zhukai/proj-phenology-sensitivity/review_np data
-
-species_summary_winter <- read_csv("../data/winter/species_summary.csv") %>% 
-  filter(dataset == "herb")
-
-species_summary_spring <- read_csv("../data/spring/species_summary.csv") %>% 
-  filter(dataset == "herb")
-
-#select the "anom_estimate"  "anom_conf_low"  "anom_conf_high" "norm_estimate" "norm_conf_low"  "norm_conf_high"  from both datasets and combine them into one table for comparison
-
-comparison_df <- species_summary_winter %>%
-  dplyr::select(species, anom_estimate_winter = anom_estimate, anom_conf_low_winter = anom_conf_low, anom_conf_high_winter = anom_conf_high,
-         norm_estimate_winter = norm_estimate, norm_conf_low_winter = norm_conf_low, norm_conf_high_winter = norm_conf_high) %>%
-  inner_join(
-    species_summary_spring %>%
-      dplyr::select(species, anom_estimate_spring = anom_estimate, anom_conf_low_spring = anom_conf_low, anom_conf_high_spring = anom_conf_high,
-             norm_estimate_spring = norm_estimate, norm_conf_low_spring = norm_conf_low, norm_conf_high_spring = norm_conf_high),
-    by = "species"
-  )
-
-
-```
-
-
-
 
 ```{r}
+setwd("../")
 
-library(grid)   # for unit()
+species_summary_winter <- read_csv(.path$byspecies_summary_winter) 
 
-comparison_df <- comparison_df %>% 
-  mutate(
-    change_cat = case_when(
-      anom_estimate_winter > anom_estimate_spring &
-        norm_estimate_winter > norm_estimate_spring ~ "Temporal ↑, Spatial ↑",
-      anom_estimate_winter > anom_estimate_spring &
-        norm_estimate_winter < norm_estimate_spring ~ "Temporal ↑, Spatial ↓",
-      anom_estimate_winter < anom_estimate_spring &
-        norm_estimate_winter > norm_estimate_spring ~ "Temporal ↓, Spatial ↑",
-      anom_estimate_winter < anom_estimate_spring &
-        norm_estimate_winter < norm_estimate_spring ~ "Temporal ↓, Spatial ↓",
-      TRUE ~ "No / mixed change"
-    )
-  )
+species_summary_spring <- read_csv(.path$byspecies_summary_spring)
 
-# optional: force the 4 main levels to appear in a consistent order
-comparison_df <- comparison_df %>% 
-  mutate(
-    change_cat = factor(
-      change_cat,
-      levels = c("Temporal ↑, Spatial ↑",
-                 "Temporal ↑, Spatial ↓",
-                 "Temporal ↓, Spatial ↑",
-                 "Temporal ↓, Spatial ↓",
-                 "No / mixed change")
-    )
-  )
-
-# compute symmetric limits over all four variables
-rng <- range(
-  comparison_df$anom_estimate_spring,
-  comparison_df$anom_estimate_winter,
-  comparison_df$norm_estimate_spring,
-  comparison_df$norm_estimate_winter,
-  na.rm = TRUE
-)
-lim <- max(abs(rng))
-lims <- c(-lim, lim)
-
-comparison_df %>% 
-  ggplot(aes(y = anom_estimate_spring, x = norm_estimate_spring)) +
-  # colored arrows by 4‑class factor
-  geom_segment(
-    aes(xend = anom_estimate_winter,
-        yend = norm_estimate_winter,
-        color = change_cat),
-    arrow = arrow(length = unit(0.2, "cm")),
-      linewidth = 0.5,
-    alpha = 0.5) +
-  # 1:1 line
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
-  # 3) emphasize zero lines
-  geom_hline(yintercept = 0, linewidth = 0.6, color = "black") +
-  geom_vline(xintercept = 0, linewidth = 0.6, color = "black") +
-  # 1) same scale x and y (symmetric) + 1:1 aspect ratio
-  scale_x_continuous(limits = lims) +
-  scale_y_continuous(limits = lims) +
-  coord_fixed(ratio = 1) +
-  scale_color_brewer(
-    palette = "Set1",
-    name = "Spring → winter change"
-  ) +
-  labs(
-    title = "",
-    x = "Temporal Sensitivity (days/°C)",
-    y = "Spatial Sensitivity (days/°C)"
-  ) +
-  xlim(-25,15) +
-  ylim(-25,5) +
-  theme_classic() 
-  
-
-```
-
-```{r}
-change_summary <- comparison_df |>
-  dplyr::count(change_cat) |>
-  dplyr::mutate(pct = 100 * n / sum(n))
-change_summary
-```
-
-
-
-
-
-```{r}
 
 combined_df <- bind_rows(
   species_summary_winter %>%
@@ -340,9 +234,70 @@ ggplot(combined_df, aes(x = norm_estimate, y = anom_estimate, color = season)) +
 
 ```
 
-# Prepare the comparison table
+# Prepare the phylogenetic comparison table
 
 ```{r}
+setwd("../")
+
+PMM_winter <- read_rds("data/winter/sample_PMM.rds") %>% 
+  summary() %>% 
+ (\(x) x$summary)() %>%
+  as.data.frame()
+
+write.csv(PMM_winter, "data/winter/summary_PMM.csv")
+
+PMM_winter_st <- read_rds("data/winter/tem_spa/sample_PMM.rds")  %>% 
+  summary() %>% 
+   (\(x) x$summary)() %>%
+  as.data.frame()
+
+write.csv(PMM_winter_st, "data/winter/tem_spa/summary_PMM.csv")
+
+PMM_spring <- read_rds("data/spring/sample_PMM.rds")  %>% 
+  summary() %>% 
+   (\(x) x$summary)() %>%
+  as.data.frame()
+
+write.csv(PMM_spring, "data/spring/summary_PMM.csv")
+
+PMM_spring_st <- read_rds("data/spring/tem_spa/sample_PMM.rds")  %>% 
+  summary() %>% 
+   (\(x) x$summary)() %>%
+  as.data.frame()
+
+write.csv(PMM_spring_st, "data/spring/tem_spa/summary_PMM.csv")
 
 ```
+
+
+
+```{r}
+#select by row and column name
+PMM_spring["lam_interceptsa", "summary.mean"]
+PMM_spring["lam_interceptsbs", "summary.mean"]
+PMM_spring["lam_interceptsbt", "summary.mean"]
+```
+
+```{r}
+#select by row and column name
+PMM_winter["lam_interceptsa", "summary.mean"]
+PMM_winter["lam_interceptsbs", "summary.mean"]
+PMM_winter["lam_interceptsbt", "summary.mean"]
+```
+
+```{r}
+#select by row and column name
+PMM_spring_st["lam_interceptsa", "summary.mean"]
+PMM_spring_st["lam_interceptsbs", "summary.mean"]
+PMM_spring_st["lam_interceptsbt", "summary.mean"]
+```
+
+```{r}
+#select by row and column name
+PMM_winter_st["lam_interceptsa", "summary.mean"]
+PMM_winter_st["lam_interceptsbs", "summary.mean"]
+PMM_winter_st["lam_interceptsbt", "summary.mean"]
+```
+
+
 

@@ -1,0 +1,88 @@
+---
+title: "Revision"
+format: html
+editor: visual
+---
+
+# Check the georeferencing infomation
+Download the GBIF archive data from https://www.gbif.org/occurrence/download/0011964-240506114902167
+
+```{r}
+library(data.table)
+library(dplyr)
+
+occ <- fread("~/Downloads/0011964-240506114902167/occurrence.txt", sep = "\t", quote = "")
+```
+
+
+
+```{r}
+grep("georef|coordinate|latitude|longitude",
+     names(occ),
+     ignore.case = TRUE,
+     value = TRUE)
+```
+
+## Check with PRISM resolution
+```{r}
+occ %>%
+  summarize(
+    `<=4 km` = sum(coordinateUncertaintyInMeters <= 4000, na.rm = TRUE),
+    `>4 km` = sum(coordinateUncertaintyInMeters > 4000, na.rm = TRUE),
+    missing = sum(is.na(coordinateUncertaintyInMeters))
+  )
+```
+
+```{r}
+head(sort(table(occ$georeferenceProtocol), decreasing = TRUE))
+```
+
+```{r}
+head(sort(table(occ$georeferenceVerificationStatus), decreasing = TRUE))
+```
+
+# Check the species list for dioecious
+
+```{r}
+herb_data <- read.csv("~/Downloads/to_release/species_summary.csv") %>% 
+  filter(dataset == "herb")
+```
+
+
+```{r}
+print(herb_data$species)
+```
+
+# Check spcies coverage for Ramirez-Parada et al 
+
+## Run their "1. Subsetting Dataset.Rmd"
+
+Get this data:
+**Export dataset for 300+ species**
+```{r}
+fwrite(dat_master, file = "../specimen data - 1,605 species, 300+ specimens each.csv")
+```
+
+## Test number of overlaped species
+Genus: 
+Acer
+Betula
+Fraxinus
+Morus
+Populus
+Quercus
+Ulmus
+```{r}
+library(dplyr)
+wind_trees <- dat_master %>%
+  filter(genus %in% c(
+    "Acer",
+    "Betula",
+    "Fraxinus",
+    "Morus",
+    "Populus",
+    "Quercus",
+    "Ulmus"
+  )) %>%
+  distinct(genus, Accepted_species)
+```

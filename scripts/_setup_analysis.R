@@ -22,9 +22,9 @@ if (!dir.exists("data")) { # create symlink; final release needs to copy relevan
 
 .path <- list( # hidden variable won't be removed
 
-  herb_meta = "data/Herb/meta_data.csv",
-  herb_pheno = "data/Herb/phenology.csv",
-  herb_flower = "data/Herb/herb_flower.csv",
+  herb_meta = "~/Desktop/Herb/meta_data.csv",
+  herb_pheno = "~/Desktop/Herb/phenology.csv",
+  herb_flower = "~/Desktop/Herb/herb_flower.csv",
   
   npn = "data/NPN/",
   npn_flower = "data/NPN/npn_flower.csv",

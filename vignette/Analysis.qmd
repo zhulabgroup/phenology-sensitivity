@@ -92,7 +92,8 @@ source("../scripts/prepare_flowerclimate.R")
 
 (output: temperature_data.csv) (with modified doy)
 
-## By species model 
+## By species model
+
 ### Spring
 
 ```{r}
@@ -142,7 +143,6 @@ PMM_summary_st <- summary(PMM_st)
 PMM_group_st <- as.data.frame(PMM_summary_st$summary)
 ```
 
-
 ```{r}
 setwd("../")
 source("scripts/model_hierarchical.R")
@@ -160,7 +160,6 @@ PMM_summary_spring_adaptation <- summary(PMM_spring_adaptation)
 PMM_group_spring_adaptation <- as.data.frame(PMM_summary_spring_adaptation$summary)
 ```
 
-
 ```{r}
 setwd("../")
 source("scripts/model_hierarchical.R")
@@ -174,12 +173,12 @@ PMM_st_222 <- fitlambest
 PMM_summary_st_222 <- summary(PMM_st_222)
 PMM_group_st_222 <- as.data.frame(PMM_summary_st_222$summary)
 ```
+
 (output: sample_HMM.rds, sample_PMM.rds)
 
 HMM:2723.19 s PMM 2965.14 s
 
 # Compare winter and spring
-
 
 ```{r}
 setwd("../")
@@ -269,8 +268,6 @@ write.csv(PMM_spring_st, "data/spring/tem_spa/summary_PMM.csv")
 
 ```
 
-
-
 ```{r}
 #select by row and column name
 PMM_spring["lam_interceptsa", "summary.mean"]
@@ -298,6 +295,3 @@ PMM_winter_st["lam_interceptsa", "summary.mean"]
 PMM_winter_st["lam_interceptsbs", "summary.mean"]
 PMM_winter_st["lam_interceptsbt", "summary.mean"]
 ```
-
-
-

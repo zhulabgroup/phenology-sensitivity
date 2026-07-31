@@ -8,8 +8,6 @@ editor: visual
 source("scripts/_setup.R")
 ```
 
-If you would like to test the herbarium part easily, you can onlly download
-
 Herbarium data is downloaded from the [Global Biodiversity Information Facility (GBIF)](https://www.gbif.org/) using [mvh](https://github.com/tncvasconcelos/mvh) package. Here we only use a small portion of images (8 specimens of red maple from the Ann Arbor, MI area and download the images.) as a test example.
 
 ```{r download_gbif, eval=FALSE}

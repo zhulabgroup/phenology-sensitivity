@@ -5,6 +5,7 @@ editor: visual
 ---
 
 # Check the georeferencing infomation
+
 Download the GBIF archive data from https://www.gbif.org/occurrence/download/0011964-240506114902167
 
 ```{r}
@@ -14,8 +15,6 @@ library(dplyr)
 occ <- fread("~/Downloads/0011964-240506114902167/occurrence.txt", sep = "\t", quote = "")
 ```
 
-
-
 ```{r}
 grep("georef|coordinate|latitude|longitude",
      names(occ),
@@ -24,6 +23,7 @@ grep("georef|coordinate|latitude|longitude",
 ```
 
 ## Check with PRISM resolution
+
 ```{r}
 occ %>%
   summarize(
@@ -48,30 +48,24 @@ herb_data <- read.csv("~/Downloads/to_release/species_summary.csv") %>%
   filter(dataset == "herb")
 ```
 
-
 ```{r}
 print(herb_data$species)
 ```
 
-# Check spcies coverage for Ramirez-Parada et al 
+# Check spcies coverage for Ramirez-Parada et al
 
 ## Run their "1. Subsetting Dataset.Rmd"
 
-Get this data:
-**Export dataset for 300+ species**
+Get this data: **Export dataset for 300+ species**
+
 ```{r}
 fwrite(dat_master, file = "../specimen data - 1,605 species, 300+ specimens each.csv")
 ```
 
 ## Test number of overlaped species
-Genus: 
-Acer
-Betula
-Fraxinus
-Morus
-Populus
-Quercus
-Ulmus
+
+Genus: Acer Betula Fraxinus Morus Populus Quercus Ulmus
+
 ```{r}
 library(dplyr)
 wind_trees <- dat_master %>%
@@ -86,3 +80,110 @@ wind_trees <- dat_master %>%
   )) %>%
   distinct(genus, Accepted_species)
 ```
+
+# visual check machine learning result:
+
+
+
+
+```{r}
+occurrence <- read.delim(
+  "~/Downloads/0011964-240506114902167/occurrence.txt",
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+names(occurrence)
+```
+
+```{r}
+library(stringr)
+image_sample <- bind_rows(flower_sample, nonflower_sample)
+
+image_sample_2 <- image_sample %>%
+  mutate(
+    gbifID = str_extract(filename_image, "(?<=_)[0-9]+(?=_)")
+  )
+```
+
+
+
+```{r}
+library(readr)
+
+multimedia <- read_tsv(
+  "~/Downloads/0011964-240506114902167/multimedia.txt",
+  show_col_types = FALSE
+)
+
+
+download_list <- image_sample_2 %>%
+  mutate(gbifID = as.character(gbifID)) %>%
+  left_join(
+    multimedia %>%
+      mutate(gbifID = as.character(gbifID)) %>%
+      select(gbifID, identifier) %>%
+      distinct(gbifID, .keep_all = TRUE),
+    by = "gbifID"
+  ) %>%
+  filter(!is.na(identifier))
+```
+
+
+```{r}
+library(dplyr)
+library(fs)
+library(furrr)
+
+# Create folders
+dir_create("images/flower")
+dir_create("images/non_flower")
+
+# Download function
+download_image <- function(url, gbifID, type) {
+  
+  # skip missing URLs
+  if (is.na(url) || url == "") return(NULL)
+  
+  # get extension
+  ext <- tools::file_ext(sub("\\?.*$", "", url))
+  if (ext == "") ext <- "jpg"
+  
+  # output path
+  outfile <- file.path(
+    "images",
+    type,
+    paste0(gbifID, ".", ext)
+  )
+  
+  # skip existing files
+  if (file.exists(outfile)) return(NULL)
+  
+  tryCatch(
+    {
+      download.file(
+        url,
+        outfile,
+        mode = "wb",
+        quiet = TRUE
+      )
+    },
+    error = function(e) {
+      message("Failed: ", gbifID)
+    }
+  )
+}
+
+
+# Use multiple cores
+plan(multisession, workers = 8)
+
+future_pwalk(
+  download_list %>%
+    select(url = identifier, gbifID, type),
+  download_image
+)
+```
+

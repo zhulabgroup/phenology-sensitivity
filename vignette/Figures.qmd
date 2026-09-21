@@ -243,8 +243,6 @@ counter_gradient <- ggplot(mapping = aes(x = x, y = y)) +
 print(counter_gradient)
 ```
 
-
-
 For poster:
 
 ```{r fig.width=10, fig.height=3}
@@ -481,7 +479,6 @@ by_species_wtaxa_st %>%
             mean_anom = mean(anom_estimate))
 ```
 
-
 # Figure 3 compare two dataset sensitivity
 
 ```{r}
@@ -710,7 +707,6 @@ PMM_spring <- read.csv("data/spring/summary_PMM.csv", row.names = 1)
 PMM_spring_st <- read.csv("data/spring/tem_spa/summary_PMM.csv", row.names = 1)
 ```
 
-
 ```{r}
 
 n_groups <- 74#82
@@ -722,7 +718,6 @@ tree_species <- rownames(vcv(tree, corr = TRUE)) %>%
 
 phylo_species_id <- data.frame(species = tree_species, sppid = seq_along(tree_species))
 ```
-
 
 ## Plot tree for winter adaptation
 
@@ -771,7 +766,6 @@ lambda_all <- c(lambda_tips, lambda_nodes)
 
 ```
 
-
 ```{r fig.height=9, fig.width=11}
 tree_plot_wa <- ggtree(tree, aes(color = lambda_all), layout = "circular") + 
   geom_tree(size = 1.5) +
@@ -797,6 +791,7 @@ print(tree_plot_wa)
 ```
 
 ## Plot tree for spring plasticity
+
 ```{r fig.height=9, fig.width=11}
 
 PMM_species_data_wci <- PMM_spring %>%
@@ -860,8 +855,8 @@ tree_plot_sp <- ggtree(tree, aes(color = lambda_all), layout = "circular") +
 print(tree_plot_sp)
 ```
 
-
 ## Plot tree for spring adaptation
+
 ```{r fig.height=9, fig.width=11}
 
 PMM_species_data_wci <- PMM_spring %>%
@@ -926,6 +921,7 @@ print(tree_plot_sa)
 ```
 
 ## Plot tree for winter plasticity
+
 ```{r fig.height=9, fig.width=11}
 
 PMM_species_data_wci <- PMM_winter %>%
@@ -989,9 +985,6 @@ tree_plot_wp <- ggtree(tree, aes(color = lambda_all), layout = "circular") +
 print(tree_plot_wp)
 ```
 
-
-
-
 # Supplementary Table 1 (simple linear regression):
 
 need to prepare the simple linear regression data later if necessary
@@ -1023,4 +1016,3 @@ species_sensitivity_PMM %>%
     co = sum(`2.5%` * `97.5%` > 0 & `2.5%` < 0)
   )
 ```
-

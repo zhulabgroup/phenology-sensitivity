@@ -81,45 +81,75 @@ wind_trees <- dat_master %>%
   distinct(genus, Accepted_species)
 ```
 
-# visual check machine learning result:
-
-
-
 
 ```{r}
-occurrence <- read.delim(
-  "~/Downloads/0011964-240506114902167/occurrence.txt",
-  sep = "\t",
-  stringsAsFactors = FALSE
-)
+species_composition <- read_csv("/Volumes/seas-zhukai/proj-phenology-sensitivity/phenology-Replicate-Ramirez-Parada-paper/species_composition.csv")
 ```
 
-```{r}
-names(occurrence)
-```
+# Visual check machine learning result:
 
 ```{r}
-library(stringr)
-image_sample <- bind_rows(flower_sample, nonflower_sample)
-
-image_sample_2 <- image_sample %>%
-  mutate(
-    gbifID = str_extract(filename_image, "(?<=_)[0-9]+(?=_)")
-  )
+# write.csv(joint_data_flower, .path$herb_flower) # read this file
+joint_data_flower <- read_csv(.path$herb_flower)
 ```
 
 
-
 ```{r}
+library(dplyr)
 library(readr)
+library(stringr)
 
+## Read multimedia file
 multimedia <- read_tsv(
   "~/Downloads/0011964-240506114902167/multimedia.txt",
   show_col_types = FALSE
 )
 
+## Genera represented in the flowering dataset
+flower_genera <- unique(joint_data_flower$genus)
 
-download_list <- image_sample_2 %>%
+############################################################
+# Flower candidate pool (ALL flowering specimens)
+############################################################
+
+flower_pool <- joint_data_flower %>%
+  mutate(type = "flower")
+
+############################################################
+# Non-flower candidate pool (ALL non-flowering specimens)
+############################################################
+
+nonflower_pool <- raw %>%
+  anti_join(
+    joint_data_flower %>% select(filename_image),
+    by = "filename_image"
+  ) %>%
+  filter(genus %in% flower_genera) %>%
+  mutate(type = "non_flower")
+
+############################################################
+# Combine
+############################################################
+
+image_pool <- bind_rows(
+  flower_pool,
+  nonflower_pool
+)
+
+############################################################
+# Extract GBIF ID from filename
+############################################################
+
+image_pool <- image_pool %>%
+  mutate(
+    gbifID = str_extract(filename_image, "(?<=_)[0-9]+(?=_)")
+  )
+
+############################################################
+# Join image URLs
+############################################################
+
+download_list <- image_pool %>%
   mutate(gbifID = as.character(gbifID)) %>%
   left_join(
     multimedia %>%
@@ -128,62 +158,147 @@ download_list <- image_sample_2 %>%
       distinct(gbifID, .keep_all = TRUE),
     by = "gbifID"
   ) %>%
-  filter(!is.na(identifier))
+  filter(!is.na(identifier)) %>%
+  select(
+    gbifID,
+    identifier,
+    genus,
+    species,
+    type,
+    filename_image,
+    everything()
+  )
+
+############################################################
+# Save for Shiny
+############################################################
+
+
+
+saveRDS(
+  download_list,
+  "~/Downloads/FlowerValidation/data/download_list.rds"
+)
+
+cat(nrow(download_list), "candidate specimens saved.\n")
 ```
 
 
 ```{r}
-library(dplyr)
-library(fs)
-library(furrr)
 
-# Create folders
-dir_create("images/flower")
-dir_create("images/non_flower")
 
-# Download function
-download_image <- function(url, gbifID, type) {
-  
-  # skip missing URLs
-  if (is.na(url) || url == "") return(NULL)
-  
-  # get extension
-  ext <- tools::file_ext(sub("\\?.*$", "", url))
-  if (ext == "") ext <- "jpg"
-  
-  # output path
-  outfile <- file.path(
-    "images",
-    type,
-    paste0(gbifID, ".", ext)
+setwd("~/Downloads/FlowerValidation_updated")
+
+shiny::runApp()
+```
+
+
+
+# Species count
+
+## spring
+```{r}
+spring_species <- read.csv("/Volumes/seas-zhukai/proj-phenology-sensitivity/review_np/spring/species_summary.csv")
+
+joint_data_flower %>%
+  semi_join(spring_species, by = "species") %>%
+  count(species, name = "count")
+```
+
+```{r}
+library(ggplot2)
+
+count_df <- joint_data_flower %>%
+  semi_join(spring_species, by = "species") %>%
+  count(species, name = "count")
+
+n_above300 <- sum(count_df$count > 300)
+
+ggplot(count_df, aes(x = count)) +
+  geom_histogram(binwidth = 5, color = "white", fill = "steelblue") +
+  geom_vline(xintercept = 300, linetype = "dashed", color = "red", linewidth = 1) +
+  annotate(
+    "text",
+    x = 300,
+    y = Inf,
+    label = paste0(n_above300, " species > 300"),
+    vjust = 1.5,
+    hjust = -0.1,
+    color = "red",
+    fontface = "bold"
+  ) +
+  labs(
+    x = "Number of flowering specimens",
+    y = "Number of species",
+    title = "Distribution of specimen counts per species"
+  ) +
+  theme_bw()
+```
+
+```{r fig.width=10, fig.height=10}
+library(ggtext)
+
+count_df <- joint_data_flower %>%
+  semi_join(spring_species, by = "species") %>%
+  count(species, name = "count") %>%
+  arrange(count) %>%
+  mutate(species = factor(species, levels = species))
+
+ggplot(count_df, aes(x = species, y = count)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    x = "Species",
+    y = "Number of specimens"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(face = "italic")
   )
-  
-  # skip existing files
-  if (file.exists(outfile)) return(NULL)
-  
-  tryCatch(
-    {
-      download.file(
-        url,
-        outfile,
-        mode = "wb",
-        quiet = TRUE
-      )
-    },
-    error = function(e) {
-      message("Failed: ", gbifID)
-    }
-  )
-}
+```
 
 
-# Use multiple cores
-plan(multisession, workers = 8)
 
-future_pwalk(
-  download_list %>%
-    select(url = identifier, gbifID, type),
-  download_image
-)
+## winter
+
+```{r}
+winter_species <- read.csv("/Volumes/seas-zhukai/proj-phenology-sensitivity/review_np/winter/species_summary.csv")
+
+joint_data_flower %>%
+  semi_join(winter_species, by = "species") %>%
+  count(species, name = "count") %>% 
+  arrange(desc(count))
+```
+
+```{r}
+count_df <- joint_data_flower %>%
+  semi_join(spring_species, by = "species") %>%
+  count(species, name = "count")
+
+n_above300 <- sum(count_df$count > 300)
+
+ggplot(count_df, aes(x = count)) +
+  geom_histogram(binwidth = 5, color = "white", fill = "steelblue") +
+  geom_vline(xintercept = 300, linetype = "dashed", color = "red", linewidth = 1) +
+  annotate(
+    "text",
+    x = 300,
+    y = Inf,
+    label = paste0(n_above300, " species > 300"),
+    vjust = 1.5,
+    hjust = -0.1,
+    color = "red",
+    fontface = "bold"
+  ) +
+  labs(
+    x = "Number of flowering specimens",
+    y = "Number of species",
+    title = "Distribution of specimen counts per species"
+  ) +
+  theme_bw()
+```
+
+```{r}
+load("/Volumes/seas-zhukai/proj-phenology-sensitivity/phenology-Replicate-Ramirez-Parada-paper/Correlation - tmean_norm vs tmean_WL_max - 1605 spp.Rdata")
 ```
 
